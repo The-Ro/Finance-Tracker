@@ -1,0 +1,269 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Theme tokens ===== */
+/* Surfaces + status colors: light values on :root, dark values under .dark.
+   Accent (brand) color: three selectable palettes via [data-accent], each
+   with its own dark-mode tint for accent-light so pills/badges stay legible
+   on a dark card instead of looking like a washed-out light-mode pastel. */
+:root {
+  color-scheme: light;
+  --app-bg: 244 244 247;
+  --app-card: 255 255 255;
+  --app-border: 230 230 237;
+
+  --positive: 30 158 107;
+  --positive-light: 230 246 239;
+  --caution: 229 138 46;
+  --caution-light: 253 241 227;
+  --info: 46 125 229;
+  --info-light: 233 241 253;
+
+  --accent: 101 88 211;
+  --accent-light: 239 237 251;
+  --accent-dark: 78 67 176;
+}
+
+:root[data-accent='ocean'] {
+  --accent: 2 132 199;
+  --accent-light: 224 242 254;
+  --accent-dark: 3 105 161;
+}
+
+:root[data-accent='sunset'] {
+  --accent: 234 88 12;
+  --accent-light: 255 237 213;
+  --accent-dark: 194 65 12;
+}
+
+:root[data-accent='pink'] {
+  --accent: 219 39 119;
+  --accent-light: 252 231 243;
+  --accent-dark: 157 23 77;
+}
+
+:root[data-accent='green'] {
+  --accent: 22 163 74;
+  --accent-light: 220 252 231;
+  --accent-dark: 21 128 61;
+}
+
+.dark {
+  color-scheme: dark;
+  --app-bg: 15 17 24;
+  --app-card: 30 33 41;
+  --app-border: 48 52 63;
+
+  --positive: 74 201 149;
+  --positive-light: 21 51 42;
+  --caution: 240 165 88;
+  --caution-light: 63 43 21;
+  --info: 96 165 250;
+  --info-light: 22 40 66;
+
+  --accent-light: 45 40 74;
+}
+
+.dark[data-accent='ocean'] {
+  --accent-light: 14 41 59;
+}
+
+.dark[data-accent='sunset'] {
+  --accent-light: 61 36 15;
+}
+
+.dark[data-accent='pink'] {
+  --accent-light: 63 21 45;
+}
+
+.dark[data-accent='green'] {
+  --accent-light: 17 46 28;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-app-bg antialiased;
+    /* Not text-slate-900 via @apply: that bakes a static color into this
+       rule rather than leaving a `.text-slate-900` class our dark-mode
+       overrides can target, so form controls that inherit from body would
+       keep light-mode-dark text on a now-dark background. */
+    color: #0f172a;
+    font-size: 15px;
+    line-height: 22px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .dark body {
+    color: #f8fafc;
+  }
+
+  input,
+  select,
+  textarea {
+    color: inherit;
+  }
+
+  ::selection {
+    @apply bg-accent-light text-accent-dark;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ===== Motion ===== */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.7);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.15s ease-out both;
+  }
+  .animate-scale-in {
+    animation: scale-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-pop-in {
+    animation: pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+}
+
+/* Cards, borders, and surfaces should follow theme/mode switches smoothly
+   rather than snapping instantly between light and dark values. */
+.rounded-card,
+input,
+select,
+button {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 0.15s;
+  transition-timing-function: ease;
+}
+
+/* ===== Dark-mode overrides for raw Tailwind palette classes =====
+   Components use plain `bg-white` / `text-slate-*` / `text-red-*` utilities
+   rather than custom tokens for everyday surfaces and text. Rather than
+   touching every className in the app, these overrides repaint exactly the
+   classes actually in use once `.dark` is set on <html> — same mechanism as
+   the theme tokens above, just for Tailwind's default palette instead of
+   our own. Selector specificity (.dark + class) already beats a bare
+   utility class, so no !important is needed. */
+.dark .bg-white {
+  background-color: rgb(var(--app-card));
+}
+.dark .bg-white\/95 {
+  background-color: rgb(var(--app-card) / 0.95);
+}
+.dark .bg-white\/60 {
+  background-color: rgb(var(--app-card) / 0.6);
+}
+.dark .bg-slate-50 {
+  background-color: #262a34;
+}
+.dark .bg-slate-100 {
+  background-color: #2e323d;
+}
+.dark .bg-red-50 {
+  background-color: #3b1f1f;
+}
+.dark .text-slate-900 {
+  color: #f8fafc;
+}
+.dark .text-slate-800 {
+  color: #e2e8f0;
+}
+.dark .text-slate-700 {
+  color: #cbd5e1;
+}
+.dark .text-slate-600 {
+  color: #94a3b8;
+}
+.dark .text-slate-500 {
+  color: #94a3b8;
+}
+.dark .text-slate-400 {
+  color: #64748b;
+}
+.dark .text-red-500 {
+  color: #f87171;
+}
+.dark .text-red-600 {
+  color: #f87171;
+}
+.dark .text-red-700 {
+  color: #fca5a5;
+}
+
+/* Hover variants are distinct generated classes (`hover:bg-slate-50` compiles
+   to `.hover\:bg-slate-50:hover`), so the base overrides above never touch
+   them -- without these, hovered buttons/rows were nearly invisible on a
+   dark card (a very light gray/red hover fill on a dark background). */
+.dark .hover\:bg-slate-50:hover {
+  background-color: #262a34;
+}
+.dark .hover\:bg-slate-100:hover {
+  background-color: #2e323d;
+}
+.dark .hover\:bg-white:hover {
+  background-color: rgb(var(--app-card));
+}
+.dark .hover\:bg-red-50:hover {
+  background-color: #3b1f1f;
+}
+.dark .hover\:text-slate-700:hover {
+  color: #cbd5e1;
+}
+.dark .hover\:text-red-600:hover {
+  color: #f87171;
+}
