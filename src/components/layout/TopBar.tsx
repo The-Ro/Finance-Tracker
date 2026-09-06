@@ -1,16 +1,21 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { Upload, Plus, LogOut, ChevronDown, Settings } from 'lucide-react'
+import { Bell, Upload, Plus, LogOut, ChevronDown, Settings } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
+import { useOwnedAccessRows } from '@/hooks/useSharing'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
+import { SharingSettings } from '@/components/settings/SharingSettings'
 
 export function TopBar() {
   const { displayName, email, avatar, signOut } = useAuth()
   const { openAddEntry, openImport } = useGlobalModals()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const owned = useOwnedAccessRows()
+  const pendingCount = (owned.data ?? []).filter((r) => r.status === 'pending').length
 
   return (
     <header className="sticky top-0 z-20 flex h-[76px] items-center justify-between border-b border-app-border bg-white/95 px-4 backdrop-blur md:px-8">
@@ -25,6 +30,31 @@ export function TopBar() {
           <Plus size={16} />
           <span className="hidden sm:inline">Add entry</span>
         </Button>
+
+        <div className="relative">
+          <button
+            onClick={() => setNotifOpen((v) => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={notifOpen}
+            aria-label="Sharing notifications"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
+          >
+            <Bell size={17} />
+            {pendingCount > 0 && (
+              <span className="absolute right-1.5 top-1.5 flex h-2 w-2 rounded-full bg-red-500" />
+            )}
+          </button>
+          {notifOpen && (
+            <div
+              role="dialog"
+              aria-label="Sharing"
+              className="absolute right-0 z-30 mt-2 max-h-[80vh] w-[22rem] overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:w-[26rem]"
+              onMouseLeave={() => setNotifOpen(false)}
+            >
+              <SharingSettings />
+            </div>
+          )}
+        </div>
 
         <div className="relative">
           <button
