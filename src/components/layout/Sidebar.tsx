@@ -46,8 +46,11 @@ export function Sidebar() {
         aria-haspopup="true"
         aria-expanded={open}
         className={clsx(
-          'fixed left-4 top-4 z-40 flex h-12 items-center overflow-hidden rounded-full bg-accent text-white shadow-card transition-[width] duration-300 ease-out hover:scale-105 active:scale-95',
-          open ? 'w-12 justify-center' : 'w-[152px] justify-start pl-1 pr-4',
+          'fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent text-white shadow-card transition-[width] duration-300 ease-out hover:scale-105 active:scale-95',
+          // The expanded "Ledgerly" pill only fits at sm+ -- on a phone-width
+          // screen it would crowd out the top bar's own buttons, so mobile
+          // always stays a plain 48px circle regardless of open state.
+          !open && 'sm:w-[152px] sm:justify-start sm:pl-1 sm:pr-4',
           !open && 'animate-shadow-breathe'
         )}
       >
@@ -55,10 +58,10 @@ export function Sidebar() {
           <X size={18} />
         ) : (
           <span className="flex items-center gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-bold">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:bg-white/15">
               L
             </span>
-            <span className="whitespace-nowrap text-sm font-semibold">Ledgerly</span>
+            <span className="hidden whitespace-nowrap text-sm font-semibold sm:inline">Ledgerly</span>
           </span>
         )}
       </button>
