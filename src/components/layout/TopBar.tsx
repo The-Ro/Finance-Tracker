@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
+import clsx from 'clsx'
 import { Upload, Plus, LogOut, ChevronDown, Settings } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
@@ -45,14 +46,19 @@ export function TopBar() {
                 <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
                 <p className="truncate text-helper text-slate-500">{email}</p>
               </div>
-              <Link
+              <NavLink
                 role="menuitem"
                 to="/settings"
                 onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                className={({ isActive }) =>
+                  clsx(
+                    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium',
+                    isActive ? 'bg-accent-light text-accent-dark' : 'text-slate-700 hover:bg-slate-50'
+                  )
+                }
               >
                 <Settings size={15} /> Settings
-              </Link>
+              </NavLink>
               <button
                 role="menuitem"
                 onClick={() => signOut()}
