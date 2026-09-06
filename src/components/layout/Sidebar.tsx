@@ -52,7 +52,7 @@ export function Sidebar() {
       {open && (
         <nav
           aria-label="Primary"
-          className="animate-scale-in fixed left-4 top-20 z-40 flex w-60 flex-col gap-1 rounded-card border border-app-border bg-app-card p-3 shadow-card"
+          className="animate-scale-in fixed left-4 top-20 z-40 flex max-h-[calc(100vh-6rem)] w-60 flex-col gap-1 overflow-y-auto rounded-card border border-app-border bg-app-card p-3 shadow-card"
         >
           <p className="px-2 pb-2 text-sm font-semibold text-slate-900">Ledgerly</p>
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (

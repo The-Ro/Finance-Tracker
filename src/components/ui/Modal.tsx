@@ -27,20 +27,37 @@ export function Modal({ open, onClose, title, children, footer, maxWidthClassNam
   useEffect(() => {
     if (!open) return
 
+    function getFocusable(): NodeListOf<HTMLElement> | null {
+      return (
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+        ) ?? null
+      )
+    }
+
     const previouslyFocused = document.activeElement as HTMLElement | null
-    dialogRef.current?.focus()
+    // Focus the first focusable field/button inside the dialog rather than the
+    // dialog container itself: the container has tabIndex=-1 so it's excluded
+    // from `getFocusable()`'s results, meaning a Shift+Tab from it wouldn't
+    // match `document.activeElement === first` below and would fall through
+    // to the browser's native "previous focusable in the document" -- which
+    // is behind the modal, letting focus (and the trap) escape immediately.
+    const initialFocusable = getFocusable()
+    if (initialFocusable && initialFocusable.length > 0) {
+      initialFocusable[0].focus()
+    } else {
+      dialogRef.current?.focus()
+    }
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         onCloseRef.current()
         return
       }
-      if (e.key !== 'Tab' || !dialogRef.current) return
+      if (e.key !== 'Tab') return
 
-      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
-      )
-      if (focusable.length === 0) return
+      const focusable = getFocusable()
+      if (!focusable || focusable.length === 0) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
 
