@@ -29,8 +29,8 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/rules', label: 'Rules', icon: SlidersHorizontal },
 ]
 
-// Trimmed to 5 for the mobile bottom nav -- Home is reachable via the "Ledgerly"
-// brand link in the TopBar instead, and Documents/Rules stay one tap away in Sidebar.
+// Trimmed to 5 for the mobile bottom nav -- Goals, Documents, and Rules stay
+// one tap away in the Sidebar menu instead.
 export const BOTTOM_NAV_ITEMS: NavItem[] = NAV_ITEMS.filter(
-  (item) => !['/', '/documents', '/rules'].includes(item.to)
+  (item) => !['/goals', '/documents', '/rules'].includes(item.to)
 )
