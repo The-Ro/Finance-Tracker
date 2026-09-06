@@ -94,8 +94,8 @@ export function TransactionTable({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-card border border-app-border bg-white">
-          <div className="hidden grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid">
+        <div className="overflow-x-auto rounded-card border border-app-border bg-white">
+          <div className="hidden min-w-[900px] grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid">
             <span>Date</span>
             <span>Merchant</span>
             <span>Category</span>
@@ -105,61 +105,95 @@ export function TransactionTable({
             <span />
             <span />
           </div>
-          <ul>
+          <ul className="md:min-w-[900px]">
             {filtered.map((t) => {
               const owner = profiles[t.owner_user_id]
               const editable = t.owner_user_id === currentUserId
-              return (
-                <li
-                  key={t.id}
-                  className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-b border-app-border px-4 py-3 last:border-b-0 md:grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] md:items-center md:gap-y-0"
+              const amountClassName =
+                'text-sm font-semibold ' + (t.type === 'income' ? 'text-positive' : 'text-slate-900')
+              const amountLabel = t.type === 'income' ? 'Credit' : 'Debit'
+
+              const editButton = editable && (
+                <button
+                  aria-label="Edit transaction"
+                  onClick={() => openEditEntry(t)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 >
-                  <div className="text-sm text-slate-600">{formatDate(t.date)}</div>
-                  <div className="col-span-2 flex items-center gap-2 md:col-span-1">
-                    <span className="text-sm font-medium text-slate-900">{t.merchant}</span>
-                    {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
-                    {scope === 'everyone' && owner && (
-                      <Avatar avatar={owner.avatar} name={owner.displayName} size={20} />
-                    )}
-                  </div>
-                  <div>
-                    <InlineCategoryEditor transactionId={t.id} category={t.category} editable={editable} />
-                  </div>
-                  <div className="text-sm text-slate-600">{t.account}</div>
-                  <div>
-                    <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
-                  </div>
-                  <div className="text-right">
-                    <div
-                      className={
-                        'text-sm font-semibold ' + (t.type === 'income' ? 'text-positive' : 'text-slate-900')
-                      }
-                    >
-                      {formatSigned(t.amount, t.type)}
+                  <Pencil size={14} />
+                </button>
+              )
+              const deleteButton = editable && (
+                <button
+                  aria-label="Delete transaction"
+                  onClick={() => deleteTransaction.mutate(t.id)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )
+
+              return (
+                <li key={t.id} className="border-b border-app-border last:border-b-0">
+                  {/* Mobile: stacked card. Desktop: single table row (below). Kept as two
+                      separate layouts rather than one shared grid -- the row has too many
+                      cells of very different shapes (a dropdown, a tag editor, two-line
+                      amount, icon buttons) for one grid to reflow sensibly at 2 columns. */}
+                  <div className="flex flex-col gap-2 px-4 py-3 md:hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-sm text-slate-600">{formatDate(t.date)}</span>
+                      <div className="text-right">
+                        <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
+                        <div className="text-helper text-slate-400">{amountLabel}</div>
+                      </div>
                     </div>
-                    <div className="text-helper text-slate-400">{t.type === 'income' ? 'Credit' : 'Debit'}</div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
+                        {t.merchant}
+                      </span>
+                      {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                      {scope === 'everyone' && owner && (
+                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <InlineCategoryEditor transactionId={t.id} category={t.category} editable={editable} />
+                      <span className="shrink-0 text-sm text-slate-600">{t.account}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
+                      {editable && (
+                        <div className="flex shrink-0">
+                          {editButton}
+                          {deleteButton}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex justify-end">
-                    {editable && (
-                      <button
-                        aria-label="Edit transaction"
-                        onClick={() => openEditEntry(t)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex justify-end">
-                    {editable && (
-                      <button
-                        aria-label="Delete transaction"
-                        onClick={() => deleteTransaction.mutate(t.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+
+                  <div className="hidden px-4 py-3 md:grid md:grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] md:items-center md:gap-3">
+                    <div className="text-sm text-slate-600">{formatDate(t.date)}</div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
+                        {t.merchant}
+                      </span>
+                      {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                      {scope === 'everyone' && owner && (
+                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} />
+                      )}
+                    </div>
+                    <div>
+                      <InlineCategoryEditor transactionId={t.id} category={t.category} editable={editable} />
+                    </div>
+                    <div className="text-sm text-slate-600">{t.account}</div>
+                    <div>
+                      <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
+                    </div>
+                    <div className="text-right">
+                      <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
+                      <div className="text-helper text-slate-400">{amountLabel}</div>
+                    </div>
+                    <div className="flex justify-end">{editButton}</div>
+                    <div className="flex justify-end">{deleteButton}</div>
                   </div>
                 </li>
               )

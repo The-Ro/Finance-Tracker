@@ -190,6 +190,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         <TextField
           label="Merchant or source"
           placeholder="e.g. Trader Joe's"
+          maxLength={60}
           value={form.merchant}
           onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
         />
