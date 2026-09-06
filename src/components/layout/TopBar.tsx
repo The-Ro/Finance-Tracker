@@ -7,7 +7,7 @@ import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
-import { SharingSettings } from '@/components/settings/SharingSettings'
+import { IncomingAccessRequests } from '@/components/settings/IncomingAccessRequests'
 
 export function TopBar() {
   const { displayName, email, avatar, signOut } = useAuth()
@@ -47,11 +47,18 @@ export function TopBar() {
           {notifOpen && (
             <div
               role="dialog"
-              aria-label="Sharing"
-              className="absolute right-0 z-30 mt-2 max-h-[80vh] w-[22rem] overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:w-[26rem]"
+              aria-label="Notifications"
+              className="absolute right-0 z-30 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:w-96"
               onMouseLeave={() => setNotifOpen(false)}
             >
-              <SharingSettings />
+              <IncomingAccessRequests />
+              <NavLink
+                to="/settings"
+                onClick={() => setNotifOpen(false)}
+                className="mt-2 block text-center text-helper font-medium text-accent hover:underline"
+              >
+                Manage sharing in Settings
+              </NavLink>
             </div>
           )}
         </div>
