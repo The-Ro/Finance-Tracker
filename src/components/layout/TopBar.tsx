@@ -23,8 +23,7 @@ export function TopBar() {
   const hasNotifications = pendingCount > 0 || overBudgetCount > 0
 
   return (
-    <header className="sticky top-0 z-20 flex h-[76px] items-center justify-between border-b border-app-border bg-white/95 px-4 backdrop-blur md:px-8">
-      <div className="ml-14 text-base font-semibold text-slate-900">Ledgerly</div>
+    <header className="sticky top-0 z-20 flex h-[76px] items-center justify-end border-b border-app-border bg-white/95 px-4 backdrop-blur md:px-8">
 
       <div className="flex items-center gap-2">
         <Button variant="secondary" onClick={openImport} className="px-3 sm:px-4">

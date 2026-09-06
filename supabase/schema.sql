@@ -25,6 +25,18 @@ begin
     new.email
   )
   on conflict (id) do nothing;
+
+  insert into public.categories (owner_user_id, name) values
+    (new.id, 'Housing'), (new.id, 'Groceries'), (new.id, 'Shopping'), (new.id, 'Dining'),
+    (new.id, 'Transportation'), (new.id, 'Utilities'), (new.id, 'Subscriptions'),
+    (new.id, 'Insurance'), (new.id, 'Health'), (new.id, 'Entertainment'),
+    (new.id, 'Income'), (new.id, 'Needs review'), (new.id, 'Other')
+  on conflict (owner_user_id, name) do nothing;
+
+  insert into public.accounts (owner_user_id, name) values
+    (new.id, 'Main Checking'), (new.id, 'Everyday Visa'), (new.id, 'Rewards Card'), (new.id, 'Cash')
+  on conflict (owner_user_id, name) do nothing;
+
   return new;
 end;
 $$ language plpgsql security definer set search_path = public;
@@ -51,24 +63,83 @@ create trigger on_auth_user_email_updated
   after update of email on auth.users
   for each row execute procedure public.handle_user_email_update();
 
--- ===== global shared lookup lists (additive-only in v1) =====
+-- ===== per-user lookup lists (categories/accounts/tags; additive-only in v1) =====
+-- Personal to each user -- not shared with anyone else, even though transactions are.
 create table if not exists public.categories (
-  name text primary key,
-  created_by uuid references auth.users(id),
-  created_at timestamptz not null default now()
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (owner_user_id, name)
 );
 
 create table if not exists public.accounts (
-  name text primary key,
-  created_by uuid references auth.users(id),
-  created_at timestamptz not null default now()
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (owner_user_id, name)
 );
 
 create table if not exists public.tags (
-  name text primary key,
-  created_by uuid references auth.users(id),
-  created_at timestamptz not null default now()
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (owner_user_id, name)
 );
+
+-- Migrate an existing install from the old global (name-only) shape to the
+-- per-user shape above: give every existing user their own copy of what used
+-- to be shared, then drop the old ownerless rows.
+alter table public.categories add column if not exists owner_user_id uuid references auth.users(id) on delete cascade;
+alter table public.accounts add column if not exists owner_user_id uuid references auth.users(id) on delete cascade;
+alter table public.tags add column if not exists owner_user_id uuid references auth.users(id) on delete cascade;
+
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'categories_pkey') then
+    alter table public.categories drop constraint categories_pkey cascade;
+  end if;
+  if exists (select 1 from pg_constraint where conname = 'accounts_pkey') then
+    alter table public.accounts drop constraint accounts_pkey cascade;
+  end if;
+  if exists (select 1 from pg_constraint where conname = 'tags_pkey') then
+    alter table public.tags drop constraint tags_pkey cascade;
+  end if;
+end $$;
+
+insert into public.categories (owner_user_id, name, created_by, created_at)
+  select p.id, c.name, c.created_by, c.created_at from public.profiles p cross join public.categories c
+  where c.owner_user_id is null;
+delete from public.categories where owner_user_id is null;
+
+insert into public.accounts (owner_user_id, name, created_by, created_at)
+  select p.id, a.name, a.created_by, a.created_at from public.profiles p cross join public.accounts a
+  where a.owner_user_id is null;
+delete from public.accounts where owner_user_id is null;
+
+insert into public.tags (owner_user_id, name, created_by, created_at)
+  select p.id, t.name, t.created_by, t.created_at from public.profiles p cross join public.tags t
+  where t.owner_user_id is null;
+delete from public.tags where owner_user_id is null;
+
+alter table public.categories alter column owner_user_id set not null;
+alter table public.accounts alter column owner_user_id set not null;
+alter table public.tags alter column owner_user_id set not null;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'categories_pkey') then
+    alter table public.categories add primary key (owner_user_id, name);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'accounts_pkey') then
+    alter table public.accounts add primary key (owner_user_id, name);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'tags_pkey') then
+    alter table public.tags add primary key (owner_user_id, name);
+  end if;
+end $$;
 
 -- ===== transactions (shared read, owner-only write) =====
 create table if not exists public.transactions (
@@ -76,10 +147,10 @@ create table if not exists public.transactions (
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   date date not null,
   merchant text not null,
-  category text not null default 'Needs review' references public.categories(name),
+  category text not null default 'Needs review',
   amount numeric(12,2) not null check (amount > 0),
   type text not null check (type in ('expense','income')),
-  account text not null references public.accounts(name),
+  account text not null,
   tags text[] not null default '{}',
   receipt boolean not null default false,
   receipt_document_id uuid,
@@ -95,7 +166,7 @@ create index if not exists transactions_date_idx on public.transactions (date de
 create table if not exists public.budgets (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id) on delete cascade,
-  category text not null references public.categories(name),
+  category text not null,
   monthly_limit numeric(12,2) not null check (monthly_limit >= 0),
   active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -120,14 +191,41 @@ create table if not exists public.recurring_items (
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   kind text not null check (kind in ('recurring','subscription')),
   name text not null,
-  category text not null references public.categories(name),
+  category text not null,
   amount numeric(12,2) not null check (amount > 0),
   cadence text not null check (cadence in ('weekly','biweekly','monthly','quarterly','annual')),
   next_date date not null,
-  account text references public.accounts(name),
+  account text,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+-- Composite FKs (owner_user_id, name) so a transaction/budget/recurring item's category
+-- and account must belong to that same owner's personal lookup lists.
+alter table public.transactions drop constraint if exists transactions_category_fkey;
+alter table public.transactions drop constraint if exists transactions_category_owner_fkey;
+alter table public.transactions add constraint transactions_category_owner_fkey
+  foreign key (owner_user_id, category) references public.categories (owner_user_id, name);
+
+alter table public.transactions drop constraint if exists transactions_account_fkey;
+alter table public.transactions drop constraint if exists transactions_account_owner_fkey;
+alter table public.transactions add constraint transactions_account_owner_fkey
+  foreign key (owner_user_id, account) references public.accounts (owner_user_id, name);
+
+alter table public.budgets drop constraint if exists budgets_category_fkey;
+alter table public.budgets drop constraint if exists budgets_category_owner_fkey;
+alter table public.budgets add constraint budgets_category_owner_fkey
+  foreign key (owner_user_id, category) references public.categories (owner_user_id, name);
+
+alter table public.recurring_items drop constraint if exists recurring_items_category_fkey;
+alter table public.recurring_items drop constraint if exists recurring_items_category_owner_fkey;
+alter table public.recurring_items add constraint recurring_items_category_owner_fkey
+  foreign key (owner_user_id, category) references public.categories (owner_user_id, name);
+
+alter table public.recurring_items drop constraint if exists recurring_items_account_fkey;
+alter table public.recurring_items drop constraint if exists recurring_items_account_owner_fkey;
+alter table public.recurring_items add constraint recurring_items_account_owner_fkey
+  foreign key (owner_user_id, account) references public.accounts (owner_user_id, name);
 
 create table if not exists public.dismissed_patterns (
   owner_user_id uuid not null references auth.users(id) on delete cascade,
@@ -198,6 +296,8 @@ create table if not exists public.user_settings (
   gender text check (gender in ('male','female','prefer_not_to_say')),
   date_of_birth date,
   onboarding_completed boolean not null default false,
+  interests text[] not null default '{}',
+  zodiac_sign text,
   updated_at timestamptz not null default now()
 );
 alter table public.user_settings add column if not exists currency text not null default 'USD';
@@ -206,9 +306,27 @@ alter table public.user_settings add column if not exists theme_accent text not 
 alter table public.user_settings add column if not exists gender text;
 alter table public.user_settings add column if not exists date_of_birth date;
 alter table public.user_settings add column if not exists onboarding_completed boolean not null default false;
+alter table public.user_settings add column if not exists interests text[] not null default '{}';
+alter table public.user_settings add column if not exists zodiac_sign text;
+alter table public.user_settings drop constraint if exists user_settings_zodiac_sign_check;
+alter table public.user_settings add constraint user_settings_zodiac_sign_check check (zodiac_sign in (
+  'aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'
+));
 alter table public.user_settings drop constraint if exists user_settings_theme_mode_check;
 alter table public.user_settings add constraint user_settings_theme_mode_check check (theme_mode in ('light','dark','system'));
 alter table public.user_settings drop constraint if exists user_settings_theme_accent_check;
 alter table public.user_settings add constraint user_settings_theme_accent_check check (theme_accent in ('violet','ocean','sunset','pink','green'));
 alter table public.user_settings drop constraint if exists user_settings_gender_check;
 alter table public.user_settings add constraint user_settings_gender_check check (gender in ('male','female','prefer_not_to_say'));
+
+-- ===== self-service account deletion =====
+-- security definer so it can delete the auth.users row directly; every table's
+-- owner_user_id FK is "on delete cascade", so this wipes all of that user's data too.
+create or replace function public.delete_own_account()
+returns void as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$ language plpgsql security definer set search_path = public;
+
+grant execute on function public.delete_own_account() to authenticated;

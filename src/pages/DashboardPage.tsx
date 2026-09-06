@@ -67,7 +67,7 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Home</h1>
         <PeriodSelector
           value={period}
           onChange={(value) => settings.updatePeriod.mutate(value)}

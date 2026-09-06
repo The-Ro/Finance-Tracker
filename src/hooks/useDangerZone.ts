@@ -39,3 +39,31 @@ export function useEraseMyData() {
     onSuccess: () => queryClient.invalidateQueries(),
   })
 }
+
+export const DELETE_ACCOUNT_CONFIRMATION_TEXT = 'DELETE MY ACCOUNT'
+
+/**
+ * Permanently deletes the signed-in user's auth account. Every owner-scoped
+ * table has an `on delete cascade` FK to auth.users, so this also wipes all
+ * of that user's data server-side; only stored files need cleaning up first.
+ */
+export function useDeleteAccount() {
+  const { userId, signOut } = useAuth()
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error('Not signed in')
+
+      const folder = `uploads/${userId}`
+      const { data: files } = await supabase.storage.from(DOCUMENTS_BUCKET).list(folder)
+      if (files && files.length > 0) {
+        await supabase.storage.from(DOCUMENTS_BUCKET).remove(files.map((f) => `${folder}/${f.name}`))
+      }
+
+      const { error } = await supabase.rpc('delete_own_account')
+      if (error) throw error
+
+      await signOut()
+    },
+  })
+}

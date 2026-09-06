@@ -1,14 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { NAV_ITEMS } from './navItems'
+import { BOTTOM_NAV_ITEMS } from './navItems'
 
 export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       className="fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-app-border bg-white/95 backdrop-blur scrollbar-none md:hidden"
     >
-      {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+      {BOTTOM_NAV_ITEMS.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}

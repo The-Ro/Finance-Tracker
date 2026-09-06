@@ -5,10 +5,12 @@ import { X } from 'lucide-react'
 import { NAV_ITEMS } from './navItems'
 
 /**
- * Floating circular "L" toggle, shown at every viewport size (not just
- * desktop) -- fixed positioning means it never scrolls away with page
- * content, and it stays reachable even when the window is narrow/short,
- * alongside BottomNav on small screens.
+ * Floating brand/nav toggle, shown at every viewport size (not just desktop)
+ * -- fixed positioning means it never scrolls away with page content, and it
+ * stays reachable even when the window is narrow/short, alongside BottomNav
+ * on small screens. Resting (closed) it's a "Ledgerly" pill; clicking it
+ * collapses the pill down to a small circle showing the close icon while the
+ * nav panel is open, then expands back out to the pill when closed again.
  */
 export function Sidebar() {
   const [open, setOpen] = useState(false)
@@ -44,11 +46,21 @@ export function Sidebar() {
         aria-haspopup="true"
         aria-expanded={open}
         className={clsx(
-          'fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-base font-bold text-white shadow-card transition-transform hover:scale-105 active:scale-95',
+          'fixed left-4 top-4 z-40 flex h-12 items-center overflow-hidden rounded-full bg-accent text-white shadow-card transition-[width] duration-300 ease-out hover:scale-105 active:scale-95',
+          open ? 'w-12 justify-center' : 'w-[152px] justify-start pl-1 pr-4',
           !open && 'animate-shadow-breathe'
         )}
       >
-        {open ? <X size={18} /> : 'L'}
+        {open ? (
+          <X size={18} />
+        ) : (
+          <span className="flex items-center gap-2">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-bold">
+              L
+            </span>
+            <span className="whitespace-nowrap text-sm font-semibold">Ledgerly</span>
+          </span>
+        )}
       </button>
 
       {open && (

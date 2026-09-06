@@ -253,6 +253,18 @@ button {
 .dark .bg-red-50 {
   background-color: #3b1f1f;
 }
+.dark .bg-red-50\/40 {
+  background-color: rgb(59 31 31 / 0.4);
+}
+.dark .border-red-200 {
+  border-color: #7f2d2d;
+}
+.dark .border-red-400 {
+  border-color: #f87171;
+}
+.dark .focus\:border-red-400:focus {
+  border-color: #f87171;
+}
 .dark .text-slate-900 {
   color: #f8fafc;
 }

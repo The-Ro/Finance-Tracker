@@ -4,7 +4,12 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { InlineMessage } from '@/components/ui/InlineMessage'
-import { useEraseMyData, WIPE_CONFIRMATION_TEXT } from '@/hooks/useDangerZone'
+import {
+  useEraseMyData,
+  useDeleteAccount,
+  WIPE_CONFIRMATION_TEXT,
+  DELETE_ACCOUNT_CONFIRMATION_TEXT,
+} from '@/hooks/useDangerZone'
 
 export function DangerZone() {
   const [modalOpen, setModalOpen] = useState(false)
@@ -12,12 +17,28 @@ export function DangerZone() {
   const [done, setDone] = useState(false)
   const eraseData = useEraseMyData()
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteAccount = useDeleteAccount()
+
   const canConfirm = confirmText === WIPE_CONFIRMATION_TEXT
+  const canConfirmDelete = deleteConfirmText === DELETE_ACCOUNT_CONFIRMATION_TEXT
 
   const handleErase = async () => {
     await eraseData.mutateAsync()
     setDone(true)
     setConfirmText('')
+  }
+
+  const handleDelete = async () => {
+    setDeleteError(null)
+    try {
+      await deleteAccount.mutateAsync()
+      // On success the session ends and AuthContext redirects to the login screen.
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    }
   }
 
   return (
@@ -33,6 +54,16 @@ export function DangerZone() {
       <div>
         <Button variant="danger" onClick={() => setModalOpen(true)}>
           Erase all my data
+        </Button>
+      </div>
+
+      <div className="mt-1 border-t border-red-200 pt-4">
+        <p className="mb-3 text-helper text-slate-600">
+          Permanently delete your Ledgerly account and sign-in - not just your data. This can't be undone,
+          and you'd need to sign up again from scratch to use Ledgerly.
+        </p>
+        <Button variant="danger" onClick={() => setDeleteModalOpen(true)}>
+          Delete my account
         </Button>
       </div>
 
@@ -77,6 +108,45 @@ export function DangerZone() {
             />
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={deleteModalOpen}
+        onClose={() => {
+          if (deleteAccount.isPending) return
+          setDeleteModalOpen(false)
+          setDeleteConfirmText('')
+          setDeleteError(null)
+        }}
+        title="Delete my account"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeleteModalOpen(false)} disabled={deleteAccount.isPending}>
+              Cancel
+            </Button>
+            <Button variant="danger" disabled={!canConfirmDelete || deleteAccount.isPending} onClick={handleDelete}>
+              {deleteAccount.isPending ? 'Deleting…' : 'Delete my account'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-slate-700">
+            This permanently deletes your Ledgerly sign-in along with every record tied to it - transactions,
+            budgets, goals, recurring items, documents and their stored files, rules, categories, accounts,
+            and any sharing connections with other people. There's no way to undo this or recover your data
+            afterward.
+          </p>
+          <p className="text-sm text-slate-700">
+            Type <span className="font-mono font-semibold">{DELETE_ACCOUNT_CONFIRMATION_TEXT}</span> to confirm.
+          </p>
+          <input
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            className="min-h-[44px] rounded-lg border border-app-border bg-white px-3 text-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
+          />
+          {deleteError && <InlineMessage tone="error">{deleteError}</InlineMessage>}
+        </div>
       </Modal>
     </Card>
   )

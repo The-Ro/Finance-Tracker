@@ -60,7 +60,7 @@ export function TagManager() {
         </ul>
       )}
       <p className="text-helper text-slate-400">
-        Tags are shared across everyone's account, so they can only be added, not removed, for now.
+        Tags are personal to your account, so they can only be added, not removed, for now.
       </p>
     </Card>
   )

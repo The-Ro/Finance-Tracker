@@ -30,29 +30,44 @@ drop policy if exists profiles_update_self on public.profiles;
 create policy profiles_update_self on public.profiles for update
   using (auth.uid() = id) with check (auth.uid() = id);
 
--- ---- categories / accounts / tags: shared, additive-only lookup lists.
--- ---- Any authenticated user can read and add; nobody can update/delete in v1
--- ---- (no policy for those actions == PostgREST returns a permission error).
+-- ---- categories / accounts / tags: personal, additive-only lookup lists.
+-- ---- Only the owner can read/add/remove their own; nobody can see or touch
+-- ---- another user's lists, even though transactions themselves can be shared.
 drop policy if exists categories_select_all on public.categories;
-create policy categories_select_all on public.categories for select
-  using (auth.role() = 'authenticated');
 drop policy if exists categories_insert_auth on public.categories;
-create policy categories_insert_auth on public.categories for insert
-  with check (auth.role() = 'authenticated');
+drop policy if exists categories_select_own on public.categories;
+create policy categories_select_own on public.categories for select
+  using (auth.uid() = owner_user_id);
+drop policy if exists categories_insert_own on public.categories;
+create policy categories_insert_own on public.categories for insert
+  with check (auth.uid() = owner_user_id);
+drop policy if exists categories_delete_own on public.categories;
+create policy categories_delete_own on public.categories for delete
+  using (auth.uid() = owner_user_id);
 
 drop policy if exists accounts_select_all on public.accounts;
-create policy accounts_select_all on public.accounts for select
-  using (auth.role() = 'authenticated');
 drop policy if exists accounts_insert_auth on public.accounts;
-create policy accounts_insert_auth on public.accounts for insert
-  with check (auth.role() = 'authenticated');
+drop policy if exists accounts_select_own on public.accounts;
+create policy accounts_select_own on public.accounts for select
+  using (auth.uid() = owner_user_id);
+drop policy if exists accounts_insert_own on public.accounts;
+create policy accounts_insert_own on public.accounts for insert
+  with check (auth.uid() = owner_user_id);
+drop policy if exists accounts_delete_own on public.accounts;
+create policy accounts_delete_own on public.accounts for delete
+  using (auth.uid() = owner_user_id);
 
 drop policy if exists tags_select_all on public.tags;
-create policy tags_select_all on public.tags for select
-  using (auth.role() = 'authenticated');
 drop policy if exists tags_insert_auth on public.tags;
-create policy tags_insert_auth on public.tags for insert
-  with check (auth.role() = 'authenticated');
+drop policy if exists tags_select_own on public.tags;
+create policy tags_select_own on public.tags for select
+  using (auth.uid() = owner_user_id);
+drop policy if exists tags_insert_own on public.tags;
+create policy tags_insert_own on public.tags for insert
+  with check (auth.uid() = owner_user_id);
+drop policy if exists tags_delete_own on public.tags;
+create policy tags_delete_own on public.tags for delete
+  using (auth.uid() = owner_user_id);
 
 -- ---- viewer_access: both sides of a request/grant can see it; only the
 -- ---- requester can create it (as 'pending'); only the owner can approve it;

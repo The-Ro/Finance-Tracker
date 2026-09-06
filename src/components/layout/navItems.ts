@@ -17,8 +17,9 @@ export interface NavItem {
 }
 
 // Settings lives only in the profile menu (TopBar), not in the main nav.
+// Full list -- shown in the Sidebar's expanded menu.
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/', label: 'Home', icon: LayoutDashboard },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { to: '/recurring', label: 'Recurring', icon: Repeat },
   { to: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
@@ -27,3 +28,9 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/rules', label: 'Rules', icon: SlidersHorizontal },
 ]
+
+// Trimmed to 5 for the mobile bottom nav -- Home is reachable via the "Ledgerly"
+// brand link in the TopBar instead, and Documents/Rules stay one tap away in Sidebar.
+export const BOTTOM_NAV_ITEMS: NavItem[] = NAV_ITEMS.filter(
+  (item) => !['/', '/documents', '/rules'].includes(item.to)
+)

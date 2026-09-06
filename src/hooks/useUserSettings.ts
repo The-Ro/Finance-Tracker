@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { DEFAULT_CURRENCY } from '@/lib/currency'
-import type { Gender, SelectedPeriod, ThemeAccent, ThemeMode } from '@/types/database.types'
+import type { Gender, SelectedPeriod, ThemeAccent, ThemeMode, ZodiacSign } from '@/types/database.types'
 
 export interface UserSettings {
   assetsTotal: number
@@ -15,6 +15,8 @@ export interface UserSettings {
   gender: Gender | null
   dateOfBirth: string | null
   onboardingCompleted: boolean
+  interests: string[]
+  zodiacSign: ZodiacSign | null
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -28,6 +30,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   gender: null,
   dateOfBirth: null,
   onboardingCompleted: false,
+  interests: [],
+  zodiacSign: null,
 }
 
 export function useUserSettings() {
@@ -63,6 +67,8 @@ export function useUserSettings() {
         gender: data.gender,
         dateOfBirth: data.date_of_birth,
         onboardingCompleted: data.onboarding_completed,
+        interests: data.interests ?? [],
+        zodiacSign: data.zodiac_sign,
       }
     },
   })
@@ -123,12 +129,19 @@ export function useUserSettings() {
   })
 
   const updatePersonalDetails = useMutation({
-    mutationFn: async (input: { gender?: Gender | null; dateOfBirth?: string | null }) => {
+    mutationFn: async (input: {
+      gender?: Gender | null
+      dateOfBirth?: string | null
+      interests?: string[]
+      zodiacSign?: ZodiacSign | null
+    }) => {
       const { error } = await supabase
         .from('user_settings')
         .update({
           ...(input.gender !== undefined ? { gender: input.gender } : {}),
           ...(input.dateOfBirth !== undefined ? { date_of_birth: input.dateOfBirth } : {}),
+          ...(input.interests !== undefined ? { interests: input.interests } : {}),
+          ...(input.zodiacSign !== undefined ? { zodiac_sign: input.zodiacSign } : {}),
         })
         .eq('owner_user_id', userId!)
       if (error) throw error

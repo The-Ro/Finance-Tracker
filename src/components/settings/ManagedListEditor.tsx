@@ -48,8 +48,8 @@ export function ManagedListEditor({ title, items, onAdd }: ManagedListEditorProp
       </div>
       {error && <p className="text-helper text-red-600">{error}</p>}
       <p className="text-helper text-slate-400">
-        Shared across everyone's account. Removing an item keeps its label on past transactions but hides it
-        from future pickers - coming in a later version.
+        Personal to your account only - nobody else sees or shares this list. Removing an item keeps its
+        label on past transactions but hides it from future pickers - coming in a later version.
       </p>
     </Card>
   )

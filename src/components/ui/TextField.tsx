@@ -1,6 +1,7 @@
-import { forwardRef, useState, type InputHTMLAttributes } from 'react'
+import { forwardRef, useState, type ChangeEvent, type InputHTMLAttributes } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import clsx from 'clsx'
+import { DateField } from './DateField'
 
 interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -11,6 +12,19 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
     const [visible, setVisible] = useState(false)
     const isPassword = type === 'password'
+
+    if (type === 'date') {
+      return (
+        <DateField
+          id={inputId}
+          label={label}
+          value={(props.value as string) ?? ''}
+          onChange={props.onChange as (e: ChangeEvent<HTMLInputElement>) => void}
+          placeholder={props.placeholder}
+          className={className}
+        />
+      )
+    }
 
     return (
       <div className="flex flex-col gap-1.5">

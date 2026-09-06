@@ -17,6 +17,19 @@ export type SelectedPeriod =
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type ThemeAccent = 'violet' | 'ocean' | 'sunset' | 'pink' | 'green'
 export type Gender = 'male' | 'female' | 'prefer_not_to_say'
+export type ZodiacSign =
+  | 'aries'
+  | 'taurus'
+  | 'gemini'
+  | 'cancer'
+  | 'leo'
+  | 'virgo'
+  | 'libra'
+  | 'scorpio'
+  | 'sagittarius'
+  | 'capricorn'
+  | 'aquarius'
+  | 'pisces'
 export type ViewerAccessStatus = 'pending' | 'approved'
 
 export interface Database {
@@ -28,18 +41,18 @@ export interface Database {
         Update: Partial<{ display_name: string; avatar: string | null }>
       }
       categories: {
-        Row: { name: string; created_by: string | null; created_at: string }
-        Insert: { name: string; created_by?: string | null }
+        Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string }
+        Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
       }
       accounts: {
-        Row: { name: string; created_by: string | null; created_at: string }
-        Insert: { name: string; created_by?: string | null }
+        Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string }
+        Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
       }
       tags: {
-        Row: { name: string; created_by: string | null; created_at: string }
-        Insert: { name: string; created_by?: string | null }
+        Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string }
+        Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
       }
       transactions: {
@@ -238,6 +251,8 @@ export interface Database {
           gender: Gender | null
           date_of_birth: string | null
           onboarding_completed: boolean
+          interests: string[]
+          zodiac_sign: ZodiacSign | null
           updated_at: string
         }
         Insert: {
@@ -252,6 +267,8 @@ export interface Database {
           gender?: Gender | null
           date_of_birth?: string | null
           onboarding_completed?: boolean
+          interests?: string[]
+          zodiac_sign?: ZodiacSign | null
         }
         Update: Partial<{
           assets_total: number
@@ -264,6 +281,8 @@ export interface Database {
           gender: Gender | null
           date_of_birth: string | null
           onboarding_completed: boolean
+          interests: string[]
+          zodiac_sign: ZodiacSign | null
         }>
       }
     }
