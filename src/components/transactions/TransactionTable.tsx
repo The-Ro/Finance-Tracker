@@ -172,13 +172,15 @@ export function TransactionTable({
                         <div className="text-helper text-slate-400">{amountLabel}</div>
                       </div>
                     </div>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-base font-semibold text-slate-900" title={t.merchant}>
-                        {t.merchant}
-                      </span>
-                      {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                    <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-base font-semibold text-slate-900" title={t.merchant}>
+                          {t.merchant}
+                        </span>
+                        {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                      </div>
                       {scope === 'everyone' && owner && (
-                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} />
+                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} className="ml-auto shrink-0" />
                       )}
                     </div>
                     <div className="flex items-center justify-between gap-3">
@@ -198,13 +200,15 @@ export function TransactionTable({
 
                   <div className="hidden px-4 py-3 md:grid md:grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] md:items-center md:gap-3">
                     <div className="text-sm text-slate-600">{formatDate(t.date)}</div>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
-                        {t.merchant}
-                      </span>
-                      {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                    <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
+                          {t.merchant}
+                        </span>
+                        {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                      </div>
                       {scope === 'everyone' && owner && (
-                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} />
+                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} className="ml-auto shrink-0" />
                       )}
                     </div>
                     <div>

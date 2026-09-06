@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
+import { AuthLayout } from '@/components/auth/AuthLayout'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -27,7 +28,7 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-app-bg px-4">
+    <AuthLayout>
       <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 shadow-card">
         <div className="mb-6 flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
@@ -67,6 +68,6 @@ export function ForgotPasswordPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

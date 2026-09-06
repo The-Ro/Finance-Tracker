@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
+import { AuthLayout } from '@/components/auth/AuthLayout'
 
 export function SignupPage() {
   const [displayName, setDisplayName] = useState('')
@@ -39,7 +40,7 @@ export function SignupPage() {
 
   if (confirmationSent) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-app-bg px-4">
+      <AuthLayout>
         <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 text-center shadow-card">
           <h1 className="mb-2 text-base font-semibold text-slate-800">Check your email</h1>
           <p className="text-sm text-slate-600">
@@ -50,12 +51,12 @@ export function SignupPage() {
             Back to sign in
           </Link>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-app-bg px-4">
+    <AuthLayout>
       <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 shadow-card">
         <div className="mb-6 flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
@@ -94,6 +95,6 @@ export function SignupPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

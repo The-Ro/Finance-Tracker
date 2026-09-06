@@ -190,6 +190,30 @@
   .animate-shadow-breathe {
     animation: shadow-breathe 2.4s ease-in-out infinite;
   }
+  @keyframes blob-drift {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(30px, -24px) scale(1.08);
+    }
+    66% {
+      transform: translate(-24px, 20px) scale(0.94);
+    }
+  }
+  .animate-blob-drift {
+    animation: blob-drift 16s ease-in-out infinite;
+  }
+  .animate-blob-drift-slow {
+    animation: blob-drift 22s ease-in-out infinite;
+  }
+  .animate-delay-3000 {
+    animation-delay: 3s;
+  }
+  .animate-delay-6000 {
+    animation-delay: 6s;
+  }
 }
 
 /* Cards, borders, and surfaces should follow theme/mode switches smoothly
