@@ -110,7 +110,7 @@ export function TransactionTable({
               const owner = profiles[t.owner_user_id]
               const editable = t.owner_user_id === currentUserId
               const amountClassName =
-                'text-sm font-semibold ' + (t.type === 'income' ? 'text-positive' : 'text-slate-900')
+                'text-sm font-semibold ' + (t.type === 'income' ? 'text-positive' : 'text-caution')
               const amountLabel = t.type === 'income' ? 'Credit' : 'Debit'
 
               const editButton = editable && (
@@ -147,7 +147,7 @@ export function TransactionTable({
                       </div>
                     </div>
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
+                      <span className="truncate text-base font-semibold text-slate-900" title={t.merchant}>
                         {t.merchant}
                       </span>
                       {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}

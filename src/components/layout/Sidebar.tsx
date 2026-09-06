@@ -37,20 +37,16 @@ export function Sidebar() {
 
   return (
     <div ref={containerRef}>
-      {!open && (
-        <span
-          aria-hidden="true"
-          className="animate-pulse-ring pointer-events-none fixed left-4 top-4 z-30 h-12 w-12 rounded-full bg-accent"
-        />
-      )}
-
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-haspopup="true"
         aria-expanded={open}
-        className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-base font-bold text-white shadow-card transition-transform hover:scale-105 active:scale-95"
+        className={clsx(
+          'fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-base font-bold text-white shadow-card transition-transform hover:scale-105 active:scale-95',
+          !open && 'animate-shadow-breathe'
+        )}
       >
         {open ? <X size={18} /> : 'L'}
       </button>
