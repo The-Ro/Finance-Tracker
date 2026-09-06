@@ -37,6 +37,12 @@ export function Sidebar() {
 
   return (
     <div ref={containerRef}>
+      {!open && (
+        <span
+          aria-hidden="true"
+          className="animate-pulse-ring pointer-events-none fixed left-4 top-4 z-30 h-12 w-12 rounded-full bg-accent"
+        />
+      )}
 
       <button
         type="button"
