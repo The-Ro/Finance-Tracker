@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
 import { Bell, Upload, Plus, LogOut, ChevronDown, Settings } from 'lucide-react'
@@ -16,11 +16,28 @@ export function TopBar() {
   const { openAddEntry, openImport } = useGlobalModals()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const notifRef = useRef<HTMLDivElement>(null)
   const owned = useOwnedAccessRows()
   const pendingCount = (owned.data ?? []).filter((r) => r.status === 'pending').length
   const budgetAlerts = useBudgetAlerts()
   const overBudgetCount = budgetAlerts.filter((a) => a.status === 'over').length
   const hasNotifications = pendingCount > 0 || overBudgetCount > 0
+
+  useEffect(() => {
+    if (!notifOpen) return
+    function handlePointerDown(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false)
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setNotifOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [notifOpen])
 
   return (
     <header className="sticky top-0 z-20 flex h-[76px] items-center justify-end border-b border-app-border bg-white/95 px-4 backdrop-blur md:px-8">
@@ -35,7 +52,7 @@ export function TopBar() {
           <span className="hidden sm:inline">Add entry</span>
         </Button>
 
-        <div className="relative">
+        <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen((v) => !v)}
             aria-haspopup="dialog"
@@ -55,8 +72,10 @@ export function TopBar() {
             <div
               role="dialog"
               aria-label="Notifications"
-              className="absolute right-0 z-30 mt-2 flex max-h-[80vh] w-80 flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:w-96"
-              onMouseLeave={() => setNotifOpen(false)}
+              // Fixed + viewport-relative insets on mobile so a 320px-wide panel anchored
+              // to this small button doesn't blow past the left edge of a narrow screen;
+              // sm+ has room to anchor it normally under the bell instead.
+              className="animate-scale-in fixed inset-x-4 top-[76px] z-30 flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[80vh] sm:w-96"
             >
               <BudgetAlerts />
               <IncomingAccessRequests />
