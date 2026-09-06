@@ -5,9 +5,11 @@ import { Bell, Upload, Plus, LogOut, ChevronDown, Settings } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
+import { useBudgetAlerts } from '@/hooks/useBudgets'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { IncomingAccessRequests } from '@/components/settings/IncomingAccessRequests'
+import { BudgetAlerts } from '@/components/budgets/BudgetAlerts'
 
 export function TopBar() {
   const { displayName, email, avatar, signOut } = useAuth()
@@ -16,6 +18,9 @@ export function TopBar() {
   const [notifOpen, setNotifOpen] = useState(false)
   const owned = useOwnedAccessRows()
   const pendingCount = (owned.data ?? []).filter((r) => r.status === 'pending').length
+  const budgetAlerts = useBudgetAlerts()
+  const overBudgetCount = budgetAlerts.filter((a) => a.status === 'over').length
+  const hasNotifications = pendingCount > 0 || overBudgetCount > 0
 
   return (
     <header className="sticky top-0 z-20 flex h-[76px] items-center justify-between border-b border-app-border bg-white/95 px-4 backdrop-blur md:px-8">
@@ -40,7 +45,7 @@ export function TopBar() {
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
           >
             <Bell size={17} />
-            {pendingCount > 0 && (
+            {hasNotifications && (
               <span className="absolute right-1.5 top-1.5 flex h-2 w-2 rounded-full bg-red-500" />
             )}
           </button>
@@ -48,14 +53,15 @@ export function TopBar() {
             <div
               role="dialog"
               aria-label="Notifications"
-              className="absolute right-0 z-30 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:w-96"
+              className="absolute right-0 z-30 mt-2 flex max-h-[80vh] w-80 flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:w-96"
               onMouseLeave={() => setNotifOpen(false)}
             >
+              <BudgetAlerts />
               <IncomingAccessRequests />
               <NavLink
                 to="/settings"
                 onClick={() => setNotifOpen(false)}
-                className="mt-2 block text-center text-helper font-medium text-accent hover:underline"
+                className="block text-center text-helper font-medium text-accent hover:underline"
               >
                 Manage sharing in Settings
               </NavLink>
