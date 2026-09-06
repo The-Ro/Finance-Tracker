@@ -3,28 +3,28 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
+import { useToast } from '@/context/ToastContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 
 export function NetWorthForm() {
   const settings = useUserSettings()
   const { format } = useFormatCurrency()
+  const { show } = useToast()
   const [assets, setAssets] = useState('')
   const [liabilities, setLiabilities] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   const assetsNum = Number(assets || settings.data?.assetsTotal || 0)
   const liabilitiesNum = Number(liabilities || settings.data?.liabilitiesTotal || 0)
 
   const handleSave = async () => {
     setError(null)
-    setSaved(false)
     if (!Number.isFinite(assetsNum) || assetsNum < 0) return setError('Enter a valid assets total.')
     if (!Number.isFinite(liabilitiesNum) || liabilitiesNum < 0) return setError('Enter a valid liabilities total.')
     try {
       await settings.updateNetWorth.mutateAsync({ assetsTotal: assetsNum, liabilitiesTotal: liabilitiesNum })
-      setSaved(true)
+      show('Net worth saved.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.')
     }
@@ -62,7 +62,6 @@ export function NetWorthForm() {
         <span className="text-sm font-semibold text-slate-900">{format(assetsNum - liabilitiesNum)}</span>
       </div>
       {error && <InlineMessage tone="error">{error}</InlineMessage>}
-      {saved && <InlineMessage tone="success">Net worth saved.</InlineMessage>}
       <div>
         <Button onClick={handleSave} disabled={settings.updateNetWorth.isPending}>
           {settings.updateNetWorth.isPending ? 'Saving…' : 'Save'}

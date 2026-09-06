@@ -3,28 +3,30 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
+import { useToast } from '@/context/ToastContext'
 import { supabase } from '@/lib/supabaseClient'
 
 export function PasswordSettings() {
+  const { show } = useToast()
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
   const handleSubmit = async () => {
-    setMessage(null)
-    if (newPassword.length < 6) return setMessage({ tone: 'error', text: 'Use at least 6 characters.' })
-    if (newPassword !== confirmPassword) return setMessage({ tone: 'error', text: "Passwords don't match." })
+    setError(null)
+    if (newPassword.length < 6) return setError('Use at least 6 characters.')
+    if (newPassword !== confirmPassword) return setError("Passwords don't match.")
 
     setPending(true)
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
     setPending(false)
 
-    if (error) {
-      setMessage({ tone: 'error', text: error.message })
+    if (updateError) {
+      setError(updateError.message)
       return
     }
-    setMessage({ tone: 'success', text: 'Password updated.' })
+    show('Password updated.')
     setNewPassword('')
     setConfirmPassword('')
   }
@@ -54,7 +56,7 @@ export function PasswordSettings() {
       <Button onClick={handleSubmit} disabled={pending} className="self-start">
         {pending ? 'Updating…' : 'Update password'}
       </Button>
-      {message && <InlineMessage tone={message.tone}>{message.text}</InlineMessage>}
+      {error && <InlineMessage tone="error">{error}</InlineMessage>}
     </Card>
   )
 }

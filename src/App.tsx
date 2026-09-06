@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
+import { ToastProvider } from '@/context/ToastContext'
+import { Toaster } from '@/components/ui/Toaster'
 import { ProtectedRoute, PublicOnlyRoute } from '@/routes/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
@@ -32,34 +34,37 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<PublicOnlyRoute />}>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              </Route>
-
-              {/* Not gated by PublicOnlyRoute/ProtectedRoute: a recovery link may or may
-                  not have an active session by the time this mounts, and neither guard's
-                  redirect behavior is what we want on this page either way. */}
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AppShell />}>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/transactions" element={<TransactionsPage />} />
-                  <Route path="/recurring" element={<RecurringPage />} />
-                  <Route path="/subscriptions" element={<SubscriptionsPage />} />
-                  <Route path="/budgets" element={<BudgetsPage />} />
-                  <Route path="/goals" element={<GoalsPage />} />
-                  <Route path="/documents" element={<DocumentsPage />} />
-                  <Route path="/rules" element={<RulesPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
+          <ToastProvider>
+            <Toaster />
+            <BrowserRouter>
+              <Routes>
+                <Route element={<PublicOnlyRoute />}>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 </Route>
-              </Route>
-            </Routes>
-          </BrowserRouter>
+
+                {/* Not gated by PublicOnlyRoute/ProtectedRoute: a recovery link may or may
+                    not have an active session by the time this mounts, and neither guard's
+                    redirect behavior is what we want on this page either way. */}
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AppShell />}>
+                    <Route path="/" element={<DashboardPage />} />
+                    <Route path="/transactions" element={<TransactionsPage />} />
+                    <Route path="/recurring" element={<RecurringPage />} />
+                    <Route path="/subscriptions" element={<SubscriptionsPage />} />
+                    <Route path="/budgets" element={<BudgetsPage />} />
+                    <Route path="/goals" element={<GoalsPage />} />
+                    <Route path="/documents" element={<DocumentsPage />} />
+                    <Route path="/rules" element={<RulesPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                  </Route>
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>

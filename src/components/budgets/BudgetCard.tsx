@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Budget } from '@/hooks/useBudgets'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 
 interface BudgetCardProps {
   budget: Budget
@@ -14,16 +15,18 @@ interface BudgetCardProps {
 export function BudgetCard({ budget, spent, onEdit, onDelete }: BudgetCardProps) {
   const { format } = useFormatCurrency()
   const remaining = budget.monthly_limit - spent
-  const percent = budget.monthly_limit > 0 ? (spent / budget.monthly_limit) * 100 : 0
+  const percent = useAnimatedNumber(budget.monthly_limit > 0 ? (spent / budget.monthly_limit) * 100 : 0)
+  const animatedSpent = useAnimatedNumber(spent)
+  const animatedRemaining = useAnimatedNumber(remaining)
   const overBudget = spent > budget.monthly_limit
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="card-interactive flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-900">{budget.category}</p>
-          <p className="text-helper text-slate-500">
-            {format(spent)} of {format(budget.monthly_limit)}
+          <p className="text-helper tabular-nums text-slate-500">
+            {format(animatedSpent)} of {format(budget.monthly_limit)}
           </p>
         </div>
         <div className="flex gap-1">
@@ -44,10 +47,10 @@ export function BudgetCard({ budget, spent, onEdit, onDelete }: BudgetCardProps)
         </div>
       </div>
       <ProgressBar percent={percent} tone={overBudget ? 'danger' : 'accent'} />
-      <p className={'text-helper ' + (overBudget ? 'font-medium text-red-600' : 'text-slate-500')}>
+      <p className={'text-helper tabular-nums ' + (overBudget ? 'font-medium text-red-600' : 'text-slate-500')}>
         {overBudget
-          ? `${format(Math.abs(remaining))} over budget`
-          : `${format(remaining)} remaining`}
+          ? `${format(Math.abs(animatedRemaining))} over budget`
+          : `${format(animatedRemaining)} remaining`}
       </p>
     </Card>
   )

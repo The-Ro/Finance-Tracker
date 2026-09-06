@@ -13,9 +13,38 @@ import { CategoryDonut } from '@/components/dashboard/CategoryDonut'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { ComingUpCard } from '@/components/dashboard/ComingUpCard'
 import { Card } from '@/components/ui/Card'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, resolvePriorPeriod, isWithinRange } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { Link } from 'react-router-dom'
+
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-10 w-36 rounded-lg" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="flex flex-col gap-3 p-5">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-28" />
+            <Skeleton className="h-3 w-32" />
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card className="p-5">
+          <Skeleton className="h-48 w-full" />
+        </Card>
+        <Card className="p-5">
+          <Skeleton className="h-48 w-full" />
+        </Card>
+      </div>
+    </div>
+  )
+}
 
 export function DashboardPage() {
   const { userId } = useAuth()
@@ -64,6 +93,8 @@ export function DashboardPage() {
 
   const everyoneRecent = everyoneTransactions.data ?? []
 
+  if (settings.isLoading || myTransactions.isLoading) return <DashboardSkeleton />
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -78,6 +109,8 @@ export function DashboardPage() {
         <SummaryCard
           label="Net worth"
           value={settings.data?.netWorthConfigured ? format(netWorth ?? 0) : 'Not set'}
+          numericValue={settings.data?.netWorthConfigured ? (netWorth ?? 0) : undefined}
+          format={format}
           footer={
             settings.data?.netWorthConfigured ? (
               'Assets minus liabilities'
@@ -95,17 +128,23 @@ export function DashboardPage() {
         <SummaryCard
           label="Income"
           value={format(income)}
+          numericValue={income}
+          format={format}
           valueClassName="text-positive"
           footer={hasPriorData ? `${format(priorIncome)} last period` : 'No trend yet'}
         />
         <SummaryCard
           label="Spending"
           value={format(spending)}
+          numericValue={spending}
+          format={format}
           footer={hasPriorData ? `${format(priorSpending)} last period` : 'No trend yet'}
         />
         <SummaryCard
           label="Savings rate"
           value={`${savingsRate.toFixed(0)}%`}
+          numericValue={savingsRate}
+          format={(n) => `${n.toFixed(0)}%`}
           footer={income === 0 ? 'Add income to calculate' : `${format(income - spending)} saved`}
         />
       </div>

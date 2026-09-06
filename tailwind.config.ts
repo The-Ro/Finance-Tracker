@@ -39,6 +39,7 @@ export default {
       },
       boxShadow: {
         card: '0 1px 2px rgba(16, 16, 40, 0.04), 0 4px 12px rgba(16, 16, 40, 0.06)',
+        'card-lg': '0 4px 8px rgba(16, 16, 40, 0.06), 0 12px 32px rgba(16, 16, 40, 0.12)',
       },
       fontSize: {
         body: ['15px', '22px'],

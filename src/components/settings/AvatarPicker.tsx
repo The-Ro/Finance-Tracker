@@ -7,6 +7,7 @@ import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Avatar } from '@/components/ui/Avatar'
 import { initialsFor } from '@/lib/format'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import { useUpdateProfile } from '@/hooks/useUpdateProfile'
 import { useUploadAvatar } from '@/hooks/useUploadAvatar'
 import { AVATAR_OPTIONS } from '@/lib/avatars'
@@ -16,10 +17,11 @@ export function AvatarPicker() {
   const { avatar, displayName, email } = useAuth()
   const update = useUpdateProfile()
   const upload = useUploadAvatar()
+  const { show } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [nameDraft, setNameDraft] = useState(displayName)
-  const [avatarMessage, setAvatarMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
-  const [nameMessage, setNameMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   // `displayName` loads asynchronously; keep the draft in sync until the user starts typing.
   useEffect(() => {
@@ -27,37 +29,37 @@ export function AvatarPicker() {
   }, [displayName])
 
   const saveAvatar = async (value: string | null) => {
-    setAvatarMessage(null)
+    setAvatarError(null)
     try {
       await update.mutateAsync({ avatar: value })
-      setAvatarMessage({ tone: 'success', text: 'Profile picture saved.' })
+      show('Profile picture saved.')
     } catch (e) {
-      setAvatarMessage({ tone: 'error', text: e instanceof Error ? e.message : 'Could not save.' })
+      setAvatarError(e instanceof Error ? e.message : 'Could not save.')
     }
   }
 
   const handleFileChange = async (file: File | undefined) => {
     if (!file) return
-    setAvatarMessage(null)
+    setAvatarError(null)
     try {
       const url = await upload.mutateAsync(file)
       await saveAvatar(url)
     } catch (e) {
-      setAvatarMessage({ tone: 'error', text: e instanceof Error ? e.message : 'Could not upload that photo.' })
+      setAvatarError(e instanceof Error ? e.message : 'Could not upload that photo.')
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   const handleSaveName = async () => {
-    setNameMessage(null)
+    setNameError(null)
     const trimmed = nameDraft.trim()
-    if (!trimmed) return setNameMessage({ tone: 'error', text: 'Display name cannot be empty.' })
+    if (!trimmed) return setNameError('Display name cannot be empty.')
     try {
       await update.mutateAsync({ displayName: trimmed })
-      setNameMessage({ tone: 'success', text: 'Display name saved.' })
+      show('Display name saved.')
     } catch (e) {
-      setNameMessage({ tone: 'error', text: e instanceof Error ? e.message : 'Could not save.' })
+      setNameError(e instanceof Error ? e.message : 'Could not save.')
     }
   }
 
@@ -80,7 +82,7 @@ export function AvatarPicker() {
           Save
         </Button>
       </div>
-      {nameMessage && <InlineMessage tone={nameMessage.tone}>{nameMessage.text}</InlineMessage>}
+      {nameError && <InlineMessage tone="error">{nameError}</InlineMessage>}
 
       <div className="flex items-center gap-3 border-t border-app-border pt-4">
         <Avatar avatar={avatar} name={displayName || email || '?'} size={56} className="text-2xl" />
@@ -141,7 +143,7 @@ export function AvatarPicker() {
         </button>
       </div>
 
-      {avatarMessage && <InlineMessage tone={avatarMessage.tone}>{avatarMessage.text}</InlineMessage>}
+      {avatarError && <InlineMessage tone="error">{avatarError}</InlineMessage>}
     </Card>
   )
 }

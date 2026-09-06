@@ -7,6 +7,7 @@ import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Pill } from '@/components/ui/Pill'
+import { useToast } from '@/context/ToastContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { ZODIAC_SIGNS } from '@/lib/zodiac'
 import type { Gender, ZodiacSign } from '@/types/database.types'
@@ -36,12 +37,12 @@ const SUGGESTED_INTERESTS = [
 
 export function PersonalDetails() {
   const { data, updatePersonalDetails } = useUserSettings()
+  const { show } = useToast()
   const [gender, setGender] = useState<Gender | null>(null)
   const [dob, setDob] = useState('')
   const [interests, setInterests] = useState<string[]>([])
   const [newInterest, setNewInterest] = useState('')
   const [zodiacSign, setZodiacSign] = useState<ZodiacSign | null>(null)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -59,11 +60,10 @@ export function PersonalDetails() {
   }
 
   const handleSave = async () => {
-    setSaved(false)
     setError(null)
     try {
       await updatePersonalDetails.mutateAsync({ gender, dateOfBirth: dob || null, interests, zodiacSign })
-      setSaved(true)
+      show('Personal details saved.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.')
     }
@@ -175,7 +175,6 @@ export function PersonalDetails() {
       </div>
 
       {error && <InlineMessage tone="error">{error}</InlineMessage>}
-      {saved && <InlineMessage tone="success">Personal details saved.</InlineMessage>}
 
       <div>
         <Button onClick={handleSave} disabled={updatePersonalDetails.isPending || unchanged}>

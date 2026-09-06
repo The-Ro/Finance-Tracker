@@ -7,7 +7,26 @@ import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { ScopeToggle, type TransactionScope } from '@/components/transactions/ScopeToggle'
 import { TransactionTable } from '@/components/transactions/TransactionTable'
+import { Card } from '@/components/ui/Card'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, isWithinRange } from '@/lib/period'
+
+function TransactionTableSkeleton() {
+  return (
+    <Card className="flex flex-col gap-3 p-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 py-1.5">
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-1/3" />
+            <Skeleton className="h-3 w-1/5" />
+          </div>
+          <Skeleton className="h-4 w-16 shrink-0" />
+        </div>
+      ))}
+    </Card>
+  )
+}
 
 export function TransactionsPage() {
   const { userId } = useAuth()
@@ -36,14 +55,18 @@ export function TransactionsPage() {
         </div>
       </div>
 
-      <TransactionTable
-        transactions={inPeriod}
-        scope={scope}
-        currentUserId={userId ?? ''}
-        profiles={profiles.data ?? {}}
-        categories={categories}
-        accounts={accounts}
-      />
+      {(scope === 'mine' ? myTransactions : everyoneTransactions).isLoading ? (
+        <TransactionTableSkeleton />
+      ) : (
+        <TransactionTable
+          transactions={inPeriod}
+          scope={scope}
+          currentUserId={userId ?? ''}
+          profiles={profiles.data ?? {}}
+          categories={categories}
+          accounts={accounts}
+        />
+      )}
     </div>
   )
 }
