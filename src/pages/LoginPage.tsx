@@ -39,14 +39,24 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <TextField
-            label="Password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="text-helper font-medium text-slate-600">
+                Password
+              </label>
+              <Link to="/forgot-password" className="text-helper font-medium text-accent hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+            <TextField
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
           {error && <InlineMessage tone="error">{error}</InlineMessage>}
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Signing in…' : 'Sign in'}

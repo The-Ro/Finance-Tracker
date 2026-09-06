@@ -6,6 +6,8 @@ import { ProtectedRoute, PublicOnlyRoute } from '@/routes/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { TransactionsPage } from '@/pages/TransactionsPage'
 import { RecurringPage } from '@/pages/RecurringPage'
@@ -35,7 +37,13 @@ export default function App() {
               <Route element={<PublicOnlyRoute />}>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               </Route>
+
+              {/* Not gated by PublicOnlyRoute/ProtectedRoute: a recovery link may or may
+                  not have an active session by the time this mounts, and neither guard's
+                  redirect behavior is what we want on this page either way. */}
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppShell />}>
