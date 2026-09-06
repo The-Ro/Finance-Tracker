@@ -121,17 +121,31 @@ export function TransactionTable({
         />
       ) : (
         <div className="overflow-x-auto rounded-card border border-app-border bg-white">
-          <div className="hidden min-w-[900px] grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid">
-            <span>Date</span>
-            <span>Merchant</span>
-            <span>Category</span>
-            <span>Account</span>
-            <span>Tags</span>
-            <span className="text-right">Amount</span>
-            <span />
-            <span />
-          </div>
-          <ul className="md:min-w-[900px]">
+          {scope === 'everyone' ? (
+            <div className="hidden min-w-[944px] grid-cols-[44px_100px_1fr_150px_120px_1fr_110px_40px_40px] gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid">
+              <span />
+              <span>Date</span>
+              <span>Merchant</span>
+              <span>Category</span>
+              <span>Account</span>
+              <span>Tags</span>
+              <span className="text-right">Amount</span>
+              <span />
+              <span />
+            </div>
+          ) : (
+            <div className="hidden min-w-[900px] grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid">
+              <span>Date</span>
+              <span>Merchant</span>
+              <span>Category</span>
+              <span>Account</span>
+              <span>Tags</span>
+              <span className="text-right">Amount</span>
+              <span />
+              <span />
+            </div>
+          )}
+          <ul className={scope === 'everyone' ? 'md:min-w-[944px]' : 'md:min-w-[900px]'}>
             {filtered.map((t) => {
               const owner = profiles[t.owner_user_id]
               const editable = t.owner_user_id === currentUserId
@@ -198,18 +212,25 @@ export function TransactionTable({
                     </div>
                   </div>
 
-                  <div className="hidden px-4 py-3 md:grid md:grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px] md:items-center md:gap-3">
-                    <div className="text-sm text-slate-600">{formatDate(t.date)}</div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
-                          {t.merchant}
-                        </span>
-                        {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                  <div
+                    className={
+                      'hidden px-4 py-3 md:grid md:items-center md:gap-3 ' +
+                      (scope === 'everyone'
+                        ? 'md:grid-cols-[44px_100px_1fr_150px_120px_1fr_110px_40px_40px]'
+                        : 'md:grid-cols-[100px_1fr_150px_120px_1fr_110px_40px_40px]')
+                    }
+                  >
+                    {scope === 'everyone' && (
+                      <div className="flex items-center justify-center">
+                        {owner && <Avatar avatar={owner.avatar} name={owner.displayName} size={22} />}
                       </div>
-                      {scope === 'everyone' && owner && (
-                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} className="ml-auto shrink-0" />
-                      )}
+                    )}
+                    <div className="text-sm text-slate-600">{formatDate(t.date)}</div>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
+                        {t.merchant}
+                      </span>
+                      {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
                     </div>
                     <div>
                       <InlineCategoryEditor transactionId={t.id} category={t.category} editable={editable} />
