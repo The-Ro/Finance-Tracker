@@ -13,6 +13,7 @@ import { ThemeSettings } from '@/components/settings/ThemeSettings'
 import { PersonalDetails } from '@/components/settings/PersonalDetails'
 import { EmailSettings } from '@/components/settings/EmailSettings'
 import { PasswordSettings } from '@/components/settings/PasswordSettings'
+import { SharingSettings } from '@/components/settings/SharingSettings'
 
 function SectionHeading({ title, description }: { title: string; description?: string }) {
   return (
@@ -38,6 +39,14 @@ export function SettingsPage() {
           <AvatarPicker />
           <PersonalDetails />
         </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeading
+          title="Sharing"
+          description="Your transactions are private by default. Approve someone here to let them see yours, or request to see someone else's."
+        />
+        <SharingSettings />
       </section>
 
       <section className="flex flex-col gap-4">

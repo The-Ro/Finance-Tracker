@@ -165,6 +165,24 @@ create table if not exists public.rules (
   created_at timestamptz not null default now()
 );
 
+-- ===== viewer access: private-by-default sharing of transactions =====
+-- A row is both the request AND, once approved, the standing grant. The
+-- requester wants to see the owner's transactions; only the owner can flip
+-- status to 'approved'. Deleting a row cancels a pending request, declines
+-- one, or revokes previously-approved access -- all the same action.
+create table if not exists public.viewer_access (
+  id uuid primary key default gen_random_uuid(),
+  requester_user_id uuid not null references auth.users(id) on delete cascade,
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending','approved')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  unique (requester_user_id, owner_user_id),
+  check (requester_user_id <> owner_user_id)
+);
+create index if not exists viewer_access_owner_idx on public.viewer_access (owner_user_id, status);
+create index if not exists viewer_access_requester_idx on public.viewer_access (requester_user_id, status);
+
 -- ===== per-user settings (own-only) =====
 create table if not exists public.user_settings (
   owner_user_id uuid primary key references auth.users(id) on delete cascade,

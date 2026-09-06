@@ -34,13 +34,30 @@ export function TransactionTable({
   const [categoryFilter, setCategoryFilter] = useState('All categories')
   const [accountFilter, setAccountFilter] = useState('All accounts')
   const [typeFilter, setTypeFilter] = useState('All types')
+  const [personFilter, setPersonFilter] = useState('Everyone')
   const deleteTransaction = useDeleteTransaction()
   const { formatSigned } = useFormatCurrency()
   const { openEditEntry } = useGlobalModals()
 
+  const ALL_PEOPLE = 'Everyone'
+  const peopleOptions = useMemo(() => {
+    if (scope !== 'everyone') return []
+    const names = new Map<string, string>()
+    for (const t of transactions) {
+      const name = profiles[t.owner_user_id]?.displayName ?? profiles[t.owner_user_id]?.email
+      if (name) names.set(t.owner_user_id, name)
+    }
+    return Array.from(names.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => ({ id, name }))
+  }, [scope, transactions, profiles])
+  const nameToOwnerId = new Map(peopleOptions.map((p) => [p.name, p.id]))
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const personId = nameToOwnerId.get(personFilter)
     return transactions.filter((t) => {
+      if (scope === 'everyone' && personFilter !== ALL_PEOPLE && t.owner_user_id !== personId) return false
       if (typeFilter === 'Income' && t.type !== 'income') return false
       if (typeFilter === 'Expense' && t.type !== 'expense') return false
       if (categoryFilter !== 'All categories' && t.category !== categoryFilter) return false
@@ -52,7 +69,8 @@ export function TransactionTable({
         t.tags.some((tag) => tag.toLowerCase().includes(q))
       )
     })
-  }, [transactions, search, categoryFilter, accountFilter, typeFilter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, search, categoryFilter, accountFilter, typeFilter, personFilter, scope])
 
   return (
     <div className="flex flex-col gap-3">
@@ -63,6 +81,14 @@ export function TransactionTable({
           placeholder="Search merchant, category, or tag"
           className="min-h-[44px] flex-1 rounded-lg border border-app-border bg-white px-3 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
+        {scope === 'everyone' && peopleOptions.length > 0 && (
+          <Dropdown
+            options={[ALL_PEOPLE, ...peopleOptions.map((p) => p.name)]}
+            value={personFilter}
+            aria-label="Filter by person"
+            onChange={(e) => setPersonFilter(e.target.value)}
+          />
+        )}
         <Dropdown
           options={['All types', 'Income', 'Expense']}
           value={typeFilter}

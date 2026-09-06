@@ -13,6 +13,7 @@ alter table public.dismissed_patterns enable row level security;
 alter table public.documents enable row level security;
 alter table public.rules enable row level security;
 alter table public.user_settings enable row level security;
+alter table public.viewer_access enable row level security;
 
 -- ---- profiles: everyone (any signed-in user) can read every profile so
 -- ---- "owner" display names can be shown on shared transactions; only the
@@ -53,12 +54,41 @@ drop policy if exists tags_insert_auth on public.tags;
 create policy tags_insert_auth on public.tags for insert
   with check (auth.role() = 'authenticated');
 
--- ---- transactions: THE core "everyone sees everyone's spending" rule.
--- ---- Any authenticated user can read every transaction; only the owner
--- ---- can insert/update/delete their own rows.
+-- ---- viewer_access: both sides of a request/grant can see it; only the
+-- ---- requester can create it (as 'pending'); only the owner can approve it;
+-- ---- either side can delete it (cancel / decline / revoke).
+drop policy if exists viewer_access_select on public.viewer_access;
+create policy viewer_access_select on public.viewer_access for select
+  using (auth.uid() = requester_user_id or auth.uid() = owner_user_id);
+
+drop policy if exists viewer_access_insert on public.viewer_access;
+create policy viewer_access_insert on public.viewer_access for insert
+  with check (auth.uid() = requester_user_id and status = 'pending');
+
+drop policy if exists viewer_access_update on public.viewer_access;
+create policy viewer_access_update on public.viewer_access for update
+  using (auth.uid() = owner_user_id)
+  with check (auth.uid() = owner_user_id and status = 'approved');
+
+drop policy if exists viewer_access_delete on public.viewer_access;
+create policy viewer_access_delete on public.viewer_access for delete
+  using (auth.uid() = requester_user_id or auth.uid() = owner_user_id);
+
+-- ---- transactions: private by default. You always see your own; you see
+-- ---- someone else's only once they've approved a viewer_access request
+-- ---- from you. Only the owner can insert/update/delete their own rows.
 drop policy if exists transactions_select_all on public.transactions;
-create policy transactions_select_all on public.transactions for select
-  using (auth.role() = 'authenticated');
+drop policy if exists transactions_select_own_or_approved on public.transactions;
+create policy transactions_select_own_or_approved on public.transactions for select
+  using (
+    auth.uid() = owner_user_id
+    or exists (
+      select 1 from public.viewer_access
+      where viewer_access.owner_user_id = transactions.owner_user_id
+        and viewer_access.requester_user_id = auth.uid()
+        and viewer_access.status = 'approved'
+    )
+  );
 
 drop policy if exists transactions_insert_own on public.transactions;
 create policy transactions_insert_own on public.transactions for insert

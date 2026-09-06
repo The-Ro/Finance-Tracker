@@ -17,6 +17,7 @@ export type SelectedPeriod =
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type ThemeAccent = 'violet' | 'ocean' | 'sunset' | 'pink' | 'green'
 export type Gender = 'male' | 'female' | 'prefer_not_to_say'
+export type ViewerAccessStatus = 'pending' | 'approved'
 
 export interface Database {
   public: {
@@ -206,6 +207,23 @@ export interface Database {
           enabled?: boolean
         }
         Update: Partial<{ when_text: string; then_text: string; enabled: boolean }>
+      }
+      viewer_access: {
+        Row: {
+          id: string
+          requester_user_id: string
+          owner_user_id: string
+          status: ViewerAccessStatus
+          created_at: string
+          responded_at: string | null
+        }
+        Insert: {
+          id?: string
+          requester_user_id: string
+          owner_user_id: string
+          status?: ViewerAccessStatus
+        }
+        Update: Partial<{ status: ViewerAccessStatus; responded_at: string | null }>
       }
       user_settings: {
         Row: {
