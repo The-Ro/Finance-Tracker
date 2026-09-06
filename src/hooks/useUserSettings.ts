@@ -14,6 +14,7 @@ export interface UserSettings {
   themeAccent: ThemeAccent
   gender: Gender | null
   dateOfBirth: string | null
+  onboardingCompleted: boolean
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -26,6 +27,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   themeAccent: 'violet',
   gender: null,
   dateOfBirth: null,
+  onboardingCompleted: false,
 }
 
 export function useUserSettings() {
@@ -60,6 +62,7 @@ export function useUserSettings() {
         themeAccent: data.theme_accent,
         gender: data.gender,
         dateOfBirth: data.date_of_birth,
+        onboardingCompleted: data.onboarding_completed,
       }
     },
   })
@@ -133,5 +136,24 @@ export function useUserSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
   })
 
-  return { ...query, updatePeriod, updateNetWorth, updateCurrency, updateTheme, updatePersonalDetails }
+  const completeOnboarding = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ onboarding_completed: true })
+        .eq('owner_user_id', userId!)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
+  })
+
+  return {
+    ...query,
+    updatePeriod,
+    updateNetWorth,
+    updateCurrency,
+    updateTheme,
+    updatePersonalDetails,
+    completeOnboarding,
+  }
 }

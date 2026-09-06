@@ -237,6 +237,7 @@ export interface Database {
           theme_accent: ThemeAccent
           gender: Gender | null
           date_of_birth: string | null
+          onboarding_completed: boolean
           updated_at: string
         }
         Insert: {
@@ -250,6 +251,7 @@ export interface Database {
           theme_accent?: ThemeAccent
           gender?: Gender | null
           date_of_birth?: string | null
+          onboarding_completed?: boolean
         }
         Update: Partial<{
           assets_total: number
@@ -261,6 +263,7 @@ export interface Database {
           theme_accent: ThemeAccent
           gender: Gender | null
           date_of_birth: string | null
+          onboarding_completed: boolean
         }>
       }
     }

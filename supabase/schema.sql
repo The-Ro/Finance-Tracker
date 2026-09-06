@@ -197,6 +197,7 @@ create table if not exists public.user_settings (
   theme_accent text not null default 'violet' check (theme_accent in ('violet','ocean','sunset','pink','green')),
   gender text check (gender in ('male','female','prefer_not_to_say')),
   date_of_birth date,
+  onboarding_completed boolean not null default false,
   updated_at timestamptz not null default now()
 );
 alter table public.user_settings add column if not exists currency text not null default 'USD';
@@ -204,6 +205,7 @@ alter table public.user_settings add column if not exists theme_mode text not nu
 alter table public.user_settings add column if not exists theme_accent text not null default 'violet';
 alter table public.user_settings add column if not exists gender text;
 alter table public.user_settings add column if not exists date_of_birth date;
+alter table public.user_settings add column if not exists onboarding_completed boolean not null default false;
 alter table public.user_settings drop constraint if exists user_settings_theme_mode_check;
 alter table public.user_settings add constraint user_settings_theme_mode_check check (theme_mode in ('light','dark','system'));
 alter table public.user_settings drop constraint if exists user_settings_theme_accent_check;

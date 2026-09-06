@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { TopBar } from './TopBar'
 import { GlobalModalsProvider } from '@/context/GlobalModalsContext'
+import { WelcomeModal } from '@/components/onboarding/WelcomeModal'
 
 export function AppShell() {
   const location = useLocation()
@@ -10,6 +11,7 @@ export function AppShell() {
   return (
     <GlobalModalsProvider>
       <div className="flex min-h-screen flex-col bg-app-bg">
+        <WelcomeModal />
         {/* Floating toggle -- fixed positioning, doesn't occupy layout space. */}
         <Sidebar />
         <TopBar />
