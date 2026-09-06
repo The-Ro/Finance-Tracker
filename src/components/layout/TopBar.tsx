@@ -46,7 +46,10 @@ export function TopBar() {
           >
             <Bell size={17} />
             {hasNotifications && (
-              <span className="absolute right-1.5 top-1.5 flex h-2 w-2 rounded-full bg-red-500" />
+              <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 motion-safe:animate-ping" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+              </span>
             )}
           </button>
           {notifOpen && (
