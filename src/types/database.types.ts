@@ -25,7 +25,7 @@ export type SelectedPeriod =
   | 'last-6-months'
   | 'this-year'
 export type ThemeMode = 'light' | 'dark' | 'system'
-export type ThemeAccent = 'violet' | 'ocean' | 'sunset' | 'pink' | 'green'
+export type ThemeAccent = 'violet' | 'ocean' | 'sunset' | 'pink' | 'green' | 'sage' | 'mauve'
 export type Gender = 'male' | 'female' | 'prefer_not_to_say'
 export type ZodiacSign =
   | 'aries'
@@ -279,6 +279,8 @@ export interface Database {
           interests: string[]
           zodiac_sign: ZodiacSign | null
           whats_new_seen_version: string | null
+          dashboard_order: string[]
+          dashboard_hidden: string[]
           updated_at: string
         }
         Insert: {
@@ -296,6 +298,8 @@ export interface Database {
           interests?: string[]
           zodiac_sign?: ZodiacSign | null
           whats_new_seen_version?: string | null
+          dashboard_order?: string[]
+          dashboard_hidden?: string[]
         }
         Update: Partial<{
           assets_total: number
@@ -311,6 +315,8 @@ export interface Database {
           interests: string[]
           zodiac_sign: ZodiacSign | null
           whats_new_seen_version: string | null
+          dashboard_order: string[]
+          dashboard_hidden: string[]
         }>
       }
     }

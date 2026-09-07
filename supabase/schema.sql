@@ -369,13 +369,15 @@ create table if not exists public.user_settings (
   ),
   currency text not null default 'USD',
   theme_mode text not null default 'system' check (theme_mode in ('light','dark','system')),
-  theme_accent text not null default 'violet' check (theme_accent in ('violet','ocean','sunset','pink','green')),
+  theme_accent text not null default 'violet' check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve')),
   gender text check (gender in ('male','female','prefer_not_to_say')),
   date_of_birth date,
   onboarding_completed boolean not null default false,
   interests text[] not null default '{}',
   zodiac_sign text,
   whats_new_seen_version text,
+  dashboard_order text[] not null default array['summary','cashflow','breakdown','activity','review'],
+  dashboard_hidden text[] not null default '{}',
   updated_at timestamptz not null default now()
 );
 alter table public.user_settings add column if not exists currency text not null default 'USD';
@@ -387,6 +389,9 @@ alter table public.user_settings add column if not exists onboarding_completed b
 alter table public.user_settings add column if not exists interests text[] not null default '{}';
 alter table public.user_settings add column if not exists zodiac_sign text;
 alter table public.user_settings add column if not exists whats_new_seen_version text;
+alter table public.user_settings add column if not exists dashboard_order text[]
+  not null default array['summary','cashflow','breakdown','activity','review'];
+alter table public.user_settings add column if not exists dashboard_hidden text[] not null default '{}';
 alter table public.user_settings drop constraint if exists user_settings_zodiac_sign_check;
 alter table public.user_settings add constraint user_settings_zodiac_sign_check check (zodiac_sign in (
   'aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'
@@ -394,7 +399,7 @@ alter table public.user_settings add constraint user_settings_zodiac_sign_check 
 alter table public.user_settings drop constraint if exists user_settings_theme_mode_check;
 alter table public.user_settings add constraint user_settings_theme_mode_check check (theme_mode in ('light','dark','system'));
 alter table public.user_settings drop constraint if exists user_settings_theme_accent_check;
-alter table public.user_settings add constraint user_settings_theme_accent_check check (theme_accent in ('violet','ocean','sunset','pink','green'));
+alter table public.user_settings add constraint user_settings_theme_accent_check check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve'));
 alter table public.user_settings drop constraint if exists user_settings_gender_check;
 alter table public.user_settings add constraint user_settings_gender_check check (gender in ('male','female','prefer_not_to_say'));
 

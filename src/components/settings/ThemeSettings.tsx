@@ -17,6 +17,8 @@ const ACCENTS: { value: ThemeAccent; label: string; swatch: string }[] = [
   { value: 'sunset', label: 'Sunset', swatch: ACCENT_HEX.sunset },
   { value: 'pink', label: 'Pink', swatch: ACCENT_HEX.pink },
   { value: 'green', label: 'Green', swatch: ACCENT_HEX.green },
+  { value: 'sage', label: 'Sage', swatch: ACCENT_HEX.sage },
+  { value: 'mauve', label: 'Mauve', swatch: ACCENT_HEX.mauve },
 ]
 
 export function ThemeSettings() {

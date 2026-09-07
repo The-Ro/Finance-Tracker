@@ -84,6 +84,17 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
     }
   }, [isTransfer, form.toAccount, toAccountOptions])
 
+  // A cash account has no "how" -- the payment method fields (UPI/card/net
+  // banking/etc.) all describe moving money through a bank, which doesn't
+  // apply once the account itself already says "Cash".
+  const isCashAccount = form.account === 'Cash'
+  useEffect(() => {
+    if (isCashAccount && form.paymentMethod) {
+      setForm((f) => ({ ...f, paymentMethod: '' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCashAccount])
+
   // Prefill from the transaction being edited (or reset to a blank form)
   // each time the modal opens -- not on every render, so typing doesn't
   // fight this effect.
@@ -279,18 +290,12 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <TextField
-            label="Remarks"
-            placeholder="Any extra detail worth remembering"
-            maxLength={200}
-            value={form.remarks}
-            onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
-          />
           <div className="flex flex-col gap-1.5">
             <label className="text-helper font-medium text-slate-600">Payment method</label>
             <Dropdown
               options={[NO_PAYMENT_METHOD, ...PAYMENT_METHODS]}
-              value={form.paymentMethod || NO_PAYMENT_METHOD}
+              value={isCashAccount ? NO_PAYMENT_METHOD : form.paymentMethod || NO_PAYMENT_METHOD}
+              disabled={isCashAccount}
               onChange={(e) =>
                 setForm((f) => ({
                   ...f,
@@ -299,6 +304,13 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
               }
             />
           </div>
+          <TextField
+            label="Remarks"
+            placeholder="Any extra detail worth remembering"
+            maxLength={200}
+            value={form.remarks}
+            onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+          />
         </div>
 
         <TagsField selected={form.tags} onChange={(tags) => setForm((f) => ({ ...f, tags }))} />

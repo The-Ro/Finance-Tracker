@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { DEFAULT_CURRENCY } from '@/lib/currency'
 import { CURRENT_WHATS_NEW_VERSION } from '@/lib/whatsNew'
+import { DEFAULT_DASHBOARD_ORDER, normalizeDashboardOrder, type DashboardSectionId } from '@/lib/dashboardSections'
 import type { Gender, SelectedPeriod, ThemeAccent, ThemeMode, ZodiacSign } from '@/types/database.types'
 
 export interface UserSettings {
@@ -19,6 +20,8 @@ export interface UserSettings {
   interests: string[]
   zodiacSign: ZodiacSign | null
   whatsNewSeenVersion: string | null
+  dashboardOrder: DashboardSectionId[]
+  dashboardHidden: string[]
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -35,6 +38,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   interests: [],
   zodiacSign: null,
   whatsNewSeenVersion: null,
+  dashboardOrder: DEFAULT_DASHBOARD_ORDER,
+  dashboardHidden: [],
 }
 
 export function useUserSettings() {
@@ -73,6 +78,8 @@ export function useUserSettings() {
         interests: data.interests ?? [],
         zodiacSign: data.zodiac_sign,
         whatsNewSeenVersion: data.whats_new_seen_version,
+        dashboardOrder: normalizeDashboardOrder(data.dashboard_order),
+        dashboardHidden: data.dashboard_hidden ?? [],
       }
     },
   })
@@ -132,6 +139,32 @@ export function useUserSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
   })
 
+  const updateDashboardLayout = useMutation({
+    mutationFn: async (input: { order?: DashboardSectionId[]; hidden?: string[] }) => {
+      const previous = query.data
+      queryClient.setQueryData(['user_settings', userId], (old: UserSettings | undefined) =>
+        old
+          ? {
+              ...old,
+              ...(input.order ? { dashboardOrder: input.order } : {}),
+              ...(input.hidden ? { dashboardHidden: input.hidden } : {}),
+            }
+          : old
+      )
+      const { error } = await supabase
+        .from('user_settings')
+        .update({
+          ...(input.order ? { dashboard_order: input.order } : {}),
+          ...(input.hidden ? { dashboard_hidden: input.hidden } : {}),
+        })
+        .eq('owner_user_id', userId!)
+      if (error) {
+        queryClient.setQueryData(['user_settings', userId], previous)
+        throw error
+      }
+    },
+  })
+
   const updatePersonalDetails = useMutation({
     mutationFn: async (input: {
       gender?: Gender | null
@@ -183,6 +216,7 @@ export function useUserSettings() {
     updateNetWorth,
     updateCurrency,
     updateTheme,
+    updateDashboardLayout,
     updatePersonalDetails,
     completeOnboarding,
     markWhatsNewSeen,

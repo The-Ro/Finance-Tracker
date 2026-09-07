@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useMyTransactions, useEveryoneTransactions } from '@/hooks/useTransactions'
@@ -13,10 +13,12 @@ import { CategoryDonut } from '@/components/dashboard/CategoryDonut'
 import { AccountBarChart } from '@/components/dashboard/AccountBarChart'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { ComingUpCard } from '@/components/dashboard/ComingUpCard'
+import { CustomizeDashboardModal } from '@/components/dashboard/CustomizeDashboardModal'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, resolvePriorPeriod, isWithinRange } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { DEFAULT_DASHBOARD_ORDER, type DashboardSectionId } from '@/lib/dashboardSections'
 import { Link } from 'react-router-dom'
 
 function DashboardSkeleton() {
@@ -54,6 +56,7 @@ export function DashboardPage() {
   const { userId } = useAuth()
   const settings = useUserSettings()
   const { format } = useFormatCurrency()
+  const [customizeOpen, setCustomizeOpen] = useState(false)
   const myTransactions = useMyTransactions(userId)
   const everyoneTransactions = useEveryoneTransactions()
   const profiles = useProfiles()
@@ -89,9 +92,7 @@ export function DashboardPage() {
   const priorSpending = inPriorPeriod.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
   const hasPriorData = inPriorPeriod.length > 0
 
-  const netWorth = settings.data
-    ? settings.data.assetsTotal - settings.data.liabilitiesTotal
-    : null
+  const netWorth = settings.data ? settings.data.assetsTotal - settings.data.liabilitiesTotal : null
 
   const needsReviewCount = inPeriod.filter((t) => t.type !== 'transfer' && t.category === 'Needs review').length
 
@@ -99,16 +100,15 @@ export function DashboardPage() {
 
   if (settings.isLoading || myTransactions.isLoading) return <DashboardSkeleton />
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Home</h1>
-        <PeriodSelector
-          value={period}
-          onChange={(value) => settings.updatePeriod.mutate(value)}
-        />
-      </div>
+  const order = settings.data?.dashboardOrder ?? DEFAULT_DASHBOARD_ORDER
+  const hidden = settings.data?.dashboardHidden ?? []
 
+  // Built once the loading gate above has passed, so every section here can
+  // freely use `settings.data`/`myTransactions.data` without its own null
+  // check -- `order`/`hidden` (user-configurable via Settings > Dashboard
+  // layout) decide which of these actually render, and in what sequence.
+  const sections: Record<DashboardSectionId, ReactNode> = {
+    summary: (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           label="Net worth"
@@ -152,17 +152,18 @@ export function DashboardPage() {
           footer={income === 0 ? 'Add income to calculate' : `${format(income - spending)} saved`}
         />
       </div>
-
-      {/* Cash flow is an independent trailing-months trend, not tied to the
-          period filter above -- otherwise "This month" would only ever
-          have one point to plot. */}
-      <CashFlowChart transactions={myTransactions.data ?? []} />
-
+    ),
+    // Cash flow is an independent trailing-months trend, not tied to the
+    // period filter above -- otherwise "This month" would only ever have
+    // one point to plot.
+    cashflow: <CashFlowChart transactions={myTransactions.data ?? []} />,
+    breakdown: (
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <CategoryDonut transactions={inPeriod} />
         <AccountBarChart transactions={inPeriod} />
       </div>
-
+    ),
+    activity: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <RecentActivity
           title="Recent activity"
@@ -178,7 +179,8 @@ export function DashboardPage() {
         />
         <ComingUpCard items={recurringItemsQuery.data ?? []} />
       </div>
-
+    ),
+    review: (
       <Card className="flex items-center gap-3 p-4">
         <AlertCircle size={18} className="shrink-0 text-accent" />
         <p className="text-sm text-slate-600">
@@ -187,6 +189,31 @@ export function DashboardPage() {
             : `${needsReviewCount} transaction${needsReviewCount === 1 ? '' : 's'} in this period still need a category.`}
         </p>
       </Card>
+    ),
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-slate-900">Home</h1>
+          <button
+            type="button"
+            aria-label="Customize dashboard"
+            onClick={() => setCustomizeOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <SlidersHorizontal size={16} />
+          </button>
+        </div>
+        <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+      </div>
+
+      {order.filter((id) => !hidden.includes(id)).map((id) => (
+        <div key={id}>{sections[id]}</div>
+      ))}
+
+      <CustomizeDashboardModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
     </div>
   )
 }

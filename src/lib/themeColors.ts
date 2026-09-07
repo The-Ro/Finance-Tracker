@@ -10,6 +10,8 @@ export const ACCENT_HEX: Record<ThemeAccent, string> = {
   sunset: '#EA580C',
   pink: '#DB2777',
   green: '#16A34A',
+  sage: '#6B8E7A',
+  mauve: '#A38191',
 }
 
 export interface ChartTheme {

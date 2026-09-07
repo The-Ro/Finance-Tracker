@@ -49,6 +49,18 @@
   --accent-dark: 21 128 61;
 }
 
+:root[data-accent='sage'] {
+  --accent: 107 142 122;
+  --accent-light: 230 238 233;
+  --accent-dark: 74 107 90;
+}
+
+:root[data-accent='mauve'] {
+  --accent: 163 129 145;
+  --accent-light: 244 235 239;
+  --accent-dark: 122 92 106;
+}
+
 .dark {
   color-scheme: dark;
   --app-bg: 15 17 24;
@@ -79,6 +91,14 @@
 
 .dark[data-accent='green'] {
   --accent-light: 17 46 28;
+}
+
+.dark[data-accent='sage'] {
+  --accent-light: 26 46 38;
+}
+
+.dark[data-accent='mauve'] {
+  --accent-light: 46 34 40;
 }
 
 @layer base {
