@@ -11,7 +11,7 @@ export type Transaction = Database['public']['Tables']['transactions']['Row']
 export interface NewTransactionInput {
   date: string
   merchant: string
-  category: string
+  category: string | null
   amount: number
   type: TransactionType
   account: string
@@ -119,7 +119,7 @@ export interface UpdateTransactionInput {
   id: string
   date: string
   merchant: string
-  category: string
+  category: string | null
   amount: number
   type: TransactionType
   account: string
@@ -271,6 +271,31 @@ export function useBulkImportTransactions() {
     },
     onSuccess: () => invalidateTransactionQueries(queryClient),
   })
+}
+
+/**
+ * Each account's balance purely as derived from the owner's own transaction
+ * history (income adds, expense subtracts, a transfer moves it from `account`
+ * to `to_account`). There's no separate "opening balance" concept in this
+ * app, so this is only as accurate as the transactions actually logged --
+ * good enough for a live "does this transfer overdraw the account" hint,
+ * not a ground-truth statement about the real-world account.
+ */
+export function useAccountBalances(userId: string | null): Map<string, number> {
+  const { data: transactions } = useMyTransactions(userId)
+  return useMemo(() => {
+    const balances = new Map<string, number>()
+    const adjust = (account: string, delta: number) => balances.set(account, (balances.get(account) ?? 0) + delta)
+    for (const t of transactions ?? []) {
+      if (t.type === 'income') adjust(t.account, t.amount)
+      else if (t.type === 'expense') adjust(t.account, -t.amount)
+      else if (t.type === 'transfer') {
+        adjust(t.account, -t.amount)
+        if (t.to_account) adjust(t.to_account, t.amount)
+      }
+    }
+    return balances
+  }, [transactions])
 }
 
 const RECENT_ACCOUNTS_LIMIT = 4

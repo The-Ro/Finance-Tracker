@@ -4,17 +4,35 @@ import { Button } from '@/components/ui/Button'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { CURRENT_WHATS_NEW_VERSION, WHATS_NEW_ITEMS } from '@/lib/whatsNew'
 
-export function WhatsNewModal() {
-  const settings = useUserSettings()
+interface WhatsNewModalProps {
+  /** Omit both props for the automatic once-after-login behavior (default
+   *  export usage in AppShell). Pass both to open it on demand instead, e.g.
+   *  Settings' "View what's new" button -- viewing it again doesn't touch
+   *  `whatsNewSeenVersion`, since by definition it's already been seen. */
+  open?: boolean
+  onClose?: () => void
+}
 
-  const show =
+export function WhatsNewModal({ open: openProp, onClose: onCloseProp }: WhatsNewModalProps = {}) {
+  const settings = useUserSettings()
+  const isControlled = openProp !== undefined
+
+  const autoShow =
     !settings.isLoading &&
     !!settings.data &&
     settings.data.onboardingCompleted &&
     settings.data.whatsNewSeenVersion !== CURRENT_WHATS_NEW_VERSION
+
+  const show = isControlled ? openProp : autoShow
   if (!show) return null
 
-  const dismiss = () => settings.markWhatsNewSeen.mutate()
+  const dismiss = () => {
+    if (isControlled) {
+      onCloseProp?.()
+    } else {
+      settings.markWhatsNewSeen.mutate()
+    }
+  }
 
   return (
     <Modal open title="What's new in Ledgerly" onClose={dismiss}>
@@ -28,8 +46,8 @@ export function WhatsNewModal() {
           ))}
         </ul>
         <div className="flex justify-end">
-          <Button onClick={dismiss} disabled={settings.markWhatsNewSeen.isPending}>
-            {settings.markWhatsNewSeen.isPending ? 'Saving…' : 'Got it'}
+          <Button onClick={dismiss} disabled={!isControlled && settings.markWhatsNewSeen.isPending}>
+            {!isControlled && settings.markWhatsNewSeen.isPending ? 'Saving…' : 'Got it'}
           </Button>
         </div>
       </div>

@@ -81,7 +81,7 @@ export function useBudgetAlerts() {
     const spentByCategory = new Map<string, number>()
     for (const t of myTransactions.data ?? []) {
       if (t.type !== 'expense' || !isWithinRange(t.date, thisMonth)) continue
-      spentByCategory.set(t.category, (spentByCategory.get(t.category) ?? 0) + t.amount)
+      spentByCategory.set(t.category!, (spentByCategory.get(t.category!) ?? 0) + t.amount)
     }
 
     const alerts: BudgetAlert[] = []

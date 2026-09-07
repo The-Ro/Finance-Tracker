@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -7,10 +7,17 @@ import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { TagsField } from './TagsField'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
-import { useAddTransaction, useUpdateTransaction, useRecentAccounts, type Transaction } from '@/hooks/useTransactions'
+import {
+  useAddTransaction,
+  useUpdateTransaction,
+  useRecentAccounts,
+  useAccountBalances,
+  type Transaction,
+} from '@/hooks/useTransactions'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useRules } from '@/hooks/useRules'
 import { useAuth } from '@/context/AuthContext'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { todayISO } from '@/lib/format'
 import type { PaymentMethod, TransactionType } from '@/types/database.types'
 
@@ -24,8 +31,6 @@ interface AddEntryModalProps {
   onClose: () => void
   transaction?: Transaction | null
 }
-
-const TRANSFER_CATEGORY = 'Needs review'
 
 const EMPTY_STATE = {
   type: 'expense' as TransactionType,
@@ -53,12 +58,34 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   const categoryOptions = form.type === 'income' ? incomeCategories : expenseCategories
   const { data: accounts = [] } = useAccounts()
   const recentAccounts = useRecentAccounts(userId)
+  const accountBalances = useAccountBalances(userId)
+  const { format } = useFormatCurrency()
   const { data: rules = [] } = useRules()
   const addTransaction = useAddTransaction()
   const updateTransaction = useUpdateTransaction()
   const documents = useDocuments()
 
+  // Transfer's From/To pickers must exclude each other's current pick --
+  // previously only To excluded From; From still listed whatever was
+  // already chosen as To, so it looked selectable even though picking it
+  // would just get silently reset.
   const toAccountOptions = accounts.filter((a) => a !== form.account)
+  const fromAccountOptions = isTransfer ? accounts.filter((a) => a !== form.toAccount) : accounts
+
+  const amountNum = Number(form.amount)
+
+  // Live "does this overdraw the account" hint for transfers. Derived purely
+  // from logged transaction history (there's no opening-balance concept in
+  // this app), so if we're editing an existing transfer out of this same
+  // account, its own old amount has to be added back first -- otherwise the
+  // balance already reflects this transfer having happened, double-counting it.
+  const fromAccountBalance = useMemo(() => {
+    let balance = accountBalances.get(form.account) ?? 0
+    if (transaction?.type === 'transfer' && transaction.account === form.account) {
+      balance += transaction.amount
+    }
+    return balance
+  }, [accountBalances, form.account, transaction])
 
   useEffect(() => {
     if (!form.account && accounts.length > 0) {
@@ -106,7 +133,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         amount: String(transaction.amount),
         merchant: transaction.merchant,
         date: transaction.date,
-        category: transaction.category,
+        category: transaction.category ?? 'Needs review',
         account: transaction.account,
         toAccount: transaction.to_account ?? '',
         remarks: transaction.remarks ?? '',
@@ -135,7 +162,6 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
 
   const handleSubmit = async () => {
     setError(null)
-    const amountNum = Number(form.amount)
 
     if (!form.merchant.trim()) return setError('Enter a merchant or source.')
     if (!form.date) return setError('Choose a date.')
@@ -145,7 +171,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
     if (isTransfer && form.toAccount === form.account) return setError('Choose a different account to transfer to.')
     if (!isEditing && form.hasReceipt && !form.file) return setError('Choose a receipt file, or uncheck the receipt box.')
 
-    const category = isTransfer ? TRANSFER_CATEGORY : form.category
+    const category = isTransfer ? null : form.category
     const toAccount = isTransfer ? form.toAccount : null
     const paymentMethod = form.paymentMethod || null
 
@@ -260,11 +286,18 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           <div className="flex flex-col gap-1.5">
             <label className="text-helper font-medium text-slate-600">{isTransfer ? 'From account' : 'Account'}</label>
             <Dropdown
-              options={accounts}
+              options={fromAccountOptions}
               recentOptions={recentAccounts}
               value={form.account}
               onChange={(e) => setForm((f) => ({ ...f, account: e.target.value, toAccount: '' }))}
             />
+            {isTransfer && form.account && (
+              <p className={clsx('text-helper', amountNum > fromAccountBalance ? 'font-medium text-caution' : 'text-slate-400')}>
+                {amountNum > fromAccountBalance
+                  ? `Only ${format(fromAccountBalance)} available in ${form.account}`
+                  : `${format(fromAccountBalance)} available in ${form.account}`}
+              </p>
+            )}
           </div>
           {isTransfer ? (
             <div className="flex flex-col gap-1.5">

@@ -20,8 +20,8 @@ const MAX_ACCOUNTS_SHOWN = 8
 
 export function AccountBarChart({ transactions }: AccountBarChartProps) {
   const { format } = useFormatCurrency()
-  const { accent, isDark } = useTheme()
-  const colors = useMemo(() => getChartTheme(accent, isDark), [accent, isDark])
+  const { accentHex, isDark } = useTheme()
+  const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
 
   const { data, hiddenCount } = useMemo(() => {
     const byAccount = new Map<string, { income: number; expense: number }>()

@@ -61,6 +61,24 @@
   --accent-dark: 122 92 106;
 }
 
+:root[data-accent='plum'] {
+  --accent: 122 42 89;
+  --accent-light: 245 233 240;
+  --accent-dark: 84 26 58;
+}
+
+:root[data-accent='crimson'] {
+  --accent: 185 45 55;
+  --accent-light: 252 232 233;
+  --accent-dark: 139 21 34;
+}
+
+:root[data-accent='charcoal'] {
+  --accent: 71 78 92;
+  --accent-light: 231 233 237;
+  --accent-dark: 41 46 56;
+}
+
 .dark {
   color-scheme: dark;
   --app-bg: 15 17 24;
@@ -101,6 +119,18 @@
   --accent-light: 46 34 40;
 }
 
+.dark[data-accent='plum'] {
+  --accent-light: 46 22 36;
+}
+
+.dark[data-accent='crimson'] {
+  --accent-light: 58 22 26;
+}
+
+.dark[data-accent='charcoal'] {
+  --accent-light: 40 44 51;
+}
+
 @layer base {
   html,
   body,
@@ -114,6 +144,11 @@
        toggles off would otherwise show the browser's default white canvas
        instead of the app's background. */
     @apply bg-app-bg;
+    /* Without this, iOS Safari (and the installed PWA, which has no browser
+       chrome to contextualize it) rubber-bands past the top/bottom of the
+       page into blank white space on every over-scroll or pull-to-refresh
+       gesture. */
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -136,6 +171,15 @@
   select,
   textarea {
     color: inherit;
+  }
+
+  button,
+  a,
+  [role='button'] {
+    /* Removes the gray tap-flash box iOS/WebKit draws on touch by default --
+       most visible (and most un-native-looking) on colored buttons when the
+       app is running standalone as an installed PWA. */
+    -webkit-tap-highlight-color: transparent;
   }
 
   ::selection {
@@ -408,4 +452,18 @@ button {
 }
 .dark .hover\:text-red-600:hover {
   color: #f87171;
+}
+
+/* iOS Safari (standalone PWA included) auto-zooms the whole page when a
+   focused input's font-size is under 16px. Every text input in this app is
+   14-15px by design (text-sm / inherited body size), so on touch viewports
+   only, force 16px regardless of whichever size utility a given input
+   happens to carry -- !important is deliberate here since this has to beat
+   arbitrary per-component text-size classes, not just the base layer. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }

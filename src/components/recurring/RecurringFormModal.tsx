@@ -9,7 +9,7 @@ import { useRecurringMutations, type RecurringItem } from '@/hooks/useRecurring'
 import { todayISO } from '@/lib/format'
 import type { Cadence, RecurringKind } from '@/types/database.types'
 
-const CADENCES: Cadence[] = ['weekly', 'biweekly', 'monthly', 'quarterly', 'annual']
+const CADENCES: Cadence[] = ['weekly', 'biweekly', 'monthly', 'quarterly', 'half-yearly', 'annual']
 
 interface RecurringFormModalProps {
   open: boolean

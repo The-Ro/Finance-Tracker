@@ -10,27 +10,32 @@ import { getChartTheme } from '@/lib/themeColors'
 
 interface CategoryDonutProps {
   transactions: Transaction[]
+  /** This period's total income, for the "% of income spent" center label. */
+  income: number
 }
 
 const COLORS = ['#6558D3', '#2E7DE5', '#1E9E6B', '#E58A2E', '#C2410C', '#7C3AED', '#0EA5E9', '#DB2777', '#475569']
 
-export function CategoryDonut({ transactions }: CategoryDonutProps) {
+export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
   const { format } = useFormatCurrency()
-  const { accent, isDark } = useTheme()
-  const colors = useMemo(() => getChartTheme(accent, isDark), [accent, isDark])
+  const { accentHex, isDark } = useTheme()
+  const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
 
   const data = useMemo(() => {
     const byCategory = new Map<string, number>()
     let total = 0
     for (const t of transactions) {
       if (t.type !== 'expense') continue
-      byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + t.amount)
+      byCategory.set(t.category!, (byCategory.get(t.category!) ?? 0) + t.amount)
       total += t.amount
     }
     return Array.from(byCategory.entries())
       .map(([name, value]) => ({ name, value, pct: total > 0 ? (value / total) * 100 : 0 }))
       .sort((a, b) => b.value - a.value)
   }, [transactions])
+
+  const totalExpense = useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
+  const percentOfIncome = income > 0 ? (totalExpense / income) * 100 : null
 
   return (
     <Card className="p-5">
@@ -39,7 +44,7 @@ export function CategoryDonut({ transactions }: CategoryDonutProps) {
         <EmptyState icon={PieIcon} title="No spending yet" description="Add expense transactions to see the breakdown." />
       ) : (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="mx-auto h-48 w-48 shrink-0">
+          <div className="relative mx-auto h-48 w-48 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
@@ -55,8 +60,18 @@ export function CategoryDonut({ transactions }: CategoryDonutProps) {
                 />
               </PieChart>
             </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-xl font-semibold text-slate-900">
+                {percentOfIncome !== null ? `${percentOfIncome.toFixed(0)}%` : format(totalExpense)}
+              </span>
+              <span className="text-helper text-slate-500">{percentOfIncome !== null ? 'of income' : 'spent'}</span>
+            </div>
           </div>
-          <ul className="flex flex-1 flex-col gap-2" aria-label="Category legend">
+          {/* Capped rather than flex-1: this chart is now a full-width section on
+              its own (previously paired with the account chart in a 2-col grid),
+              so an uncapped list stretches the row wide enough that
+              justify-between pins the amount far away from the category name. */}
+          <ul className="flex w-full flex-col gap-2 sm:max-w-xs" aria-label="Category legend">
             {data.map((entry, i) => (
               <li key={entry.name} className="flex items-center justify-between gap-2 text-sm">
                 <span className="flex items-center gap-2 text-slate-700">

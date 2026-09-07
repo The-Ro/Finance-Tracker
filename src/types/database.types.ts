@@ -15,7 +15,7 @@ export type PaymentMethod =
   | 'NEFT/RTGS/IMPS'
   | 'Other'
 export type RecurringKind = 'recurring' | 'subscription'
-export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual'
+export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'annual'
 export type DocumentStatus = 'stored' | 'review'
 export type SelectedPeriod =
   | 'all-time'
@@ -25,7 +25,18 @@ export type SelectedPeriod =
   | 'last-6-months'
   | 'this-year'
 export type ThemeMode = 'light' | 'dark' | 'system'
-export type ThemeAccent = 'violet' | 'ocean' | 'sunset' | 'pink' | 'green' | 'sage' | 'mauve'
+export type ThemeAccent =
+  | 'violet'
+  | 'ocean'
+  | 'sunset'
+  | 'pink'
+  | 'green'
+  | 'sage'
+  | 'mauve'
+  | 'plum'
+  | 'crimson'
+  | 'charcoal'
+  | 'custom'
 export type Gender = 'male' | 'female' | 'prefer_not_to_say'
 export type ZodiacSign =
   | 'aries'
@@ -71,7 +82,7 @@ export interface Database {
           owner_user_id: string
           date: string
           merchant: string
-          category: string
+          category: string | null
           amount: number
           type: TransactionType
           account: string
@@ -90,7 +101,7 @@ export interface Database {
           owner_user_id: string
           date: string
           merchant: string
-          category?: string
+          category?: string | null
           amount: number
           type: TransactionType
           account: string
@@ -104,7 +115,7 @@ export interface Database {
           fingerprint: string
         }
         Update: Partial<{
-          category: string
+          category: string | null
           type: TransactionType
           account: string
           to_account: string | null
@@ -246,6 +257,11 @@ export interface Database {
         }
         Update: Partial<{ when_text: string; then_text: string; enabled: boolean }>
       }
+      feedback: {
+        Row: { id: string; owner_user_id: string; message: string; created_at: string }
+        Insert: { id?: string; owner_user_id: string; message: string }
+        Update: never
+      }
       viewer_access: {
         Row: {
           id: string
@@ -273,6 +289,7 @@ export interface Database {
           currency: string
           theme_mode: ThemeMode
           theme_accent: ThemeAccent
+          theme_custom_color: string | null
           gender: Gender | null
           date_of_birth: string | null
           onboarding_completed: boolean
@@ -281,6 +298,7 @@ export interface Database {
           whats_new_seen_version: string | null
           dashboard_order: string[]
           dashboard_hidden: string[]
+          summary_card_order: string[]
           updated_at: string
         }
         Insert: {
@@ -292,6 +310,7 @@ export interface Database {
           currency?: string
           theme_mode?: ThemeMode
           theme_accent?: ThemeAccent
+          theme_custom_color?: string | null
           gender?: Gender | null
           date_of_birth?: string | null
           onboarding_completed?: boolean
@@ -300,6 +319,7 @@ export interface Database {
           whats_new_seen_version?: string | null
           dashboard_order?: string[]
           dashboard_hidden?: string[]
+          summary_card_order?: string[]
         }
         Update: Partial<{
           assets_total: number
@@ -309,6 +329,7 @@ export interface Database {
           currency: string
           theme_mode: ThemeMode
           theme_accent: ThemeAccent
+          theme_custom_color: string | null
           gender: Gender | null
           date_of_birth: string | null
           onboarding_completed: boolean
@@ -317,6 +338,7 @@ export interface Database {
           whats_new_seen_version: string | null
           dashboard_order: string[]
           dashboard_hidden: string[]
+          summary_card_order: string[]
         }>
       }
     }

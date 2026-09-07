@@ -35,7 +35,7 @@ export function RecentActivity({ title, transactions, showOwner, profiles, empty
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-slate-800">{t.merchant}</p>
                     <p className="truncate text-helper text-slate-500">
-                      {formatShortDate(t.date)} · {t.category} · {t.account}
+                      {formatShortDate(t.date)} · {t.type === 'transfer' ? 'Transfer' : t.category} · {t.account}
                     </p>
                   </div>
                 </div>

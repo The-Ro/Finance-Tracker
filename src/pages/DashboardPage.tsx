@@ -18,7 +18,12 @@ import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, resolvePriorPeriod, isWithinRange } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
-import { DEFAULT_DASHBOARD_ORDER, type DashboardSectionId } from '@/lib/dashboardSections'
+import {
+  DEFAULT_DASHBOARD_ORDER,
+  DEFAULT_SUMMARY_CARD_ORDER,
+  type DashboardSectionId,
+  type SummaryCardId,
+} from '@/lib/dashboardSections'
 import { Link } from 'react-router-dom'
 
 function DashboardSkeleton() {
@@ -102,6 +107,66 @@ export function DashboardPage() {
 
   const order = settings.data?.dashboardOrder ?? DEFAULT_DASHBOARD_ORDER
   const hidden = settings.data?.dashboardHidden ?? []
+  const summaryCardOrder = settings.data?.summaryCardOrder ?? DEFAULT_SUMMARY_CARD_ORDER
+
+  // The four summary cards are reorderable among themselves too (nested
+  // under "Summary cards" in Customize) -- same "build once, look up by id"
+  // pattern as the top-level sections below.
+  const summaryCards: Record<SummaryCardId, ReactNode> = {
+    netWorth: (
+      <SummaryCard
+        key="netWorth"
+        label="Net worth"
+        value={settings.data?.netWorthConfigured ? format(netWorth ?? 0) : 'Not set'}
+        numericValue={settings.data?.netWorthConfigured ? (netWorth ?? 0) : undefined}
+        format={format}
+        footer={
+          settings.data?.netWorthConfigured ? (
+            'Assets minus liabilities'
+          ) : (
+            <>
+              Add your assets and liabilities in{' '}
+              <Link to="/settings#net-worth" className="font-medium text-accent hover:underline">
+                Settings
+              </Link>
+              .
+            </>
+          )
+        }
+      />
+    ),
+    income: (
+      <SummaryCard
+        key="income"
+        label="Income"
+        value={format(income)}
+        numericValue={income}
+        format={format}
+        valueClassName="text-positive"
+        footer={hasPriorData ? `${format(priorIncome)} last period` : 'No trend yet'}
+      />
+    ),
+    spending: (
+      <SummaryCard
+        key="spending"
+        label="Spending"
+        value={format(spending)}
+        numericValue={spending}
+        format={format}
+        footer={hasPriorData ? `${format(priorSpending)} last period` : 'No trend yet'}
+      />
+    ),
+    savingsRate: (
+      <SummaryCard
+        key="savingsRate"
+        label="Savings rate"
+        value={`${savingsRate.toFixed(0)}%`}
+        numericValue={savingsRate}
+        format={(n) => `${n.toFixed(0)}%`}
+        footer={income === 0 ? 'Add income to calculate' : `${format(income - spending)} saved`}
+      />
+    ),
+  }
 
   // Built once the loading gate above has passed, so every section here can
   // freely use `settings.data`/`myTransactions.data` without its own null
@@ -110,59 +175,18 @@ export function DashboardPage() {
   const sections: Record<DashboardSectionId, ReactNode> = {
     summary: (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard
-          label="Net worth"
-          value={settings.data?.netWorthConfigured ? format(netWorth ?? 0) : 'Not set'}
-          numericValue={settings.data?.netWorthConfigured ? (netWorth ?? 0) : undefined}
-          format={format}
-          footer={
-            settings.data?.netWorthConfigured ? (
-              'Assets minus liabilities'
-            ) : (
-              <>
-                Add your assets and liabilities in{' '}
-                <Link to="/settings#net-worth" className="font-medium text-accent hover:underline">
-                  Settings
-                </Link>
-                .
-              </>
-            )
-          }
-        />
-        <SummaryCard
-          label="Income"
-          value={format(income)}
-          numericValue={income}
-          format={format}
-          valueClassName="text-positive"
-          footer={hasPriorData ? `${format(priorIncome)} last period` : 'No trend yet'}
-        />
-        <SummaryCard
-          label="Spending"
-          value={format(spending)}
-          numericValue={spending}
-          format={format}
-          footer={hasPriorData ? `${format(priorSpending)} last period` : 'No trend yet'}
-        />
-        <SummaryCard
-          label="Savings rate"
-          value={`${savingsRate.toFixed(0)}%`}
-          numericValue={savingsRate}
-          format={(n) => `${n.toFixed(0)}%`}
-          footer={income === 0 ? 'Add income to calculate' : `${format(income - spending)} saved`}
-        />
+        {summaryCardOrder.map((id) => summaryCards[id])}
       </div>
     ),
     // Cash flow is an independent trailing-months trend, not tied to the
     // period filter above -- otherwise "This month" would only ever have
     // one point to plot.
     cashflow: <CashFlowChart transactions={myTransactions.data ?? []} />,
-    breakdown: (
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <CategoryDonut transactions={inPeriod} />
-        <AccountBarChart transactions={inPeriod} />
-      </div>
-    ),
+    // Category and account breakdowns are separately reorderable/hideable --
+    // each rendered full-width (rather than paired in a 2-col grid) since
+    // Customize can now put something else between them.
+    categoryChart: <CategoryDonut transactions={inPeriod} income={income} />,
+    accountChart: <AccountBarChart transactions={inPeriod} />,
     activity: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <RecentActivity

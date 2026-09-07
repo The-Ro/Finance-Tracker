@@ -12,6 +12,8 @@ import { PersonalDetails } from '@/components/settings/PersonalDetails'
 import { EmailSettings } from '@/components/settings/EmailSettings'
 import { PasswordSettings } from '@/components/settings/PasswordSettings'
 import { SharingSettings } from '@/components/settings/SharingSettings'
+import { FeedbackForm } from '@/components/settings/FeedbackForm'
+import { AboutSection } from '@/components/settings/AboutSection'
 
 function SectionHeading({ title, description }: { title: string; description?: string }) {
   return (
@@ -108,9 +110,16 @@ export function SettingsPage() {
       </section>
 
       <section className="flex flex-col gap-4">
+        <SectionHeading title="Feedback" description="Bugs, requests, anything -- goes straight to us." />
+        <FeedbackForm />
+      </section>
+
+      <section className="flex flex-col gap-4">
         <SectionHeading title="Danger zone" />
         <DangerZone />
       </section>
+
+      <AboutSection />
     </div>
   )
 }

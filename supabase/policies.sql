@@ -166,6 +166,16 @@ drop policy if exists user_settings_update_own on public.user_settings;
 create policy user_settings_update_own on public.user_settings for update
   using (auth.uid() = owner_user_id) with check (auth.uid() = owner_user_id);
 
+-- feedback: insert/select only -- a submission is an honest, unedited record,
+-- not something the submitter can quietly rewrite or delete afterward.
+alter table public.feedback enable row level security;
+drop policy if exists feedback_select_own on public.feedback;
+create policy feedback_select_own on public.feedback for select
+  using (auth.uid() = owner_user_id);
+drop policy if exists feedback_insert_own on public.feedback;
+create policy feedback_insert_own on public.feedback for insert
+  with check (auth.uid() = owner_user_id);
+
 -- ================= Storage (documents bucket) =================
 -- Create the bucket once (private -- not publicly readable).
 insert into storage.buckets (id, name, public)

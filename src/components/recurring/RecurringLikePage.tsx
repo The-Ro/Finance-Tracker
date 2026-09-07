@@ -34,6 +34,8 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
           ? (c.amount * 26) / 12
           : c.cadence === 'quarterly'
           ? c.amount / 3
+          : c.cadence === 'half-yearly'
+          ? c.amount / 6
           : c.cadence === 'annual'
           ? c.amount / 12
           : c.amount

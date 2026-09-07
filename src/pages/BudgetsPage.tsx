@@ -25,7 +25,7 @@ export function BudgetsPage() {
     const map = new Map<string, number>()
     for (const t of myTransactions.data ?? []) {
       if (t.type !== 'expense' || !isWithinRange(t.date, thisMonthRange)) continue
-      map.set(t.category, (map.get(t.category) ?? 0) + t.amount)
+      map.set(t.category!, (map.get(t.category!) ?? 0) + t.amount)
     }
     return map
   }, [myTransactions.data, thisMonthRange])

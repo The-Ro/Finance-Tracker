@@ -66,7 +66,7 @@ export function TransactionTable({
       if (!q) return true
       return (
         t.merchant.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q) ||
+        (t.category ?? '').toLowerCase().includes(q) ||
         t.tags.some((tag) => tag.toLowerCase().includes(q))
       )
     })
@@ -211,11 +211,11 @@ export function TransactionTable({
                           Transfer
                         </span>
                       ) : (
-                        <InlineCategoryEditor transactionId={t.id} category={t.category} type={t.type} editable={editable} />
+                        <InlineCategoryEditor transactionId={t.id} category={t.category ?? ''} type={t.type} editable={editable} />
                       )}
                       <div className="shrink-0 text-right">
                         <span className="text-sm text-slate-600">{accountDisplay}</span>
-                        {t.payment_method && <p className="text-helper text-slate-400">{t.payment_method}</p>}
+                        {t.payment_method && <p className="text-helper text-slate-400">via {t.payment_method}</p>}
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3">
@@ -262,14 +262,14 @@ export function TransactionTable({
                           Transfer
                         </span>
                       ) : (
-                        <InlineCategoryEditor transactionId={t.id} category={t.category} type={t.type} editable={editable} />
+                        <InlineCategoryEditor transactionId={t.id} category={t.category ?? ''} type={t.type} editable={editable} />
                       )}
                     </div>
                     <div className="min-w-0">
                       <div className="truncate text-sm text-slate-600" title={accountDisplay}>
                         {accountDisplay}
                       </div>
-                      {t.payment_method && <div className="truncate text-helper text-slate-400">{t.payment_method}</div>}
+                      {t.payment_method && <div className="truncate text-helper text-slate-400">via {t.payment_method}</div>}
                     </div>
                     <div>
                       <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />

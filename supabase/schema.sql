@@ -228,6 +228,16 @@ alter table public.transactions drop constraint if exists transactions_to_accoun
 alter table public.transactions add constraint transactions_to_account_owner_fkey
   foreign key (owner_user_id, to_account) references public.accounts (owner_user_id, name);
 
+-- Transfers were being force-categorized as 'Needs review', a category row
+-- that isn't guaranteed to exist for every user -- it's a normal per-user
+-- category row, not a protected sentinel, so any account missing it got a
+-- category FK violation on every transfer attempt. A transfer isn't
+-- spending/income in the first place, so it doesn't need a category at all.
+alter table public.transactions alter column category drop not null;
+alter table public.transactions drop constraint if exists transactions_category_required_unless_transfer;
+alter table public.transactions add constraint transactions_category_required_unless_transfer
+  check (category is not null or type = 'transfer');
+
 -- How the transaction was made (UPI/Cash/Card/etc.) -- a fixed small set, not
 -- a personal per-user list like categories/accounts, so a plain check
 -- constraint instead of its own owned lookup table. Optional/descriptive
@@ -270,11 +280,15 @@ create table if not exists public.recurring_items (
   name text not null,
   category text not null,
   amount numeric(12,2) not null check (amount > 0),
-  cadence text not null check (cadence in ('weekly','biweekly','monthly','quarterly','annual')),
+  cadence text not null check (cadence in ('weekly','biweekly','monthly','quarterly','half-yearly','annual')),
   next_date date not null,
   account text,
   active boolean not null default true,
   created_at timestamptz not null default now()
+);
+alter table public.recurring_items drop constraint if exists recurring_items_cadence_check;
+alter table public.recurring_items add constraint recurring_items_cadence_check check (
+  cadence in ('weekly','biweekly','monthly','quarterly','half-yearly','annual')
 );
 
 -- Composite FKs (owner_user_id, name) so a transaction/budget/recurring item's category
@@ -340,6 +354,15 @@ create table if not exists public.rules (
   created_at timestamptz not null default now()
 );
 
+-- ===== feedback (own-only: insert + read your own submissions) =====
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  message text not null check (char_length(trim(message)) > 0),
+  created_at timestamptz not null default now()
+);
+create index if not exists feedback_owner_idx on public.feedback (owner_user_id, created_at desc);
+
 -- ===== viewer access: private-by-default sharing of transactions =====
 -- A row is both the request AND, once approved, the standing grant. The
 -- requester wants to see the owner's transactions; only the owner can flip
@@ -369,15 +392,17 @@ create table if not exists public.user_settings (
   ),
   currency text not null default 'USD',
   theme_mode text not null default 'system' check (theme_mode in ('light','dark','system')),
-  theme_accent text not null default 'violet' check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve')),
+  theme_accent text not null default 'violet' check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve','plum','crimson','charcoal','custom')),
+  theme_custom_color text check (theme_custom_color is null or theme_custom_color ~ '^#[0-9A-Fa-f]{6}$'),
   gender text check (gender in ('male','female','prefer_not_to_say')),
   date_of_birth date,
   onboarding_completed boolean not null default false,
   interests text[] not null default '{}',
   zodiac_sign text,
   whats_new_seen_version text,
-  dashboard_order text[] not null default array['summary','cashflow','breakdown','activity','review'],
+  dashboard_order text[] not null default array['summary','cashflow','categoryChart','accountChart','activity','review'],
   dashboard_hidden text[] not null default '{}',
+  summary_card_order text[] not null default array['netWorth','income','spending','savingsRate'],
   updated_at timestamptz not null default now()
 );
 alter table public.user_settings add column if not exists currency text not null default 'USD';
@@ -390,8 +415,21 @@ alter table public.user_settings add column if not exists interests text[] not n
 alter table public.user_settings add column if not exists zodiac_sign text;
 alter table public.user_settings add column if not exists whats_new_seen_version text;
 alter table public.user_settings add column if not exists dashboard_order text[]
-  not null default array['summary','cashflow','breakdown','activity','review'];
+  not null default array['summary','cashflow','categoryChart','accountChart','activity','review'];
 alter table public.user_settings add column if not exists dashboard_hidden text[] not null default '{}';
+-- Dashboard section ids changed twice after initial launch: 'spending' was
+-- split out of 'summary' then folded back in, and 'breakdown' split into
+-- 'categoryChart'/'accountChart'. Keep the column default current for any
+-- fresh install running this file from scratch.
+alter table public.user_settings alter column dashboard_order
+  set default array['summary','cashflow','categoryChart','accountChart','activity','review'];
+alter table public.user_settings add column if not exists theme_custom_color text;
+alter table public.user_settings add column if not exists summary_card_order text[]
+  not null default array['netWorth','income','spending','savingsRate'];
+alter table public.user_settings drop constraint if exists user_settings_theme_custom_color_check;
+alter table public.user_settings add constraint user_settings_theme_custom_color_check check (
+  theme_custom_color is null or theme_custom_color ~ '^#[0-9A-Fa-f]{6}$'
+);
 alter table public.user_settings drop constraint if exists user_settings_zodiac_sign_check;
 alter table public.user_settings add constraint user_settings_zodiac_sign_check check (zodiac_sign in (
   'aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'
@@ -399,7 +437,7 @@ alter table public.user_settings add constraint user_settings_zodiac_sign_check 
 alter table public.user_settings drop constraint if exists user_settings_theme_mode_check;
 alter table public.user_settings add constraint user_settings_theme_mode_check check (theme_mode in ('light','dark','system'));
 alter table public.user_settings drop constraint if exists user_settings_theme_accent_check;
-alter table public.user_settings add constraint user_settings_theme_accent_check check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve'));
+alter table public.user_settings add constraint user_settings_theme_accent_check check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve','plum','crimson','charcoal','custom'));
 alter table public.user_settings drop constraint if exists user_settings_gender_check;
 alter table public.user_settings add constraint user_settings_gender_check check (gender in ('male','female','prefer_not_to_say'));
 

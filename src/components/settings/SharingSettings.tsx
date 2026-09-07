@@ -4,7 +4,6 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Avatar } from '@/components/ui/Avatar'
-import { IncomingAccessRequests } from './IncomingAccessRequests'
 import { useAuth } from '@/context/AuthContext'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useOwnedAccessRows, useRequestedAccessRows, useSendAccessRequest, useRemoveAccessRow } from '@/hooks/useSharing'
@@ -57,8 +56,6 @@ export function SharingSettings() {
 
   return (
     <div className="flex flex-col gap-4">
-      <IncomingAccessRequests />
-
       <Card className="flex flex-col gap-3 p-5">
         <div>
           <h3 className="text-sm font-semibold text-slate-800">People who can see your transactions</h3>

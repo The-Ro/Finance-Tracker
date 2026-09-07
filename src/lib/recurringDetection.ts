@@ -39,6 +39,7 @@ const CADENCE_WINDOWS: { cadence: Cadence; min: number; max: number }[] = [
   { cadence: 'biweekly', min: 12, max: 17 },
   { cadence: 'monthly', min: 24, max: 40 },
   { cadence: 'quarterly', min: 75, max: 110 },
+  { cadence: 'half-yearly', min: 165, max: 200 },
   { cadence: 'annual', min: 330, max: 400 },
 ]
 
@@ -96,6 +97,8 @@ function nextDateForCadence(lastDate: string, cadence: Cadence): string {
       return addMonthsPreserveDay(lastDate, 1)
     case 'quarterly':
       return addMonthsPreserveDay(lastDate, 3)
+    case 'half-yearly':
+      return addMonthsPreserveDay(lastDate, 6)
     case 'annual':
       return addMonthsPreserveDay(lastDate, 12)
   }
@@ -111,6 +114,8 @@ function monthlyEquivalent(amount: number, cadence: Cadence): number {
       return amount
     case 'quarterly':
       return amount / 3
+    case 'half-yearly':
+      return amount / 6
     case 'annual':
       return amount / 12
   }
@@ -180,7 +185,8 @@ export function detectRecurringCandidates(
     } else {
       // No strong hint: only surface highly stable, non-weekly/biweekly patterns
       // (protects against routine grocery/shopping trips being misread as recurring).
-      const stableCadence = cadence === 'monthly' || cadence === 'quarterly' || cadence === 'annual'
+      const stableCadence =
+        cadence === 'monthly' || cadence === 'quarterly' || cadence === 'half-yearly' || cadence === 'annual'
       if (!stableCadence || uniqueDates.length < 3 || variationPct > 3) continue
     }
 

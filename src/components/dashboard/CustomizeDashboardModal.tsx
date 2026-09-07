@@ -1,26 +1,132 @@
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { Eye, EyeOff, GripVertical } from 'lucide-react'
 import clsx from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { useUserSettings } from '@/hooks/useUserSettings'
-import { DASHBOARD_SECTION_LABELS, type DashboardSectionId } from '@/lib/dashboardSections'
+import {
+  DASHBOARD_SECTION_LABELS,
+  SUMMARY_CARD_LABELS,
+  type DashboardSectionId,
+  type SummaryCardId,
+} from '@/lib/dashboardSections'
 
 interface CustomizeDashboardModalProps {
   open: boolean
   onClose: () => void
 }
 
+interface SortableRowProps {
+  id: DashboardSectionId
+  hidden: boolean
+  onToggleHidden: () => void
+}
+
+function SortableRow({ id, hidden, onToggleHidden }: SortableRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={clsx(
+        'flex items-center gap-2 rounded-lg border border-app-border bg-white px-2 py-2.5',
+        hidden && 'opacity-50',
+        isDragging && 'relative z-10 shadow-card-lg'
+      )}
+    >
+      <button
+        type="button"
+        aria-label={`Drag to reorder ${DASHBOARD_SECTION_LABELS[id]}`}
+        className="flex h-8 w-8 shrink-0 touch-none cursor-grab items-center justify-center text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={16} />
+      </button>
+      <span className="flex-1 text-sm text-slate-700">{DASHBOARD_SECTION_LABELS[id]}</span>
+      <button
+        type="button"
+        aria-label={hidden ? `Show ${DASHBOARD_SECTION_LABELS[id]} on Home` : `Hide ${DASHBOARD_SECTION_LABELS[id]} from Home`}
+        aria-pressed={!hidden}
+        onClick={onToggleHidden}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      >
+        {hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  )
+}
+
+function SummaryCardRow({ id }: { id: SummaryCardId }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={clsx(
+        'flex items-center gap-2 rounded-lg border border-app-border bg-white px-2 py-2',
+        isDragging && 'relative z-10 shadow-card-lg'
+      )}
+    >
+      <button
+        type="button"
+        aria-label={`Drag to reorder ${SUMMARY_CARD_LABELS[id]} card`}
+        className="flex h-7 w-7 shrink-0 touch-none cursor-grab items-center justify-center text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={14} />
+      </button>
+      <span className="flex-1 text-helper text-slate-600">{SUMMARY_CARD_LABELS[id]}</span>
+    </li>
+  )
+}
+
 export function CustomizeDashboardModal({ open, onClose }: CustomizeDashboardModalProps) {
   const { data, updateDashboardLayout } = useUserSettings()
   const order = data?.dashboardOrder ?? []
   const hidden = data?.dashboardHidden ?? []
+  const summaryCardOrder = data?.summaryCardOrder ?? []
 
-  const move = (index: number, direction: -1 | 1) => {
-    const target = index + direction
-    if (target < 0 || target >= order.length) return
-    const next = [...order]
-    ;[next[index], next[target]] = [next[target], next[index]]
-    updateDashboardLayout.mutate({ order: next })
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = order.indexOf(active.id as DashboardSectionId)
+    const newIndex = order.indexOf(over.id as DashboardSectionId)
+    if (oldIndex === -1 || newIndex === -1) return
+    updateDashboardLayout.mutate({ order: arrayMove(order, oldIndex, newIndex) })
+  }
+
+  const handleSummaryCardDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = summaryCardOrder.indexOf(active.id as SummaryCardId)
+    const newIndex = summaryCardOrder.indexOf(over.id as SummaryCardId)
+    if (oldIndex === -1 || newIndex === -1) return
+    updateDashboardLayout.mutate({ summaryCardOrder: arrayMove(summaryCardOrder, oldIndex, newIndex) })
   }
 
   const toggleHidden = (id: DashboardSectionId) => {
@@ -40,51 +146,40 @@ export function CustomizeDashboardModal({ open, onClose }: CustomizeDashboardMod
       }
     >
       <div className="flex flex-col gap-3">
-        <p className="text-helper text-slate-500">Choose what shows on Home, and in what order.</p>
-        <ul className="flex flex-col gap-1.5">
-          {order.map((id, i) => {
-            const isHidden = hidden.includes(id)
-            return (
-              <li
-                key={id}
-                className={clsx(
-                  'flex items-center gap-3 rounded-lg border border-app-border px-3 py-2.5',
-                  isHidden && 'opacity-50'
-                )}
-              >
-                <label className="flex flex-1 items-center gap-2.5 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={!isHidden}
-                    onChange={() => toggleHidden(id)}
-                    className="h-4 w-4 shrink-0 rounded border-app-border"
-                  />
-                  {DASHBOARD_SECTION_LABELS[id]}
-                </label>
-                <div className="flex shrink-0 gap-1">
-                  <button
-                    type="button"
-                    aria-label={`Move ${DASHBOARD_SECTION_LABELS[id]} up`}
-                    disabled={i === 0}
-                    onClick={() => move(i, -1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-                  >
-                    <ChevronUp size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Move ${DASHBOARD_SECTION_LABELS[id]} down`}
-                    disabled={i === order.length - 1}
-                    onClick={() => move(i, 1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-                  >
-                    <ChevronDown size={16} />
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        <p className="text-helper text-slate-500">Drag to reorder, or tap the eye to hide from Home.</p>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={order} strategy={verticalListSortingStrategy}>
+            <ul className="flex flex-col gap-1.5">
+              {order.map((id) => (
+                <li key={id} className="flex flex-col gap-1.5">
+                  <SortableRow id={id} hidden={hidden.includes(id)} onToggleHidden={() => toggleHidden(id)} />
+                  {/* The 4 summary cards get their own nested drag order,
+                      separate from where "Summary cards" itself sits among
+                      the other sections -- a second, independent DndContext
+                      so its grip handles don't fight the outer list's. */}
+                  {id === 'summary' && (
+                    <div className="ml-6 flex flex-col gap-1.5 border-l-2 border-app-border pl-3">
+                      <p className="text-helper text-slate-400">Card order</p>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleSummaryCardDragEnd}
+                      >
+                        <SortableContext items={summaryCardOrder} strategy={verticalListSortingStrategy}>
+                          <ul className="flex flex-col gap-1.5">
+                            {summaryCardOrder.map((cardId) => (
+                              <SummaryCardRow key={cardId} id={cardId} />
+                            ))}
+                          </ul>
+                        </SortableContext>
+                      </DndContext>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
       </div>
     </Modal>
   )

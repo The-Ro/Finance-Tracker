@@ -16,8 +16,8 @@ const compactFormatter = new Intl.NumberFormat(undefined, { notation: 'compact',
 
 export function CashFlowChart({ transactions }: CashFlowChartProps) {
   const { format } = useFormatCurrency()
-  const { accent, isDark } = useTheme()
-  const colors = useMemo(() => getChartTheme(accent, isDark), [accent, isDark])
+  const { accentHex, isDark } = useTheme()
+  const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
 
   const points = useMemo(() => {
     const byMonth = new Map<string, { income: number; expense: number }>()

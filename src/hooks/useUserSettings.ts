@@ -3,7 +3,14 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { DEFAULT_CURRENCY } from '@/lib/currency'
 import { CURRENT_WHATS_NEW_VERSION } from '@/lib/whatsNew'
-import { DEFAULT_DASHBOARD_ORDER, normalizeDashboardOrder, type DashboardSectionId } from '@/lib/dashboardSections'
+import {
+  DEFAULT_DASHBOARD_ORDER,
+  DEFAULT_SUMMARY_CARD_ORDER,
+  normalizeDashboardOrder,
+  normalizeSummaryCardOrder,
+  type DashboardSectionId,
+  type SummaryCardId,
+} from '@/lib/dashboardSections'
 import type { Gender, SelectedPeriod, ThemeAccent, ThemeMode, ZodiacSign } from '@/types/database.types'
 
 export interface UserSettings {
@@ -14,6 +21,7 @@ export interface UserSettings {
   currency: string
   themeMode: ThemeMode
   themeAccent: ThemeAccent
+  themeCustomColor: string | null
   gender: Gender | null
   dateOfBirth: string | null
   onboardingCompleted: boolean
@@ -22,6 +30,7 @@ export interface UserSettings {
   whatsNewSeenVersion: string | null
   dashboardOrder: DashboardSectionId[]
   dashboardHidden: string[]
+  summaryCardOrder: SummaryCardId[]
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -32,6 +41,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   currency: DEFAULT_CURRENCY,
   themeMode: 'system',
   themeAccent: 'violet',
+  themeCustomColor: null,
   gender: null,
   dateOfBirth: null,
   onboardingCompleted: false,
@@ -40,6 +50,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   whatsNewSeenVersion: null,
   dashboardOrder: DEFAULT_DASHBOARD_ORDER,
   dashboardHidden: [],
+  summaryCardOrder: DEFAULT_SUMMARY_CARD_ORDER,
 }
 
 export function useUserSettings() {
@@ -72,6 +83,7 @@ export function useUserSettings() {
         currency: data.currency,
         themeMode: data.theme_mode,
         themeAccent: data.theme_accent,
+        themeCustomColor: data.theme_custom_color,
         gender: data.gender,
         dateOfBirth: data.date_of_birth,
         onboardingCompleted: data.onboarding_completed,
@@ -80,6 +92,7 @@ export function useUserSettings() {
         whatsNewSeenVersion: data.whats_new_seen_version,
         dashboardOrder: normalizeDashboardOrder(data.dashboard_order),
         dashboardHidden: data.dashboard_hidden ?? [],
+        summaryCardOrder: normalizeSummaryCardOrder(data.summary_card_order),
       }
     },
   })
@@ -126,12 +139,13 @@ export function useUserSettings() {
   })
 
   const updateTheme = useMutation({
-    mutationFn: async (input: { themeMode?: ThemeMode; themeAccent?: ThemeAccent }) => {
+    mutationFn: async (input: { themeMode?: ThemeMode; themeAccent?: ThemeAccent; themeCustomColor?: string | null }) => {
       const { error } = await supabase
         .from('user_settings')
         .update({
           ...(input.themeMode ? { theme_mode: input.themeMode } : {}),
           ...(input.themeAccent ? { theme_accent: input.themeAccent } : {}),
+          ...(input.themeCustomColor !== undefined ? { theme_custom_color: input.themeCustomColor } : {}),
         })
         .eq('owner_user_id', userId!)
       if (error) throw error
@@ -140,7 +154,11 @@ export function useUserSettings() {
   })
 
   const updateDashboardLayout = useMutation({
-    mutationFn: async (input: { order?: DashboardSectionId[]; hidden?: string[] }) => {
+    mutationFn: async (input: {
+      order?: DashboardSectionId[]
+      hidden?: string[]
+      summaryCardOrder?: SummaryCardId[]
+    }) => {
       const previous = query.data
       queryClient.setQueryData(['user_settings', userId], (old: UserSettings | undefined) =>
         old
@@ -148,6 +166,7 @@ export function useUserSettings() {
               ...old,
               ...(input.order ? { dashboardOrder: input.order } : {}),
               ...(input.hidden ? { dashboardHidden: input.hidden } : {}),
+              ...(input.summaryCardOrder ? { summaryCardOrder: input.summaryCardOrder } : {}),
             }
           : old
       )
@@ -156,6 +175,7 @@ export function useUserSettings() {
         .update({
           ...(input.order ? { dashboard_order: input.order } : {}),
           ...(input.hidden ? { dashboard_hidden: input.hidden } : {}),
+          ...(input.summaryCardOrder ? { summary_card_order: input.summaryCardOrder } : {}),
         })
         .eq('owner_user_id', userId!)
       if (error) {

@@ -153,7 +153,9 @@ export function useRecurringData(kind: RecurringKind) {
 
   const suggestions = useMemo(() => {
     if (!transactionsQuery.data || !itemsQuery.data || !dismissedQuery.data) return []
-    const expenseTxns = transactionsQuery.data.filter((t) => t.type === 'expense')
+    const expenseTxns = transactionsQuery.data
+      .filter((t) => t.type === 'expense')
+      .map((t) => ({ date: t.date, merchant: t.merchant, category: t.category ?? '', amount: t.amount, tags: t.tags }))
     const confirmedNormalized = new Set(itemsQuery.data.map((item) => normalizeMerchant(item.name)))
     const all = detectRecurringCandidates(expenseTxns, confirmedNormalized, dismissedQuery.data)
     return all.filter((c) => c.kind === kind)

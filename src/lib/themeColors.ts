@@ -12,6 +12,13 @@ export const ACCENT_HEX: Record<ThemeAccent, string> = {
   green: '#16A34A',
   sage: '#6B8E7A',
   mauve: '#A38191',
+  plum: '#7A2A59',
+  crimson: '#B92D37',
+  charcoal: '#474E5C',
+  // Never actually read -- ThemeContext resolves 'custom' to the user's own
+  // hex before anything looks it up here. Present only so this record stays
+  // complete over every ThemeAccent value.
+  custom: '#6558D3',
 }
 
 export interface ChartTheme {
@@ -23,9 +30,12 @@ export interface ChartTheme {
   tooltipBg: string
 }
 
-export function getChartTheme(accent: ThemeAccent, isDark: boolean): ChartTheme {
+/** `accentHex` is the resolved concrete color (from `useTheme().accentHex`)
+ *  rather than the `ThemeAccent` enum -- this needs to work for a custom
+ *  user-picked color too, which has no entry in `ACCENT_HEX`. */
+export function getChartTheme(accentHex: string, isDark: boolean): ChartTheme {
   return {
-    accent: ACCENT_HEX[accent],
+    accent: accentHex,
     // Matches the `--positive` CSS token (index.css) -- a fixed, semantic
     // green rather than the user's chosen brand accent, so charts comparing
     // money in vs. money out read the same conventional way (green = income)
