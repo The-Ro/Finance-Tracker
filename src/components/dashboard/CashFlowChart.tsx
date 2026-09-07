@@ -26,7 +26,7 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
       if (!byMonth.has(key)) byMonth.set(key, { income: 0, expense: 0 })
       const bucket = byMonth.get(key)!
       if (t.type === 'income') bucket.income += t.amount
-      else bucket.expense += t.amount
+      else if (t.type === 'expense') bucket.expense += t.amount
     }
     const sortedKeys = Array.from(byMonth.keys()).sort().slice(-7)
     return sortedKeys.map((key) => {

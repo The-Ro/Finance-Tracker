@@ -10,6 +10,7 @@ import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
 import { CashFlowChart } from '@/components/dashboard/CashFlowChart'
 import { CategoryDonut } from '@/components/dashboard/CategoryDonut'
+import { AccountBarChart } from '@/components/dashboard/AccountBarChart'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { ComingUpCard } from '@/components/dashboard/ComingUpCard'
 import { Card } from '@/components/ui/Card'
@@ -34,6 +35,9 @@ function DashboardSkeleton() {
           </Card>
         ))}
       </div>
+      <Card className="p-5">
+        <Skeleton className="h-48 w-full" />
+      </Card>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card className="p-5">
           <Skeleton className="h-48 w-full" />
@@ -89,7 +93,7 @@ export function DashboardPage() {
     ? settings.data.assetsTotal - settings.data.liabilitiesTotal
     : null
 
-  const needsReviewCount = inPeriod.filter((t) => t.category === 'Needs review').length
+  const needsReviewCount = inPeriod.filter((t) => t.type !== 'transfer' && t.category === 'Needs review').length
 
   const everyoneRecent = everyoneTransactions.data ?? []
 
@@ -117,7 +121,7 @@ export function DashboardPage() {
             ) : (
               <>
                 Add your assets and liabilities in{' '}
-                <Link to="/settings" className="font-medium text-accent hover:underline">
+                <Link to="/settings#net-worth" className="font-medium text-accent hover:underline">
                   Settings
                 </Link>
                 .
@@ -149,12 +153,14 @@ export function DashboardPage() {
         />
       </div>
 
+      {/* Cash flow is an independent trailing-months trend, not tied to the
+          period filter above -- otherwise "This month" would only ever
+          have one point to plot. */}
+      <CashFlowChart transactions={myTransactions.data ?? []} />
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {/* Cash flow is an independent trailing-months trend, not tied to the
-            period filter above -- otherwise "This month" would only ever
-            have one point to plot. */}
-        <CashFlowChart transactions={myTransactions.data ?? []} />
         <CategoryDonut transactions={inPeriod} />
+        <AccountBarChart transactions={inPeriod} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { NetWorthForm } from '@/components/settings/NetWorthForm'
 import { ManagedListEditor } from '@/components/settings/ManagedListEditor'
@@ -21,8 +23,21 @@ function SectionHeading({ title, description }: { title: string; description?: s
 }
 
 export function SettingsPage() {
-  const { data: categories = [], add: addCategory } = useCategories()
-  const { data: accounts = [], add: addAccount } = useAccounts()
+  const { expense: expenseCategories, income: incomeCategories, add: addCategory, remove: removeCategory } = useCategories()
+  const { data: accounts = [], add: addAccount, remove: removeAccount } = useAccounts()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!location.hash) return
+    const id = location.hash.slice(1)
+    const scroll = () => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Each section fetches its own data independently, so the page is still
+    // growing taller as things above the target load in -- one scroll at
+    // mount time lands short. Retry a couple of times as that settles.
+    scroll()
+    const retries = [150, 400, 800, 1400, 2200, 3200].map((delay) => setTimeout(scroll, delay))
+    return () => retries.forEach(clearTimeout)
+  }, [location.hash])
 
   return (
     <div className="flex flex-col gap-8">
@@ -54,11 +69,29 @@ export function SettingsPage() {
 
       <section className="flex flex-col gap-4">
         <SectionHeading title="Financial setup" description="Net worth, plus your personal categories and accounts." />
-        <NetWorthForm />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ManagedListEditor title="Categories" items={categories} onAdd={(name) => addCategory.mutateAsync(name)} />
-          <ManagedListEditor title="Accounts" items={accounts} onAdd={(name) => addAccount.mutateAsync(name)} />
+        <div id="net-worth" className="scroll-mt-24">
+          <NetWorthForm />
         </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ManagedListEditor
+            title="Expense categories"
+            items={expenseCategories}
+            onAdd={(name) => addCategory.mutateAsync({ name, kind: 'expense' })}
+            onRemove={(name) => removeCategory.mutateAsync(name)}
+          />
+          <ManagedListEditor
+            title="Income categories"
+            items={incomeCategories}
+            onAdd={(name) => addCategory.mutateAsync({ name, kind: 'income' })}
+            onRemove={(name) => removeCategory.mutateAsync(name)}
+          />
+        </div>
+        <ManagedListEditor
+          title="Accounts"
+          items={accounts}
+          onAdd={(name) => addAccount.mutateAsync(name)}
+          onRemove={(name) => removeAccount.mutateAsync(name)}
+        />
       </section>
 
       <section className="flex flex-col gap-4">

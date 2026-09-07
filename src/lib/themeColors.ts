@@ -14,6 +14,7 @@ export const ACCENT_HEX: Record<ThemeAccent, string> = {
 
 export interface ChartTheme {
   accent: string
+  positive: string
   caution: string
   border: string
   tick: string
@@ -23,6 +24,11 @@ export interface ChartTheme {
 export function getChartTheme(accent: ThemeAccent, isDark: boolean): ChartTheme {
   return {
     accent: ACCENT_HEX[accent],
+    // Matches the `--positive` CSS token (index.css) -- a fixed, semantic
+    // green rather than the user's chosen brand accent, so charts comparing
+    // money in vs. money out read the same conventional way (green = income)
+    // regardless of which accent color the user has picked.
+    positive: isDark ? '#4AC995' : '#1E9E6B',
     caution: isDark ? '#F0A558' : '#E58A2E',
     border: isDark ? '#30343f' : '#E6E6ED',
     tick: isDark ? '#94a3b8' : '#64748b',

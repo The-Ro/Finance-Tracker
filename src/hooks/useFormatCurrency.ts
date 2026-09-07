@@ -9,6 +9,6 @@ export function useFormatCurrency() {
   return {
     currency,
     format: (amount: number) => formatCurrencyAs(amount, currency),
-    formatSigned: (amount: number, type: 'expense' | 'income') => formatSignedCurrencyAs(amount, currency, type),
+    formatSigned: (amount: number, type: 'expense' | 'income' | 'transfer') => formatSignedCurrencyAs(amount, currency, type),
   }
 }

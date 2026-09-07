@@ -60,6 +60,7 @@ export function TransactionTable({
       if (scope === 'everyone' && personFilter !== ALL_PEOPLE && t.owner_user_id !== personId) return false
       if (typeFilter === 'Income' && t.type !== 'income') return false
       if (typeFilter === 'Expense' && t.type !== 'expense') return false
+      if (typeFilter === 'Transfer' && t.type !== 'transfer') return false
       if (categoryFilter !== 'All categories' && t.category !== categoryFilter) return false
       if (accountFilter !== 'All accounts' && t.account !== accountFilter) return false
       if (!q) return true
@@ -90,7 +91,7 @@ export function TransactionTable({
           />
         )}
         <Dropdown
-          options={['All types', 'Income', 'Expense']}
+          options={['All types', 'Income', 'Expense', 'Transfer']}
           value={typeFilter}
           aria-label="Filter by type"
           onChange={(e) => setTypeFilter(e.target.value)}
@@ -150,8 +151,10 @@ export function TransactionTable({
               const owner = profiles[t.owner_user_id]
               const editable = t.owner_user_id === currentUserId
               const amountClassName =
-                'text-sm font-semibold ' + (t.type === 'income' ? 'text-positive' : 'text-caution')
-              const amountLabel = t.type === 'income' ? 'Credit' : 'Debit'
+                'text-sm font-semibold ' +
+                (t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-caution' : 'text-slate-600')
+              const amountLabel = t.type === 'income' ? 'Credit' : t.type === 'expense' ? 'Debit' : 'Transfer'
+              const accountDisplay = t.type === 'transfer' && t.to_account ? `${t.account} → ${t.to_account}` : t.account
 
               const editButton = editable && (
                 <button
@@ -197,9 +200,23 @@ export function TransactionTable({
                         <Avatar avatar={owner.avatar} name={owner.displayName} size={20} className="ml-auto shrink-0" />
                       )}
                     </div>
+                    {t.remarks && (
+                      <p className="truncate text-helper text-slate-400" title={t.remarks}>
+                        {t.remarks}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between gap-3">
-                      <InlineCategoryEditor transactionId={t.id} category={t.category} editable={editable} />
-                      <span className="shrink-0 text-sm text-slate-600">{t.account}</span>
+                      {t.type === 'transfer' ? (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-helper font-medium text-slate-500">
+                          Transfer
+                        </span>
+                      ) : (
+                        <InlineCategoryEditor transactionId={t.id} category={t.category} type={t.type} editable={editable} />
+                      )}
+                      <div className="shrink-0 text-right">
+                        <span className="text-sm text-slate-600">{accountDisplay}</span>
+                        {t.payment_method && <p className="text-helper text-slate-400">{t.payment_method}</p>}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
@@ -226,16 +243,34 @@ export function TransactionTable({
                       </div>
                     )}
                     <div className="text-sm text-slate-600">{formatDate(t.date)}</div>
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
-                        {t.merchant}
-                      </span>
-                      {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                    <div className="flex min-w-0 flex-col">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
+                          {t.merchant}
+                        </span>
+                        {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                      </div>
+                      {t.remarks && (
+                        <span className="truncate text-helper text-slate-400" title={t.remarks}>
+                          {t.remarks}
+                        </span>
+                      )}
                     </div>
                     <div>
-                      <InlineCategoryEditor transactionId={t.id} category={t.category} editable={editable} />
+                      {t.type === 'transfer' ? (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-helper font-medium text-slate-500">
+                          Transfer
+                        </span>
+                      ) : (
+                        <InlineCategoryEditor transactionId={t.id} category={t.category} type={t.type} editable={editable} />
+                      )}
                     </div>
-                    <div className="text-sm text-slate-600">{t.account}</div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm text-slate-600" title={accountDisplay}>
+                        {accountDisplay}
+                      </div>
+                      {t.payment_method && <div className="truncate text-helper text-slate-400">{t.payment_method}</div>}
+                    </div>
                     <div>
                       <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
                     </div>

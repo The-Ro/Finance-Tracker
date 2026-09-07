@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
@@ -19,6 +19,21 @@ export function GoalFormModal({ open, onClose, editing }: GoalFormModalProps) {
   const [dueDate, setDueDate] = useState(editing?.due_date ?? '')
   const [note, setNote] = useState(editing?.note ?? '')
   const [error, setError] = useState<string | null>(null)
+
+  // GoalFormModal stays mounted across opens (GoalsPage just toggles `open`),
+  // so the useState initializers above only ever run once, on first mount.
+  // Without this, editing a goal shows whatever was left over from the last
+  // time the modal was open instead of that goal's actual values, and a
+  // fresh "Create goal" can start pre-filled with a stale draft.
+  useEffect(() => {
+    if (!open) return
+    setName(editing?.name ?? '')
+    setTarget(editing ? String(editing.target_amount) : '')
+    setCurrent(editing ? String(editing.current_amount) : '')
+    setDueDate(editing?.due_date ?? '')
+    setNote(editing?.note ?? '')
+    setError(null)
+  }, [open, editing])
 
   const handleSubmit = async () => {
     setError(null)

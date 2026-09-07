@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
@@ -19,7 +19,9 @@ interface RecurringFormModalProps {
 }
 
 export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFormModalProps) {
-  const { data: categories = [] } = useCategories()
+  // Recurring/subscription detection only ever runs over expense transactions
+  // (see useRecurring.ts), so recurring/subscription items are expense-only too.
+  const { expense: categories } = useCategories()
   const { data: accounts = [] } = useAccounts()
   const { addManual, update } = useRecurringMutations()
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +34,25 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
     nextDate: editing?.next_date ?? todayISO(),
     account: editing?.account ?? '',
   }))
+
+  // RecurringFormModal stays mounted across opens (RecurringLikePage just
+  // toggles `open`), so the useState initializer above only ever runs once,
+  // on first mount. Without this, editing an item shows whatever was left
+  // over from the last time the modal was open instead of that item's
+  // actual values, and a fresh "Add" can start pre-filled with a stale draft.
+  useEffect(() => {
+    if (!open) return
+    setForm({
+      name: editing?.name ?? '',
+      category: editing?.category ?? categories[0] ?? 'Needs review',
+      amount: editing ? String(editing.amount) : '',
+      cadence: editing?.cadence ?? ('monthly' as Cadence),
+      nextDate: editing?.next_date ?? todayISO(),
+      account: editing?.account ?? '',
+    })
+    setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing])
 
   const handleSubmit = async () => {
     setError(null)

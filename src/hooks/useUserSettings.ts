@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { DEFAULT_CURRENCY } from '@/lib/currency'
+import { CURRENT_WHATS_NEW_VERSION } from '@/lib/whatsNew'
 import type { Gender, SelectedPeriod, ThemeAccent, ThemeMode, ZodiacSign } from '@/types/database.types'
 
 export interface UserSettings {
@@ -17,6 +18,7 @@ export interface UserSettings {
   onboardingCompleted: boolean
   interests: string[]
   zodiacSign: ZodiacSign | null
+  whatsNewSeenVersion: string | null
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -32,6 +34,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   onboardingCompleted: false,
   interests: [],
   zodiacSign: null,
+  whatsNewSeenVersion: null,
 }
 
 export function useUserSettings() {
@@ -69,6 +72,7 @@ export function useUserSettings() {
         onboardingCompleted: data.onboarding_completed,
         interests: data.interests ?? [],
         zodiacSign: data.zodiac_sign,
+        whatsNewSeenVersion: data.whats_new_seen_version,
       }
     },
   })
@@ -151,9 +155,22 @@ export function useUserSettings() {
 
   const completeOnboarding = useMutation({
     mutationFn: async () => {
+      // A brand-new user just got the full welcome tour, so there's nothing
+      // "new" left to show them -- mark the changelog seen at the same time.
       const { error } = await supabase
         .from('user_settings')
-        .update({ onboarding_completed: true })
+        .update({ onboarding_completed: true, whats_new_seen_version: CURRENT_WHATS_NEW_VERSION })
+        .eq('owner_user_id', userId!)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
+  })
+
+  const markWhatsNewSeen = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ whats_new_seen_version: CURRENT_WHATS_NEW_VERSION })
         .eq('owner_user_id', userId!)
       if (error) throw error
     },
@@ -168,5 +185,6 @@ export function useUserSettings() {
     updateTheme,
     updatePersonalDetails,
     completeOnboarding,
+    markWhatsNewSeen,
   }
 }

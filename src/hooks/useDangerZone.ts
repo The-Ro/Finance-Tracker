@@ -48,7 +48,7 @@ export const DELETE_ACCOUNT_CONFIRMATION_TEXT = 'DELETE MY ACCOUNT'
  * of that user's data server-side; only stored files need cleaning up first.
  */
 export function useDeleteAccount() {
-  const { userId, signOut } = useAuth()
+  const { userId } = useAuth()
 
   return useMutation({
     mutationFn: async () => {
@@ -63,7 +63,15 @@ export function useDeleteAccount() {
       const { error } = await supabase.rpc('delete_own_account')
       if (error) throw error
 
-      await signOut()
+      // Local-scope only: a global sign-out calls GoTrue's /logout with a token
+      // whose user no longer exists, which can error and leave AuthContext's
+      // session never cleared (looks like "delete didn't sign me out"). Local
+      // scope just clears the browser's own session, no server round-trip.
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch {
+        // The account is already deleted regardless of whether this cleanup succeeds.
+      }
     },
   })
 }

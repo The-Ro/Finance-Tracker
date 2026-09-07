@@ -30,8 +30,8 @@ export function formatCurrencyAs(amount: number, currency: string): string {
 export function formatSignedCurrencyAs(
   amount: number,
   currency: string,
-  type: 'expense' | 'income'
+  type: 'expense' | 'income' | 'transfer'
 ): string {
-  const sign = type === 'income' ? '+' : '−'
+  const sign = type === 'income' ? '+' : type === 'expense' ? '−' : ''
   return `${sign}${formatCurrencyAs(Math.abs(amount), currency)}`
 }

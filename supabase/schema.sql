@@ -26,15 +26,36 @@ begin
   )
   on conflict (id) do nothing;
 
-  insert into public.categories (owner_user_id, name) values
-    (new.id, 'Housing'), (new.id, 'Groceries'), (new.id, 'Shopping'), (new.id, 'Dining'),
-    (new.id, 'Transportation'), (new.id, 'Utilities'), (new.id, 'Subscriptions'),
-    (new.id, 'Insurance'), (new.id, 'Health'), (new.id, 'Entertainment'),
-    (new.id, 'Income'), (new.id, 'Needs review'), (new.id, 'Other')
+  insert into public.categories (owner_user_id, name, kind) values
+    (new.id, 'Housing', 'expense'), (new.id, 'Utilities', 'expense'), (new.id, 'Groceries', 'expense'),
+    (new.id, 'Dining', 'expense'), (new.id, 'Transportation', 'expense'), (new.id, 'Shopping', 'expense'),
+    (new.id, 'Health', 'expense'), (new.id, 'Insurance', 'expense'), (new.id, 'Entertainment', 'expense'),
+    (new.id, 'Subscriptions', 'expense'), (new.id, 'Education', 'expense'), (new.id, 'Travel', 'expense'),
+    (new.id, 'Personal care', 'expense'), (new.id, 'Gifts & donations', 'expense'), (new.id, 'Fees & charges', 'expense'),
+    (new.id, 'Other', 'expense'),
+    (new.id, 'Salary', 'income'), (new.id, 'Freelance / business', 'income'), (new.id, 'Interest', 'income'),
+    (new.id, 'Dividends', 'income'), (new.id, 'Rental income', 'income'), (new.id, 'Bonus', 'income'),
+    (new.id, 'Refund / reimbursement', 'income'), (new.id, 'Gift received', 'income'), (new.id, 'Other income', 'income'),
+    (new.id, 'Needs review', null)
   on conflict (owner_user_id, name) do nothing;
 
-  insert into public.accounts (owner_user_id, name) values
-    (new.id, 'Main Checking'), (new.id, 'Everyday Visa'), (new.id, 'Rewards Card'), (new.id, 'Cash')
+  -- Indian banks/payment banks by default (replaces the earlier generic
+  -- placeholder accounts) -- deletable per-user like any other account.
+  insert into public.accounts (owner_user_id, name)
+  select new.id, b.name from (values
+    ('Cash'),
+    ('State Bank of India'), ('HDFC Bank'), ('ICICI Bank'), ('Axis Bank'), ('Kotak Mahindra Bank'),
+    ('Punjab National Bank'), ('Bank of Baroda'), ('Canara Bank'), ('Union Bank of India'),
+    ('Indian Bank'), ('Indian Overseas Bank'), ('UCO Bank'), ('Central Bank of India'),
+    ('Bank of India'), ('Bank of Maharashtra'), ('Punjab & Sind Bank'), ('IDBI Bank'),
+    ('IndusInd Bank'), ('Yes Bank'), ('IDFC First Bank'), ('Federal Bank'), ('South Indian Bank'),
+    ('Karnataka Bank'), ('RBL Bank'), ('City Union Bank'), ('DCB Bank'), ('Bandhan Bank'),
+    ('CSB Bank'), ('Karur Vysya Bank'), ('Tamilnad Mercantile Bank'), ('AU Small Finance Bank'),
+    ('Equitas Small Finance Bank'), ('Ujjivan Small Finance Bank'), ('Jana Small Finance Bank'),
+    ('ESAF Small Finance Bank'), ('Paytm Payments Bank'), ('India Post Payments Bank'),
+    ('Airtel Payments Bank'), ('Fino Payments Bank'), ('HSBC'), ('Standard Chartered'),
+    ('Citibank'), ('Deutsche Bank')
+  ) as b(name)
   on conflict (owner_user_id, name) do nothing;
 
   return new;
@@ -72,6 +93,40 @@ create table if not exists public.categories (
   created_at timestamptz not null default now(),
   primary key (owner_user_id, name)
 );
+
+-- Split expense vs. income category lists (added after initial launch). `kind`
+-- is left null for shared/legacy categories ('Needs review', plus anything
+-- from before this column existed that doesn't match a known name) so they
+-- keep showing in *both* pickers rather than silently disappearing from one --
+-- names stay globally unique per user either way, so the existing composite
+-- FK from transactions/budgets/recurring_items doesn't need to change at all.
+alter table public.categories add column if not exists kind text;
+alter table public.categories drop constraint if exists categories_kind_check;
+alter table public.categories add constraint categories_kind_check check (kind in ('expense','income') or kind is null);
+
+update public.categories set kind = 'expense' where kind is null and name in (
+  'Housing','Utilities','Groceries','Dining','Transportation','Shopping','Health','Insurance',
+  'Entertainment','Subscriptions','Education','Travel','Personal care','Gifts & donations','Fees & charges','Other'
+);
+update public.categories set kind = 'income' where kind is null and name in (
+  'Income','Salary','Freelance / business','Interest','Dividends','Rental income','Bonus',
+  'Refund / reimbursement','Gift received','Other income'
+);
+
+-- Backfill the newly-finalized category names for every existing user
+-- (additive -- on conflict do nothing, so nobody's existing custom
+-- categories or already-classified rows above are touched).
+insert into public.categories (owner_user_id, name, kind)
+select p.id, c.name, c.kind from public.profiles p cross join (values
+  ('Housing','expense'), ('Utilities','expense'), ('Groceries','expense'), ('Dining','expense'),
+  ('Transportation','expense'), ('Shopping','expense'), ('Health','expense'), ('Insurance','expense'),
+  ('Entertainment','expense'), ('Subscriptions','expense'), ('Education','expense'), ('Travel','expense'),
+  ('Personal care','expense'), ('Gifts & donations','expense'), ('Fees & charges','expense'), ('Other','expense'),
+  ('Salary','income'), ('Freelance / business','income'), ('Interest','income'), ('Dividends','income'),
+  ('Rental income','income'), ('Bonus','income'), ('Refund / reimbursement','income'),
+  ('Gift received','income'), ('Other income','income')
+) as c(name, kind)
+on conflict (owner_user_id, name) do nothing;
 
 create table if not exists public.accounts (
   owner_user_id uuid not null references auth.users(id) on delete cascade,
@@ -151,6 +206,8 @@ create table if not exists public.transactions (
   amount numeric(12,2) not null check (amount > 0),
   type text not null check (type in ('expense','income')),
   account text not null,
+  to_account text,
+  remarks text,
   tags text[] not null default '{}',
   receipt boolean not null default false,
   receipt_document_id uuid,
@@ -161,6 +218,26 @@ create table if not exists public.transactions (
 );
 create index if not exists transactions_owner_date_idx on public.transactions (owner_user_id, date desc);
 create index if not exists transactions_date_idx on public.transactions (date desc);
+
+-- Self-transfers between two of the owner's own accounts (added after initial launch).
+alter table public.transactions add column if not exists to_account text;
+alter table public.transactions add column if not exists remarks text;
+alter table public.transactions drop constraint if exists transactions_type_check;
+alter table public.transactions add constraint transactions_type_check check (type in ('expense','income','transfer'));
+alter table public.transactions drop constraint if exists transactions_to_account_owner_fkey;
+alter table public.transactions add constraint transactions_to_account_owner_fkey
+  foreign key (owner_user_id, to_account) references public.accounts (owner_user_id, name);
+
+-- How the transaction was made (UPI/Cash/Card/etc.) -- a fixed small set, not
+-- a personal per-user list like categories/accounts, so a plain check
+-- constraint instead of its own owned lookup table. Optional/descriptive
+-- only -- never read by any aggregate or chart.
+alter table public.transactions add column if not exists payment_method text;
+alter table public.transactions drop constraint if exists transactions_payment_method_check;
+alter table public.transactions add constraint transactions_payment_method_check check (
+  payment_method is null or payment_method in
+    ('UPI','Cash','Debit card','Credit card','Net banking','Cheque','NEFT/RTGS/IMPS','Other')
+);
 
 -- ===== budgets (own-only) =====
 create table if not exists public.budgets (
@@ -298,6 +375,7 @@ create table if not exists public.user_settings (
   onboarding_completed boolean not null default false,
   interests text[] not null default '{}',
   zodiac_sign text,
+  whats_new_seen_version text,
   updated_at timestamptz not null default now()
 );
 alter table public.user_settings add column if not exists currency text not null default 'USD';
@@ -308,6 +386,7 @@ alter table public.user_settings add column if not exists date_of_birth date;
 alter table public.user_settings add column if not exists onboarding_completed boolean not null default false;
 alter table public.user_settings add column if not exists interests text[] not null default '{}';
 alter table public.user_settings add column if not exists zodiac_sign text;
+alter table public.user_settings add column if not exists whats_new_seen_version text;
 alter table public.user_settings drop constraint if exists user_settings_zodiac_sign_check;
 alter table public.user_settings add constraint user_settings_zodiac_sign_check check (zodiac_sign in (
   'aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'

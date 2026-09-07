@@ -40,7 +40,7 @@ export function TopBar() {
   }, [notifOpen])
 
   return (
-    <header className="sticky top-0 z-20 flex h-[76px] items-center justify-end border-b border-app-border bg-white/95 px-4 backdrop-blur md:px-8">
+    <header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-end border-b border-app-border bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:px-8">
 
       <div className="flex items-center gap-2">
         <Button variant="secondary" onClick={openImport} className="px-3 sm:px-4">
@@ -77,8 +77,18 @@ export function TopBar() {
               // sm+ has room to anchor it normally under the bell instead.
               className="animate-scale-in fixed inset-x-4 top-[76px] z-30 flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[80vh] sm:w-96"
             >
-              <BudgetAlerts />
-              <IncomingAccessRequests />
+              {hasNotifications ? (
+                <>
+                  <BudgetAlerts />
+                  <IncomingAccessRequests />
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                  <Bell size={22} className="text-slate-300" />
+                  <p className="text-sm font-medium text-slate-600">You're all caught up</p>
+                  <p className="text-helper text-slate-400">No pending requests or budget alerts right now.</p>
+                </div>
+              )}
               <NavLink
                 to="/settings"
                 onClick={() => setNotifOpen(false)}

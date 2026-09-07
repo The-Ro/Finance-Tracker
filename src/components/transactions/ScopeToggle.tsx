@@ -20,7 +20,7 @@ export function ScopeToggle({ value, onChange }: ScopeToggleProps) {
             value === scope ? 'bg-accent text-white' : 'text-slate-500 hover:bg-slate-50'
           )}
         >
-          {scope === 'mine' ? 'My transactions' : "Everyone's transactions"}
+          {scope === 'mine' ? 'My transactions' : 'Shared transactions'}
         </button>
       ))}
     </div>

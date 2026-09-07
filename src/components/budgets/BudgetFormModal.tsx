@@ -14,11 +14,25 @@ interface BudgetFormModalProps {
 }
 
 export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps) {
-  const { data: categories = [] } = useCategories()
+  // Budgets are always an expense concept (a monthly spend limit) -- only
+  // ever matched against expense transactions in useBudgetAlerts.
+  const { expense: categories } = useCategories()
   const { create, update } = useBudgets()
   const [category, setCategory] = useState(editing?.category ?? '')
   const [limit, setLimit] = useState(editing ? String(editing.monthly_limit) : '')
   const [error, setError] = useState<string | null>(null)
+
+  // BudgetFormModal stays mounted across opens (BudgetsPage just toggles
+  // `open`), so the useState initializers above only ever run once, on first
+  // mount. Without this, editing a budget shows whatever was left over from
+  // the last time the modal was open instead of that budget's actual values,
+  // and a fresh "Create budget" can start pre-filled with a stale draft.
+  useEffect(() => {
+    if (!open) return
+    setCategory(editing?.category ?? '')
+    setLimit(editing ? String(editing.monthly_limit) : '')
+    setError(null)
+  }, [open, editing])
 
   useEffect(() => {
     if (!category && categories.length > 0) setCategory(categories[0])

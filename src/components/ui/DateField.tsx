@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -39,14 +40,67 @@ function isSameDay(a: Date, b: Date): boolean {
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 120 + 20 + 1 }, (_, i) => CURRENT_YEAR + 20 - i)
 
+// Panel is portaled to <body> and positioned with `fixed` coordinates in
+// viewport space -- it never gets clipped by an ancestor's `overflow-y-auto`
+// (e.g. Modal's scrollable body), unlike a plain `absolute` popover would be.
+// z-[60] deliberately outranks Modal's z-50 so the calendar always renders
+// above a modal, since portaling escapes the modal's own stacking context.
+const VIEWPORT_MARGIN = 16
+
 export function DateField({ id, label, value, onChange, placeholder = 'Select date', className }: DateFieldProps) {
   const [open, setOpen] = useState(false)
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
   const [yearPickerOpen, setYearPickerOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const selected = parseValue(value)
   const [viewDate, setViewDate] = useState(() => selected ?? new Date())
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const yearListRef = useRef<HTMLUListElement>(null)
+
+  const recalcPosition = useCallback(() => {
+    const trigger = triggerRef.current
+    const panel = panelRef.current
+    if (!trigger || !panel) return
+    const triggerRect = trigger.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+
+    let left = triggerRect.left
+    if (left + panelRect.width > window.innerWidth - VIEWPORT_MARGIN) {
+      left = triggerRect.right - panelRect.width
+    }
+    left = Math.max(VIEWPORT_MARGIN, left)
+
+    let top = triggerRect.bottom + 4
+    if (top + panelRect.height > window.innerHeight - VIEWPORT_MARGIN) {
+      top = triggerRect.top - panelRect.height - 4
+    }
+    top = Math.max(VIEWPORT_MARGIN, top)
+
+    setPos({ top, left })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    recalcPosition()
+  }, [open, recalcPosition])
+
+  // The panel is fixed-positioned in viewport space, so it doesn't move with
+  // its trigger automatically when an ancestor scrolls (e.g. a modal's
+  // scrollable body) or the viewport is resized -- keep it glued.
+  useEffect(() => {
+    if (!open) return
+    window.addEventListener('resize', recalcPosition)
+    window.addEventListener('scroll', recalcPosition, true)
+    return () => {
+      window.removeEventListener('resize', recalcPosition)
+      window.removeEventListener('scroll', recalcPosition, true)
+    }
+  }, [open, recalcPosition])
 
   useEffect(() => {
     if (selected) setViewDate(selected)
@@ -63,7 +117,12 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
   useEffect(() => {
     if (!open) return
     function handlePointerDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      // Panel is portaled to <body>, so it's no longer a DOM descendant of
+      // containerRef -- it needs its own "is this click inside" check.
+      if (containerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false)
@@ -102,6 +161,7 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
       )}
       <div className="relative">
         <button
+          ref={triggerRef}
           type="button"
           id={id}
           onClick={() => setOpen((v) => !v)}
@@ -119,148 +179,159 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
           <Calendar size={15} className="shrink-0 text-slate-400" />
         </button>
 
-        {open && (
-          <div className="animate-scale-in absolute left-0 z-30 mt-1 w-72 rounded-lg border border-app-border bg-white p-3 shadow-card">
-            <div className="mb-2 flex items-center justify-between gap-1">
-              <button
-                type="button"
-                aria-label="Previous month"
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
-                className="shrink-0 rounded-full p-1.5 text-slate-500 hover:bg-slate-50 hover:text-accent-dark"
-              >
-                <ChevronLeft size={16} />
-              </button>
+        {open &&
+          createPortal(
+            <div
+              ref={panelRef}
+              style={{
+                position: 'fixed',
+                top: pos?.top ?? -9999,
+                left: pos?.left ?? -9999,
+                visibility: pos ? 'visible' : 'hidden',
+              }}
+              className="animate-scale-in z-[60] w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-app-border bg-white p-3 shadow-card"
+            >
+              <div className="mb-2 flex items-center justify-between gap-1">
+                <button
+                  type="button"
+                  aria-label="Previous month"
+                  onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+                  className="shrink-0 rounded-full p-1.5 text-slate-500 hover:bg-slate-50 hover:text-accent-dark"
+                >
+                  <ChevronLeft size={16} />
+                </button>
 
-              <div className="flex items-center gap-1">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMonthPickerOpen((v) => !v)
-                      setYearPickerOpen(false)
-                    }}
-                    className="rounded-md px-1.5 py-0.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                  >
-                    {MONTH_NAMES[viewDate.getMonth()]}
-                  </button>
-                  {monthPickerOpen && (
-                    <ul className="animate-scale-in absolute left-1/2 z-40 mt-1 max-h-48 w-32 -translate-x-1/2 overflow-y-auto rounded-lg border border-app-border bg-white py-1 shadow-card">
-                      {MONTH_NAMES.map((m, i) => (
-                        <li key={m}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setViewDate(new Date(viewDate.getFullYear(), i, 1))
-                              setMonthPickerOpen(false)
-                            }}
-                            className={clsx(
-                              'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-dark',
-                              i === viewDate.getMonth() ? 'bg-accent-light font-medium text-accent-dark' : 'text-slate-700'
-                            )}
-                          >
-                            {m}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setYearPickerOpen((v) => !v)
-                      setMonthPickerOpen(false)
-                    }}
-                    className="rounded-md px-1.5 py-0.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                  >
-                    {viewDate.getFullYear()}
-                  </button>
-                  {yearPickerOpen && (
-                    <ul
-                      ref={yearListRef}
-                      className="animate-scale-in absolute left-1/2 z-40 mt-1 max-h-48 w-24 -translate-x-1/2 overflow-y-auto rounded-lg border border-app-border bg-white py-1 shadow-card"
-                    >
-                      {YEARS.map((y) => (
-                        <li key={y} data-selected={y === viewDate.getFullYear()}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setViewDate(new Date(y, viewDate.getMonth(), 1))
-                              setYearPickerOpen(false)
-                            }}
-                            className={clsx(
-                              'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-dark',
-                              y === viewDate.getFullYear() ? 'bg-accent-light font-medium text-accent-dark' : 'text-slate-700'
-                            )}
-                          >
-                            {y}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                aria-label="Next month"
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
-                className="shrink-0 rounded-full p-1.5 text-slate-500 hover:bg-slate-50 hover:text-accent-dark"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-7 text-center text-helper text-slate-400">
-              {WEEKDAYS.map((w, i) => (
-                <span key={i} className="py-1">
-                  {w}
-                </span>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-y-1">
-              {days.map((date, i) => (
-                <div key={i} className="flex items-center justify-center">
-                  {date && (
+                <div className="flex items-center gap-1">
+                  <div className="relative">
                     <button
                       type="button"
                       onClick={() => {
-                        emit(toValue(date))
-                        setOpen(false)
+                        setMonthPickerOpen((v) => !v)
+                        setYearPickerOpen(false)
                       }}
-                      className={clsx(
-                        'flex h-8 w-8 items-center justify-center rounded-full text-sm',
-                        selected && isSameDay(date, selected)
-                          ? 'bg-accent font-semibold text-white'
-                          : isSameDay(date, today)
-                            ? 'border border-accent font-medium text-accent-dark'
-                            : 'text-slate-700 hover:bg-slate-50'
-                      )}
+                      className="rounded-md px-1.5 py-0.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                     >
-                      {date.getDate()}
+                      {MONTH_NAMES[viewDate.getMonth()]}
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
+                    {monthPickerOpen && (
+                      <ul className="animate-scale-in absolute left-1/2 z-10 mt-1 max-h-48 w-32 -translate-x-1/2 overflow-y-auto rounded-lg border border-app-border bg-white py-1 shadow-card">
+                        {MONTH_NAMES.map((m, i) => (
+                          <li key={m}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setViewDate(new Date(viewDate.getFullYear(), i, 1))
+                                setMonthPickerOpen(false)
+                              }}
+                              className={clsx(
+                                'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-dark',
+                                i === viewDate.getMonth() ? 'bg-accent-light font-medium text-accent-dark' : 'text-slate-700'
+                              )}
+                            >
+                              {m}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
 
-            {selected && (
-              <button
-                type="button"
-                onClick={() => {
-                  emit('')
-                  setOpen(false)
-                }}
-                className="mt-2 w-full rounded-lg border border-app-border py-1.5 text-helper font-medium text-slate-500 hover:bg-slate-50"
-              >
-                Clear date
-              </button>
-            )}
-          </div>
-        )}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYearPickerOpen((v) => !v)
+                        setMonthPickerOpen(false)
+                      }}
+                      className="rounded-md px-1.5 py-0.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      {viewDate.getFullYear()}
+                    </button>
+                    {yearPickerOpen && (
+                      <ul
+                        ref={yearListRef}
+                        className="animate-scale-in absolute left-1/2 z-10 mt-1 max-h-48 w-24 -translate-x-1/2 overflow-y-auto rounded-lg border border-app-border bg-white py-1 shadow-card"
+                      >
+                        {YEARS.map((y) => (
+                          <li key={y} data-selected={y === viewDate.getFullYear()}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setViewDate(new Date(y, viewDate.getMonth(), 1))
+                                setYearPickerOpen(false)
+                              }}
+                              className={clsx(
+                                'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-dark',
+                                y === viewDate.getFullYear() ? 'bg-accent-light font-medium text-accent-dark' : 'text-slate-700'
+                              )}
+                            >
+                              {y}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="Next month"
+                  onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+                  className="shrink-0 rounded-full p-1.5 text-slate-500 hover:bg-slate-50 hover:text-accent-dark"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-7 text-center text-helper text-slate-400">
+                {WEEKDAYS.map((w, i) => (
+                  <span key={i} className="py-1">
+                    {w}
+                  </span>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-y-1">
+                {days.map((date, i) => (
+                  <div key={i} className="flex items-center justify-center">
+                    {date && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          emit(toValue(date))
+                          setOpen(false)
+                        }}
+                        className={clsx(
+                          'flex h-8 w-8 items-center justify-center rounded-full text-sm',
+                          selected && isSameDay(date, selected)
+                            ? 'bg-accent font-semibold text-white'
+                            : isSameDay(date, today)
+                              ? 'border border-accent font-medium text-accent-dark'
+                              : 'text-slate-700 hover:bg-slate-50'
+                        )}
+                      >
+                        {date.getDate()}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {selected && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    emit('')
+                    setOpen(false)
+                  }}
+                  className="mt-2 w-full rounded-lg border border-app-border py-1.5 text-helper font-medium text-slate-500 hover:bg-slate-50"
+                >
+                  Clear date
+                </button>
+              )}
+            </div>,
+            document.body
+          )}
       </div>
     </div>
   )

@@ -2,15 +2,18 @@ import { useState } from 'react'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { useCategories } from '@/hooks/useLookupLists'
 import { useUpdateTransactionCategory } from '@/hooks/useTransactions'
+import type { TransactionType } from '@/types/database.types'
 
 interface InlineCategoryEditorProps {
   transactionId: string
   category: string
+  type: TransactionType
   editable: boolean
 }
 
-export function InlineCategoryEditor({ transactionId, category, editable }: InlineCategoryEditorProps) {
-  const { data: categories = [] } = useCategories()
+export function InlineCategoryEditor({ transactionId, category, type, editable }: InlineCategoryEditorProps) {
+  const { expense, income } = useCategories()
+  const categories = type === 'income' ? income : expense
   const update = useUpdateTransactionCategory()
   const [error, setError] = useState(false)
 

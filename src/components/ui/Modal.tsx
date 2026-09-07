@@ -1,4 +1,5 @@
 import { useEffect, useRef, useLayoutEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -18,6 +19,30 @@ export function Modal({ open, onClose, title, children, footer, maxWidthClassNam
   useLayoutEffect(() => {
     onCloseRef.current = onClose
   })
+
+  // Without this, the page behind a centered modal can still scroll (drag,
+  // wheel, or the browser auto-scrolling the underlying page to keep a
+  // newly-focused element in view) -- on a short viewport that reads as a
+  // flash of blank space/background page peeking out as the modal opens.
+  // Locks `<html>`, not `<body>` -- `document.scrollingElement` here is the
+  // root element, so locking body alone is a no-op and the page still
+  // scrolls underneath. Also compensates for the scrollbar's width: once
+  // it's actually locked, the scrollbar disappears and the page reflows
+  // wider by that amount -- since `<html>` has no background color, that
+  // reveals a sliver of the browser's default white canvas until it settles.
+  useEffect(() => {
+    if (!open) return
+    const root = document.documentElement
+    const scrollbarWidth = window.innerWidth - root.clientWidth
+    const originalOverflow = root.style.overflow
+    const originalPaddingRight = root.style.paddingRight
+    root.style.overflow = 'hidden'
+    if (scrollbarWidth > 0) root.style.paddingRight = `${scrollbarWidth}px`
+    return () => {
+      root.style.overflow = originalOverflow
+      root.style.paddingRight = originalPaddingRight
+    }
+  }, [open])
 
   // Deliberately depends only on `open`: this focus-traps and grabs initial
   // focus once when the dialog opens. Re-running it on every parent render
@@ -79,8 +104,20 @@ export function Modal({ open, onClose, title, children, footer, maxWidthClassNam
 
   if (!open) return null
 
-  return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4">
+  // Portaled to <body>: this component previously rendered inline wherever
+  // it was used, so a `position: fixed` dialog sitting inside a page that
+  // itself has a transform-based entrance animation (`animate-fade-in-up`,
+  // applied to the whole page content in AppShell.tsx) had its "fixed"
+  // positioning computed relative to that transformed ancestor instead of
+  // the viewport -- a CSS rule, not a bug in this component: any element
+  // with a `transform` becomes the containing block for its `position:
+  // fixed` descendants. In practice the modal rendered squashed into that
+  // ancestor's box, pushed near the top of the page with its title bar
+  // clipped off above the visible area. Portaling escapes the page's DOM
+  // subtree entirely, so it's never nested inside that (or any future)
+  // transformed ancestor again.
+  return createPortal(
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div
         ref={dialogRef}
         role="dialog"
@@ -88,7 +125,7 @@ export function Modal({ open, onClose, title, children, footer, maxWidthClassNam
         aria-labelledby="modal-title"
         tabIndex={-1}
         className={clsx(
-          'animate-scale-in flex max-h-[90vh] w-full flex-col rounded-t-card bg-white shadow-card outline-none sm:rounded-card',
+          'animate-scale-in flex max-h-[90vh] w-full flex-col rounded-card bg-white shadow-card outline-none',
           maxWidthClassName
         )}
       >
@@ -107,6 +144,7 @@ export function Modal({ open, onClose, title, children, footer, maxWidthClassNam
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer && <div className="border-t border-app-border px-5 py-4">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

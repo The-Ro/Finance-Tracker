@@ -7,17 +7,25 @@ import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { TagsField } from './TagsField'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
-import { useAddTransaction, useUpdateTransaction, type Transaction } from '@/hooks/useTransactions'
+import { useAddTransaction, useUpdateTransaction, useRecentAccounts, type Transaction } from '@/hooks/useTransactions'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useRules } from '@/hooks/useRules'
+import { useAuth } from '@/context/AuthContext'
 import { todayISO } from '@/lib/format'
-import type { TransactionType } from '@/types/database.types'
+import type { PaymentMethod, TransactionType } from '@/types/database.types'
+
+const PAYMENT_METHODS: PaymentMethod[] = [
+  'UPI', 'Cash', 'Debit card', 'Credit card', 'Net banking', 'Cheque', 'NEFT/RTGS/IMPS', 'Other',
+]
+const NO_PAYMENT_METHOD = '(none)'
 
 interface AddEntryModalProps {
   open: boolean
   onClose: () => void
   transaction?: Transaction | null
 }
+
+const TRANSFER_CATEGORY = 'Needs review'
 
 const EMPTY_STATE = {
   type: 'expense' as TransactionType,
@@ -26,6 +34,9 @@ const EMPTY_STATE = {
   date: todayISO(),
   category: 'Needs review',
   account: '',
+  toAccount: '',
+  remarks: '',
+  paymentMethod: '' as PaymentMethod | '',
   tags: [] as string[],
   hasReceipt: false,
   file: null as File | null,
@@ -35,19 +46,43 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   const [form, setForm] = useState(EMPTY_STATE)
   const [error, setError] = useState<string | null>(null)
   const isEditing = !!transaction
+  const isTransfer = form.type === 'transfer'
 
-  const { data: categories = [] } = useCategories()
+  const { userId } = useAuth()
+  const { expense: expenseCategories, income: incomeCategories } = useCategories()
+  const categoryOptions = form.type === 'income' ? incomeCategories : expenseCategories
   const { data: accounts = [] } = useAccounts()
+  const recentAccounts = useRecentAccounts(userId)
   const { data: rules = [] } = useRules()
   const addTransaction = useAddTransaction()
   const updateTransaction = useUpdateTransaction()
   const documents = useDocuments()
+
+  const toAccountOptions = accounts.filter((a) => a !== form.account)
 
   useEffect(() => {
     if (!form.account && accounts.length > 0) {
       setForm((f) => ({ ...f, account: accounts[0] }))
     }
   }, [accounts, form.account])
+
+  // Switching Expense <-> Income can leave `category` pointing at a name
+  // that isn't in the newly-relevant list (e.g. "Groceries" while on
+  // Income) -- fall back to that list's own default instead of silently
+  // keeping an option the dropdown no longer offers.
+  useEffect(() => {
+    if (isTransfer) return
+    if (!categoryOptions.includes(form.category)) {
+      setForm((f) => ({ ...f, category: categoryOptions[0] ?? 'Needs review' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.type])
+
+  useEffect(() => {
+    if (isTransfer && !form.toAccount && toAccountOptions.length > 0) {
+      setForm((f) => ({ ...f, toAccount: toAccountOptions[0] }))
+    }
+  }, [isTransfer, form.toAccount, toAccountOptions])
 
   // Prefill from the transaction being edited (or reset to a blank form)
   // each time the modal opens -- not on every render, so typing doesn't
@@ -62,19 +97,22 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         date: transaction.date,
         category: transaction.category,
         account: transaction.account,
+        toAccount: transaction.to_account ?? '',
+        remarks: transaction.remarks ?? '',
+        paymentMethod: transaction.payment_method ?? '',
         tags: transaction.tags,
         hasReceipt: transaction.receipt,
         file: null,
       })
     } else {
-      setForm({ ...EMPTY_STATE, category: categories[0] ?? 'Needs review', account: accounts[0] ?? '' })
+      setForm({ ...EMPTY_STATE, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
     }
     setError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, transaction])
 
   const reset = () => {
-    setForm({ ...EMPTY_STATE, category: categories[0] ?? 'Needs review', account: accounts[0] ?? '' })
+    setForm({ ...EMPTY_STATE, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
     setError(null)
   }
 
@@ -92,7 +130,13 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
     if (!form.date) return setError('Choose a date.')
     if (!Number.isFinite(amountNum) || amountNum <= 0) return setError('Enter a valid amount greater than zero.')
     if (!form.account) return setError('Choose an account.')
+    if (isTransfer && !form.toAccount) return setError('Choose an account to transfer to.')
+    if (isTransfer && form.toAccount === form.account) return setError('Choose a different account to transfer to.')
     if (!isEditing && form.hasReceipt && !form.file) return setError('Choose a receipt file, or uncheck the receipt box.')
+
+    const category = isTransfer ? TRANSFER_CATEGORY : form.category
+    const toAccount = isTransfer ? form.toAccount : null
+    const paymentMethod = form.paymentMethod || null
 
     try {
       if (transaction) {
@@ -102,8 +146,11 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           amount: amountNum,
           merchant: form.merchant,
           date: form.date,
-          category: form.category,
+          category,
           account: form.account,
+          toAccount,
+          remarks: form.remarks,
+          paymentMethod,
           tags: form.tags,
         })
       } else {
@@ -118,8 +165,11 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           amount: amountNum,
           merchant: form.merchant,
           date: form.date,
-          category: form.category,
+          category,
           account: form.account,
+          toAccount,
+          remarks: form.remarks,
+          paymentMethod,
           tags: form.tags,
           receipt: form.hasReceipt,
           receiptDocumentId,
@@ -154,7 +204,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
     >
       <div className="flex flex-col gap-4">
         <div className="flex rounded-lg border border-app-border p-1">
-          {(['expense', 'income'] as TransactionType[]).map((t) => (
+          {(['expense', 'income', 'transfer'] as TransactionType[]).map((t) => (
             <button
               key={t}
               type="button"
@@ -197,19 +247,56 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-helper font-medium text-slate-600">Category</label>
-            <Dropdown
-              options={categories}
-              value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-helper font-medium text-slate-600">Account</label>
+            <label className="text-helper font-medium text-slate-600">{isTransfer ? 'From account' : 'Account'}</label>
             <Dropdown
               options={accounts}
+              recentOptions={recentAccounts}
               value={form.account}
-              onChange={(e) => setForm((f) => ({ ...f, account: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, account: e.target.value, toAccount: '' }))}
+            />
+          </div>
+          {isTransfer ? (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-helper font-medium text-slate-600">To account</label>
+              <Dropdown
+                options={toAccountOptions.length > 0 ? toAccountOptions : ['No other accounts yet']}
+                recentOptions={recentAccounts}
+                value={form.toAccount || 'No other accounts yet'}
+                onChange={(e) => setForm((f) => ({ ...f, toAccount: e.target.value }))}
+                disabled={toAccountOptions.length === 0}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-helper font-medium text-slate-600">Category</label>
+              <Dropdown
+                options={categoryOptions}
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <TextField
+            label="Remarks"
+            placeholder="Any extra detail worth remembering"
+            maxLength={200}
+            value={form.remarks}
+            onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-helper font-medium text-slate-600">Payment method</label>
+            <Dropdown
+              options={[NO_PAYMENT_METHOD, ...PAYMENT_METHODS]}
+              value={form.paymentMethod || NO_PAYMENT_METHOD}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  paymentMethod: e.target.value === NO_PAYMENT_METHOD ? '' : (e.target.value as PaymentMethod),
+                }))
+              }
             />
           </div>
         </div>

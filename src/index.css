@@ -88,6 +88,14 @@
     height: 100%;
   }
 
+  html {
+    /* Belt-and-suspenders for the modal scroll-lock: html has no other
+       background of its own, so any transient gap while the scrollbar
+       toggles off would otherwise show the browser's default white canvas
+       instead of the app's background. */
+    @apply bg-app-bg;
+  }
+
   body {
     @apply bg-app-bg antialiased;
     /* Not text-slate-900 via @apply: that bakes a static color into this

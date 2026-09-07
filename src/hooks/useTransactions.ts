@@ -1,9 +1,10 @@
+import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { buildFingerprint } from '@/lib/fingerprint'
 import { applyRules, type SimpleRule } from '@/lib/rules'
-import type { Database, TransactionType } from '@/types/database.types'
+import type { Database, PaymentMethod, TransactionType } from '@/types/database.types'
 
 export type Transaction = Database['public']['Tables']['transactions']['Row']
 
@@ -14,6 +15,9 @@ export interface NewTransactionInput {
   amount: number
   type: TransactionType
   account: string
+  toAccount?: string | null
+  remarks?: string | null
+  paymentMethod?: PaymentMethod | null
   tags: string[]
   receipt: boolean
   receiptDocumentId?: string | null
@@ -69,7 +73,7 @@ export function useAddTransaction() {
 
       let category = input.category
       let tags = input.tags
-      if (input.rules && category === 'Needs review') {
+      if (input.rules && input.type !== 'transfer' && category === 'Needs review') {
         const applied = applyRules(input.merchant, category, tags, input.rules)
         category = applied.category
         tags = applied.tags
@@ -90,6 +94,9 @@ export function useAddTransaction() {
         amount: input.amount,
         type: input.type,
         account: input.account,
+        to_account: input.toAccount ?? null,
+        remarks: input.remarks?.trim() || null,
+        payment_method: input.paymentMethod ?? null,
         tags,
         receipt: input.receipt,
         receipt_document_id: input.receiptDocumentId ?? null,
@@ -116,6 +123,9 @@ export interface UpdateTransactionInput {
   amount: number
   type: TransactionType
   account: string
+  toAccount?: string | null
+  remarks?: string | null
+  paymentMethod?: PaymentMethod | null
   tags: string[]
 }
 
@@ -139,6 +149,9 @@ export function useUpdateTransaction() {
           amount: input.amount,
           type: input.type,
           account: input.account,
+          to_account: input.toAccount ?? null,
+          remarks: input.remarks?.trim() || null,
+          payment_method: input.paymentMethod ?? null,
           tags: input.tags,
           fingerprint,
         })
@@ -258,4 +271,26 @@ export function useBulkImportTransactions() {
     },
     onSuccess: () => invalidateTransactionQueries(queryClient),
   })
+}
+
+const RECENT_ACCOUNTS_LIMIT = 4
+
+/**
+ * The `limit` most recently-used accounts (by the owner's own transaction
+ * history), most recent first -- for pinning above the full alphabetical
+ * list in an account picker. `useMyTransactions` already orders by
+ * date desc/created_at desc, so the first occurrence of each account name
+ * while walking that list is already its most recent use.
+ */
+export function useRecentAccounts(userId: string | null, limit = RECENT_ACCOUNTS_LIMIT): string[] {
+  const { data: transactions } = useMyTransactions(userId)
+  return useMemo(() => {
+    if (!transactions) return []
+    const seen = new Set<string>()
+    for (const t of transactions) {
+      if (seen.size >= limit) break
+      seen.add(t.account)
+    }
+    return Array.from(seen)
+  }, [transactions, limit])
 }

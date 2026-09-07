@@ -2,8 +2,18 @@
 // you can regenerate this from the live schema with:
 //   supabase gen types typescript --project-id <ref> > src/types/database.types.ts
 
-export type TransactionType = 'expense' | 'income'
+export type TransactionType = 'expense' | 'income' | 'transfer'
 export type TransactionSource = 'manual' | 'csv'
+export type CategoryKind = 'expense' | 'income'
+export type PaymentMethod =
+  | 'UPI'
+  | 'Cash'
+  | 'Debit card'
+  | 'Credit card'
+  | 'Net banking'
+  | 'Cheque'
+  | 'NEFT/RTGS/IMPS'
+  | 'Other'
 export type RecurringKind = 'recurring' | 'subscription'
 export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual'
 export type DocumentStatus = 'stored' | 'review'
@@ -41,8 +51,8 @@ export interface Database {
         Update: Partial<{ display_name: string; avatar: string | null }>
       }
       categories: {
-        Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string }
-        Insert: { owner_user_id: string; name: string; created_by?: string | null }
+        Row: { owner_user_id: string; name: string; kind: CategoryKind | null; created_by: string | null; created_at: string }
+        Insert: { owner_user_id: string; name: string; kind?: CategoryKind | null; created_by?: string | null }
         Update: never
       }
       accounts: {
@@ -65,6 +75,9 @@ export interface Database {
           amount: number
           type: TransactionType
           account: string
+          to_account: string | null
+          remarks: string | null
+          payment_method: PaymentMethod | null
           tags: string[]
           receipt: boolean
           receipt_document_id: string | null
@@ -81,6 +94,9 @@ export interface Database {
           amount: number
           type: TransactionType
           account: string
+          to_account?: string | null
+          remarks?: string | null
+          payment_method?: PaymentMethod | null
           tags?: string[]
           receipt?: boolean
           receipt_document_id?: string | null
@@ -89,7 +105,16 @@ export interface Database {
         }
         Update: Partial<{
           category: string
+          type: TransactionType
+          account: string
+          to_account: string | null
+          remarks: string | null
+          payment_method: PaymentMethod | null
+          amount: number
+          date: string
+          merchant: string
           tags: string[]
+          fingerprint: string
         }>
       }
       budgets: {
@@ -253,6 +278,7 @@ export interface Database {
           onboarding_completed: boolean
           interests: string[]
           zodiac_sign: ZodiacSign | null
+          whats_new_seen_version: string | null
           updated_at: string
         }
         Insert: {
@@ -269,6 +295,7 @@ export interface Database {
           onboarding_completed?: boolean
           interests?: string[]
           zodiac_sign?: ZodiacSign | null
+          whats_new_seen_version?: string | null
         }
         Update: Partial<{
           assets_total: number
@@ -283,6 +310,7 @@ export interface Database {
           onboarding_completed: boolean
           interests: string[]
           zodiac_sign: ZodiacSign | null
+          whats_new_seen_version: string | null
         }>
       }
     }
