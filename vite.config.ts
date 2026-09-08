@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png'],
       manifest: {
-        name: 'Ledgerly',
-        short_name: 'Ledgerly',
+        name: 'LedgeEaze',
+        short_name: 'LedgeEaze',
         description: 'Shared personal finance tracker',
         theme_color: '#6558D3',
         background_color: '#F4F4F7',

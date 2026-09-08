@@ -207,6 +207,7 @@ export function DashboardPage() {
         footer={income === 0 ? 'Add income to calculate' : `${format(income - spending)} saved`}
       />
     ),
+    accountBalances: <AccountBalances />,
   }
 
   // Built once the loading gate above has passed, so every section here can
@@ -236,7 +237,6 @@ export function DashboardPage() {
     // Customize can now put something else between them.
     categoryChart: <CategoryDonut transactions={inPeriod} income={income} />,
     accountChart: <AccountBarChart transactions={inPeriod} />,
-    accountBalances: <AccountBalances />,
     activity: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <RecentActivity

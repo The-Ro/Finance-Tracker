@@ -55,10 +55,10 @@ export function WelcomeModal() {
   }
 
   return (
-    <Modal open title="Welcome to Ledgerly" onClose={() => finish(false)}>
+    <Modal open title="Welcome to LedgeEaze" onClose={() => finish(false)}>
       <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-600">
-          Ledgerly is a shared finance tracker: everyone you connect with can see each other's transactions once
+          LedgeEaze is a shared finance tracker: everyone you connect with can see each other's transactions once
           you approve access to each other, while your budgets, goals, and personal details stay private to you.
           Let's set up the basics.
         </p>
@@ -72,7 +72,7 @@ export function WelcomeModal() {
 
         {!isStandalone && (canPromptInstall || isIos) && (
           <div className="rounded-lg border border-app-border bg-slate-50 p-3">
-            <p className="mb-2 text-helper font-medium text-slate-600">Install Ledgerly on this device</p>
+            <p className="mb-2 text-helper font-medium text-slate-600">Install LedgeEaze on this device</p>
             {canPromptInstall ? (
               <Button variant="secondary" onClick={promptInstall} className="w-full">
                 <Download size={15} /> Add to Home Screen

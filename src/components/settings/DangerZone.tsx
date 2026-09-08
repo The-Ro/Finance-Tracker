@@ -48,7 +48,7 @@ export function DangerZone() {
         <h3 className="text-sm font-semibold text-red-700">Danger zone</h3>
       </div>
       <p className="text-helper text-slate-600">
-        Permanently erase everything in your Ledgerly account - transactions, budgets, goals, recurring
+        Permanently erase everything in your LedgeEaze account - transactions, budgets, goals, recurring
         items, subscriptions, documents, and rules. This never affects anyone else's data.
       </p>
       <div>
@@ -59,8 +59,8 @@ export function DangerZone() {
 
       <div className="mt-1 border-t border-red-200 pt-4">
         <p className="mb-3 text-helper text-slate-600">
-          Permanently delete your Ledgerly account and sign-in - not just your data. This can't be undone,
-          and you'd need to sign up again from scratch to use Ledgerly.
+          Permanently delete your LedgeEaze account and sign-in - not just your data. This can't be undone,
+          and you'd need to sign up again from scratch to use LedgeEaze.
         </p>
         <Button variant="danger" onClick={() => setDeleteModalOpen(true)}>
           Delete my account
@@ -90,12 +90,12 @@ export function DangerZone() {
       >
         {done ? (
           <InlineMessage tone="success">
-            Your data has been erased. Ledgerly is back to a fresh, empty state for your account.
+            Your data has been erased. LedgeEaze is back to a fresh, empty state for your account.
           </InlineMessage>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-slate-700">
-              This deletes your database records and stored file copies in Ledgerly. It does not delete
+              This deletes your database records and stored file copies in LedgeEaze. It does not delete
               anything from Google Drive or any other service.
             </p>
             <p className="text-sm text-slate-700">
@@ -132,7 +132,7 @@ export function DangerZone() {
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-slate-700">
-            This permanently deletes your Ledgerly sign-in along with every record tied to it - transactions,
+            This permanently deletes your LedgeEaze sign-in along with every record tied to it - transactions,
             budgets, goals, recurring items, documents and their stored files, rules, categories, accounts,
             and any sharing connections with other people. There's no way to undo this or recover your data
             afterward.

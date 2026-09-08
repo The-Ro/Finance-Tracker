@@ -88,6 +88,17 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
     return balance
   }, [accountBalances, form.account, transaction])
 
+  // Same idea as fromAccountBalance, but no overdraw check -- the "To"
+  // account is only ever receiving money, so this is purely informational
+  // (what does it currently hold, before this transfer lands).
+  const toAccountBalance = useMemo(() => {
+    let balance = accountBalances.get(form.toAccount) ?? 0
+    if (transaction?.type === 'transfer' && transaction.to_account === form.toAccount) {
+      balance -= transaction.amount
+    }
+    return balance
+  }, [accountBalances, form.toAccount, transaction])
+
   useEffect(() => {
     if (!form.account && accounts.length > 0) {
       setForm((f) => ({ ...f, account: accounts[0] }))
@@ -324,6 +335,9 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
                 onChange={(e) => setForm((f) => ({ ...f, toAccount: e.target.value }))}
                 disabled={toAccountOptions.length === 0}
               />
+              {form.toAccount && (
+                <p className="text-helper text-slate-400">{format(toAccountBalance)} available in {form.toAccount}</p>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">

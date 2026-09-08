@@ -3,7 +3,6 @@ export type DashboardSectionId =
   | 'cashflow'
   | 'categoryChart'
   | 'accountChart'
-  | 'accountBalances'
   | 'activity'
   | 'review'
 
@@ -12,7 +11,6 @@ export const DEFAULT_DASHBOARD_ORDER: DashboardSectionId[] = [
   'cashflow',
   'categoryChart',
   'accountChart',
-  'accountBalances',
   'activity',
   'review',
 ]
@@ -22,7 +20,6 @@ export const DASHBOARD_SECTION_LABELS: Record<DashboardSectionId, string> = {
   cashflow: 'Cash flow chart',
   categoryChart: 'Category breakdown',
   accountChart: 'Account breakdown',
-  accountBalances: 'Account balances',
   activity: 'Recent activity',
   review: 'Needs-review banner',
 }
@@ -43,18 +40,27 @@ export function normalizeDashboardOrder(stored: string[] | null | undefined): Da
   return [...valid, ...missing]
 }
 
-// The four cards inside the "Summary cards" section are separately
-// reorderable among themselves (nested under that one row in Customize),
-// distinct from the section-level order above.
-export type SummaryCardId = 'netWorth' | 'income' | 'spending' | 'savingsRate'
+// The cards inside the "Summary cards" section are separately reorderable
+// among themselves (nested under that one row in Customize), distinct from
+// the section-level order above. accountBalances lives here (not as its own
+// top-level section) since it's the same "small at-a-glance stat" family as
+// the other four.
+export type SummaryCardId = 'netWorth' | 'income' | 'spending' | 'savingsRate' | 'accountBalances'
 
-export const DEFAULT_SUMMARY_CARD_ORDER: SummaryCardId[] = ['netWorth', 'income', 'spending', 'savingsRate']
+export const DEFAULT_SUMMARY_CARD_ORDER: SummaryCardId[] = [
+  'netWorth',
+  'income',
+  'spending',
+  'savingsRate',
+  'accountBalances',
+]
 
 export const SUMMARY_CARD_LABELS: Record<SummaryCardId, string> = {
   netWorth: 'Net worth',
   income: 'Income',
   spending: 'Spending',
   savingsRate: 'Savings rate',
+  accountBalances: 'Account balances',
 }
 
 function isSummaryCardId(id: string): id is SummaryCardId {

@@ -35,7 +35,7 @@ export function WhatsNewModal({ open: openProp, onClose: onCloseProp }: WhatsNew
   }
 
   return (
-    <Modal open title="What's new in Ledgerly" onClose={dismiss}>
+    <Modal open title="What's new in LedgeEaze" onClose={dismiss}>
       <div className="flex flex-col gap-4">
         <ul className="flex flex-col gap-2.5">
           {WHATS_NEW_ITEMS.map((item) => (

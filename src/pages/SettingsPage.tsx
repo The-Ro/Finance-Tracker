@@ -62,7 +62,7 @@ export function SettingsPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <SectionHeading title="Preferences" description="How Ledgerly looks and formats numbers for you." />
+        <SectionHeading title="Preferences" description="How LedgeEaze looks and formats numbers for you." />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <CurrencySelector />
           <ThemeSettings />

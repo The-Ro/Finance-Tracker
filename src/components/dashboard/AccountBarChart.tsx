@@ -3,12 +3,16 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { BarChart3 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
-import type { Transaction } from '@/hooks/useTransactions'
+import { useAuth } from '@/context/AuthContext'
+import { useAccountBalances, type Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useTheme } from '@/context/ThemeContext'
 import { getChartTheme } from '@/lib/themeColors'
 
 interface AccountBarChartProps {
+  /** Period-filtered -- used for the expense bar. Balance is all-time by
+   *  nature (a running total), so it's pulled separately via
+   *  useAccountBalances rather than derived from this same filtered set. */
   transactions: Transaction[]
 }
 
@@ -19,42 +23,35 @@ const compactFormatter = new Intl.NumberFormat(undefined, { notation: 'compact',
 const MAX_ACCOUNTS_SHOWN = 8
 
 export function AccountBarChart({ transactions }: AccountBarChartProps) {
+  const { userId } = useAuth()
   const { format } = useFormatCurrency()
   const { accentHex, isDark } = useTheme()
   const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
+  const balances = useAccountBalances(userId)
 
   const { data, hiddenCount } = useMemo(() => {
-    const byAccount = new Map<string, { income: number; expense: number; transferred: number }>()
-    const bucketFor = (account: string) => {
-      if (!byAccount.has(account)) byAccount.set(account, { income: 0, expense: 0, transferred: 0 })
-      return byAccount.get(account)!
-    }
+    const expenseByAccount = new Map<string, number>()
     for (const t of transactions) {
-      if (t.type === 'income') bucketFor(t.account).income += t.amount
-      else if (t.type === 'expense') bucketFor(t.account).expense += t.amount
-      else if (t.type === 'transfer') {
-        // Transfers aren't income or spending, so they get their own series
-        // rather than being folded into either -- but they were previously
-        // skipped entirely, so moving money between your own accounts just
-        // never showed up on this chart at all. Both legs of the move count
-        // here (money leaving one account, arriving in another), so this
-        // reads as "how much activity", not a signed net change.
-        bucketFor(t.account).transferred += t.amount
-        if (t.to_account) bucketFor(t.to_account).transferred += t.amount
-      }
+      if (t.type !== 'expense') continue
+      expenseByAccount.set(t.account, (expenseByAccount.get(t.account) ?? 0) + t.amount)
     }
-    const sorted = Array.from(byAccount.entries())
-      .map(([name, v]) => ({ name, income: v.income, expense: v.expense, transferred: v.transferred }))
-      .sort((a, b) => b.income + b.expense + b.transferred - (a.income + a.expense + a.transferred))
+    // Every account with either a balance (any transaction history at all)
+    // or expense activity this period gets a bar -- not just ones with
+    // period-scoped expense, since a balance-only account is still worth
+    // seeing here.
+    const accountNames = new Set([...balances.keys(), ...expenseByAccount.keys()])
+    const sorted = Array.from(accountNames)
+      .map((name) => ({ name, balance: balances.get(name) ?? 0, expense: expenseByAccount.get(name) ?? 0 }))
+      .sort((a, b) => Math.abs(b.balance) + b.expense - (Math.abs(a.balance) + a.expense))
     return { data: sorted.slice(0, MAX_ACCOUNTS_SHOWN), hiddenCount: Math.max(0, sorted.length - MAX_ACCOUNTS_SHOWN) }
-  }, [transactions])
+  }, [transactions, balances])
 
   return (
     <Card className="p-5">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-slate-800">Cash flow by account</h3>
         <p className="text-helper text-slate-500">
-          Income against expenses for each account this period
+          Current balance against this period's spending, per account
           {hiddenCount > 0 ? ` · ${hiddenCount} more not shown` : ''}.
         </p>
       </div>
@@ -87,9 +84,8 @@ export function AccountBarChart({ transactions }: AccountBarChartProps) {
                 itemStyle={{ color: colors.tick }}
               />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
-              <Bar dataKey="income" name="Income" fill={colors.positive} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="balance" name="Current balance" fill={colors.accent} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
               <Bar dataKey="expense" name="Expense" fill={colors.caution} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
-              <Bar dataKey="transferred" name="Transferred" fill={colors.accent} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         </div>

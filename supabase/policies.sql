@@ -1,4 +1,4 @@
--- Ledgerly Row Level Security policies.
+-- LedgeEaze Row Level Security policies.
 -- Apply after schema.sql. Safe to re-run (drops + recreates each policy).
 
 alter table public.profiles enable row level security;

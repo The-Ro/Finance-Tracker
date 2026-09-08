@@ -1,4 +1,4 @@
-# Supabase setup for Ledgerly
+# Supabase setup for LedgeEaze
 
 1. Create a free project at [supabase.com](https://supabase.com) (no credit card required).
 2. In your new project, go to **SQL Editor** and run these three files in order:
@@ -6,7 +6,7 @@
    2. `policies.sql`
    3. `seed.sql`
 3. Go to **Authentication → Providers → Email** and make sure "Confirm email" is **enabled**
-   (Ledgerly requires email confirmation before login, per project settings).
+   (LedgeEaze requires email confirmation before login, per project settings).
 4. Go to **Settings → API** and copy:
    - **Project URL** → `VITE_SUPABASE_URL`
    - **anon / public key** → `VITE_SUPABASE_ANON_KEY`

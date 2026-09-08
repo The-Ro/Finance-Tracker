@@ -1,4 +1,4 @@
-# Ledgerly
+# LedgeEaze
 
 A multi-user personal finance tracker. Every signed-up user manages their own transactions,
 budgets, goals, recurring payments, subscriptions, documents, and rules — everything is

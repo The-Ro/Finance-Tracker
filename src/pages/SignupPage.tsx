@@ -62,7 +62,7 @@ export function SignupPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
             L
           </div>
-          <span className="text-lg font-semibold text-slate-900">Ledgerly</span>
+          <span className="text-lg font-semibold text-slate-900">LedgeEaze</span>
         </div>
         <h1 className="mb-4 text-base font-semibold text-slate-800">Create your account</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

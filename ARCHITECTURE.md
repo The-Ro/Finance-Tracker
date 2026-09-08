@@ -2,7 +2,7 @@
 
 ## Shape
 
-Ledgerly is a client-only single-page app — there is no custom backend server or API layer.
+LedgeEaze is a client-only single-page app — there is no custom backend server or API layer.
 The React app talks directly to Supabase (Postgres + Auth + Storage) from the browser using
 the anon key, and **Postgres Row Level Security (RLS) is the only authorization boundary**.
 Every table has RLS enabled; there is no trusted server-side code that re-checks permissions,

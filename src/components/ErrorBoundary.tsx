@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Something went wrong</h1>
           <p className="mt-1 max-w-sm text-helper text-slate-500">
-            Ledgerly ran into an unexpected error. Reloading usually fixes it — your data is safe either way.
+            LedgeEaze ran into an unexpected error. Reloading usually fixes it — your data is safe either way.
           </p>
         </div>
         <button

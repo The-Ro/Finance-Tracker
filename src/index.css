@@ -9,6 +9,14 @@
    on a dark card instead of looking like a washed-out light-mode pastel. */
 :root {
   color-scheme: light;
+  /* iOS has documented cases of env(safe-area-inset-top) under-reporting
+     the actual Dynamic Island height specifically for home-screen-installed
+     PWAs (standalone display mode) -- a regular Safari tab isn't affected
+     since this meta/env mechanism only engages in standalone at all. This
+     buffer is a defensive top-up so the header/nav toggle can't render
+     under the Island even if the OS value comes in short; it's a no-op
+     everywhere else. */
+  --safe-top: env(safe-area-inset-top);
   --app-bg: 244 244 247;
   --app-card: 255 255 255;
   --app-border: 230 230 237;
@@ -23,6 +31,12 @@
   --accent: 101 88 211;
   --accent-light: 239 237 251;
   --accent-dark: 78 67 176;
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --safe-top: calc(env(safe-area-inset-top) + 10px);
+  }
 }
 
 :root[data-accent='ocean'] {

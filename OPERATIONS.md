@@ -1,6 +1,6 @@
 # Operations
 
-Practical runbook for running, deploying, and maintaining Ledgerly. For how the pieces fit
+Practical runbook for running, deploying, and maintaining LedgeEaze. For how the pieces fit
 together, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Local development

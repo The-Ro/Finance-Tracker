@@ -1,8 +1,10 @@
 import { useMemo } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { PieChart as PieIcon } from 'lucide-react'
+import clsx from 'clsx'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useTheme } from '@/context/ThemeContext'
@@ -39,7 +41,24 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
 
   return (
     <Card className="p-5">
-      <h3 className="mb-4 text-sm font-semibold text-slate-800">Spending by category</h3>
+      <h3 className="mb-1 text-sm font-semibold text-slate-800">Spending by category</h3>
+      {income > 0 && (
+        <div className="mb-4 mt-2">
+          <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-helper text-slate-500">
+            <span>
+              Income <span className="font-semibold text-slate-800">{format(income)}</span>
+            </span>
+            <span className={clsx(percentOfIncome !== null && percentOfIncome > 100 && 'font-medium text-caution')}>
+              Spent <span className="font-semibold text-slate-800">{format(totalExpense)}</span>
+              {percentOfIncome !== null && ` (${percentOfIncome.toFixed(0)}%)`}
+            </span>
+          </div>
+          <ProgressBar
+            percent={percentOfIncome ?? 0}
+            tone={percentOfIncome !== null && percentOfIncome > 100 ? 'danger' : 'accent'}
+          />
+        </div>
+      )}
       {data.length === 0 ? (
         <EmptyState icon={PieIcon} title="No spending yet" description="Add expense transactions to see the breakdown." />
       ) : (
@@ -53,6 +72,11 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
                   ))}
                 </Pie>
                 <Tooltip
+                  // Fixed below the chart rather than following the cursor's Y
+                  // position -- the donut's hole is small enough that a
+                  // cursor-anchored tooltip landed right on top of the center
+                  // %/amount label, the two texts overlapping illegibly.
+                  position={{ y: 195 }}
                   formatter={(value: number) => format(value)}
                   contentStyle={{ backgroundColor: colors.tooltipBg, border: `1px solid ${colors.border}`, borderRadius: 8 }}
                   labelStyle={{ color: colors.tick }}

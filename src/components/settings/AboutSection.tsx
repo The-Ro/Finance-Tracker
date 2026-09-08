@@ -14,7 +14,7 @@ export function AboutSection() {
         <Info size={16} className="text-accent" />
         <h3 className="text-sm font-semibold text-slate-800">About</h3>
       </div>
-      <p className="text-helper text-slate-500">Ledgerly v{APP_VERSION}</p>
+      <p className="text-helper text-slate-500">LedgeEaze v{APP_VERSION}</p>
       <div>
         <Button variant="secondary" onClick={() => setWhatsNewOpen(true)}>
           What's new

@@ -10,7 +10,7 @@ export function DetectionSettings() {
     <Card className="flex flex-col gap-3 p-5">
       <h3 className="text-sm font-semibold text-slate-800">Automatic detection</h3>
       <p className="text-helper text-slate-500">
-        Ledgerly looks for repeating expenses in your own transactions to suggest recurring payments and
+        LedgeEaze looks for repeating expenses in your own transactions to suggest recurring payments and
         subscriptions. It never confirms one automatically - you choose Keep or Ignore on each suggestion,
         or add one yourself on the Recurring or Subscriptions pages.
       </p>

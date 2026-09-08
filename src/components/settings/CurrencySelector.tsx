@@ -25,7 +25,7 @@ export function CurrencySelector() {
     <Card className="flex flex-col gap-3 p-5">
       <div>
         <h3 className="text-sm font-semibold text-slate-800">Currency</h3>
-        <p className="mt-1 text-helper text-slate-500">Used for every amount shown across Ledgerly.</p>
+        <p className="mt-1 text-helper text-slate-500">Used for every amount shown across LedgeEaze.</p>
       </div>
       <Dropdown options={options} value={currentLabel ?? options[0]} onChange={(e) => handleChange(e.target.value)} />
       {updateCurrency.isPending && <span className="text-helper text-slate-400">Saving…</span>}
