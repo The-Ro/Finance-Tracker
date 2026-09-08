@@ -396,6 +396,14 @@ create table if not exists public.viewer_access (
 create index if not exists viewer_access_owner_idx on public.viewer_access (owner_user_id, status);
 create index if not exists viewer_access_requester_idx on public.viewer_access (requester_user_id, status);
 
+-- 'paused' lets an owner temporarily hide their transactions from someone
+-- without revoking (deleting) the grant outright -- behaves like 'approved'
+-- everywhere except transactions_select_own_or_approved (policies.sql),
+-- which only grants visibility for 'approved'.
+alter table public.viewer_access drop constraint if exists viewer_access_status_check;
+alter table public.viewer_access add constraint viewer_access_status_check
+  check (status in ('pending','approved','paused'));
+
 -- ===== per-user settings (own-only) =====
 create table if not exists public.user_settings (
   owner_user_id uuid primary key references auth.users(id) on delete cascade,
@@ -477,3 +485,14 @@ revoke execute on function public.handle_new_user() from public;
 revoke execute on function public.handle_user_email_update() from public;
 revoke execute on function public.rls_auto_enable() from public;
 revoke execute on function public.delete_own_account() from public;
+
+-- Added the 'accountBalances' section (a live per-account balance list,
+-- derived from transaction history). Keep the column default current for
+-- any fresh install running this file from scratch.
+alter table public.user_settings alter column dashboard_order
+  set default array['summary','cashflow','categoryChart','accountChart','accountBalances','activity','review'];
+
+-- Individually hideable summary cards, mirroring dashboard_hidden but for
+-- the 4 cards nested inside the "summary" section rather than top-level
+-- sections.
+alter table public.user_settings add column if not exists summary_card_hidden text[] not null default '{}';

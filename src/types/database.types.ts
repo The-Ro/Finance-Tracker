@@ -51,7 +51,7 @@ export type ZodiacSign =
   | 'capricorn'
   | 'aquarius'
   | 'pisces'
-export type ViewerAccessStatus = 'pending' | 'approved'
+export type ViewerAccessStatus = 'pending' | 'approved' | 'paused'
 
 export interface Database {
   public: {
@@ -319,6 +319,7 @@ export interface Database {
           dashboard_order: string[]
           dashboard_hidden: string[]
           summary_card_order: string[]
+          summary_card_hidden: string[]
           updated_at: string
         }
         Insert: {
@@ -340,6 +341,7 @@ export interface Database {
           dashboard_order?: string[]
           dashboard_hidden?: string[]
           summary_card_order?: string[]
+          summary_card_hidden?: string[]
         }
         Update: Partial<{
           assets_total: number
@@ -359,6 +361,7 @@ export interface Database {
           dashboard_order: string[]
           dashboard_hidden: string[]
           summary_card_order: string[]
+          summary_card_hidden: string[]
         }>
       }
     }

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, ComposedChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TrendingUp } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -22,18 +22,30 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
   const points = useMemo(() => {
     const byMonth = new Map<string, { income: number; expense: number }>()
     for (const t of transactions) {
+      // Transfers move money between your own accounts -- they don't change
+      // how much you hold overall, so (like income/expense totals elsewhere)
+      // they're excluded here too.
+      if (t.type !== 'income' && t.type !== 'expense') continue
       const key = t.date.slice(0, 7) // YYYY-MM
       if (!byMonth.has(key)) byMonth.set(key, { income: 0, expense: 0 })
       const bucket = byMonth.get(key)!
       if (t.type === 'income') bucket.income += t.amount
-      else if (t.type === 'expense') bucket.expense += t.amount
+      else bucket.expense += t.amount
     }
-    const sortedKeys = Array.from(byMonth.keys()).sort().slice(-7)
-    return sortedKeys.map((key) => {
+    // "Net held" is a running total across ALL history, not just the last 7
+    // shown months -- computed over every month first so the visible window
+    // starts already carrying whatever accumulated before it, then sliced.
+    const allKeysSorted = Array.from(byMonth.keys()).sort()
+    let running = 0
+    const withNet = allKeysSorted.map((key) => {
+      const bucket = byMonth.get(key)!
+      running += bucket.income - bucket.expense
+      return { key, income: bucket.income, expense: bucket.expense, net: running }
+    })
+    return withNet.slice(-7).map(({ key, income, expense, net }) => {
       const [y, m] = key.split('-')
       const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'short' })
-      const bucket = byMonth.get(key)!
-      return { label, income: bucket.income, expense: bucket.expense }
+      return { label, income, expense, net }
     })
   }, [transactions])
 
@@ -48,11 +60,11 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
       ) : (
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={points} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
+            <ComposedChart data={points} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
               <defs>
                 <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={colors.accent} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={colors.accent} stopOpacity={0} />
+                  <stop offset="0%" stopColor={colors.positive} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={colors.positive} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={colors.caution} stopOpacity={0.3} />
@@ -74,9 +86,11 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
                 labelStyle={{ color: colors.tick }}
                 itemStyle={{ color: colors.tick }}
               />
-              <Area type="monotone" dataKey="income" stroke={colors.accent} fill="url(#incomeGradient)" strokeWidth={2} name="Income" />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
+              <Area type="monotone" dataKey="income" stroke={colors.positive} fill="url(#incomeGradient)" strokeWidth={2} name="Income" />
               <Area type="monotone" dataKey="expense" stroke={colors.caution} fill="url(#expenseGradient)" strokeWidth={2} name="Spending" />
-            </AreaChart>
+              <Line type="monotone" dataKey="net" stroke={colors.accent} strokeWidth={2} dot={false} name="Net held" />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}

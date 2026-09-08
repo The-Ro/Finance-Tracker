@@ -3,7 +3,8 @@ import { AlertCircle, SlidersHorizontal } from 'lucide-react'
 import {
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -22,6 +23,7 @@ import { SortableSummaryCard } from '@/components/dashboard/SortableSummaryCard'
 import { CashFlowChart } from '@/components/dashboard/CashFlowChart'
 import { CategoryDonut } from '@/components/dashboard/CategoryDonut'
 import { AccountBarChart } from '@/components/dashboard/AccountBarChart'
+import { AccountBalances } from '@/components/dashboard/AccountBalances'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { ComingUpCard } from '@/components/dashboard/ComingUpCard'
 import { CustomizeDashboardModal } from '@/components/dashboard/CustomizeDashboardModal'
@@ -81,8 +83,16 @@ export function DashboardPage() {
   // Lets the 4 summary cards be reordered by dragging them right here on
   // Home, not just via the nested list in the Customize modal. Hooks, so
   // this has to sit above the loading-state early return below.
+  //
+  // The whole card is the drag surface (SortableSummaryCard), not just a
+  // small grip handle -- MouseSensor's small activation distance keeps
+  // desktop dragging snappy, while TouchSensor's press-and-hold delay is
+  // what lets a normal scroll-swipe starting on a card pass through to the
+  // browser untouched instead of being captured as a drag attempt; only a
+  // finger that stays put past the delay commits to a drag.
   const summaryCardSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
@@ -128,6 +138,8 @@ export function DashboardPage() {
   const order = settings.data?.dashboardOrder ?? DEFAULT_DASHBOARD_ORDER
   const hidden = settings.data?.dashboardHidden ?? []
   const summaryCardOrder = settings.data?.summaryCardOrder ?? DEFAULT_SUMMARY_CARD_ORDER
+  const summaryCardHidden = settings.data?.summaryCardHidden ?? []
+  const visibleSummaryCardOrder = summaryCardOrder.filter((id) => !summaryCardHidden.includes(id))
 
   const handleSummaryCardDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -204,9 +216,9 @@ export function DashboardPage() {
   const sections: Record<DashboardSectionId, ReactNode> = {
     summary: (
       <DndContext sensors={summaryCardSensors} collisionDetection={closestCenter} onDragEnd={handleSummaryCardDragEnd}>
-        <SortableContext items={summaryCardOrder} strategy={rectSortingStrategy}>
+        <SortableContext items={visibleSummaryCardOrder} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {summaryCardOrder.map((id) => (
+            {visibleSummaryCardOrder.map((id) => (
               <SortableSummaryCard key={id} id={id} label={SUMMARY_CARD_LABELS[id]}>
                 {summaryCards[id]}
               </SortableSummaryCard>
@@ -224,6 +236,7 @@ export function DashboardPage() {
     // Customize can now put something else between them.
     categoryChart: <CategoryDonut transactions={inPeriod} income={income} />,
     accountChart: <AccountBarChart transactions={inPeriod} />,
+    accountBalances: <AccountBalances />,
     activity: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <RecentActivity

@@ -74,7 +74,13 @@ function SortableRow({ id, hidden, onToggleHidden }: SortableRowProps) {
   )
 }
 
-function SummaryCardRow({ id }: { id: SummaryCardId }) {
+interface SummaryCardRowProps {
+  id: SummaryCardId
+  hidden: boolean
+  onToggleHidden: () => void
+}
+
+function SummaryCardRow({ id, hidden, onToggleHidden }: SummaryCardRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 
   return (
@@ -83,6 +89,7 @@ function SummaryCardRow({ id }: { id: SummaryCardId }) {
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={clsx(
         'flex items-center gap-2 rounded-lg border border-app-border bg-white px-2 py-2',
+        hidden && 'opacity-50',
         isDragging && 'relative z-10 shadow-card-lg'
       )}
     >
@@ -96,6 +103,15 @@ function SummaryCardRow({ id }: { id: SummaryCardId }) {
         <GripVertical size={14} />
       </button>
       <span className="flex-1 text-helper text-slate-600">{SUMMARY_CARD_LABELS[id]}</span>
+      <button
+        type="button"
+        aria-label={hidden ? `Show ${SUMMARY_CARD_LABELS[id]} card on Home` : `Hide ${SUMMARY_CARD_LABELS[id]} card from Home`}
+        aria-pressed={!hidden}
+        onClick={onToggleHidden}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      >
+        {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+      </button>
     </li>
   )
 }
@@ -105,6 +121,7 @@ export function CustomizeDashboardModal({ open, onClose }: CustomizeDashboardMod
   const order = data?.dashboardOrder ?? []
   const hidden = data?.dashboardHidden ?? []
   const summaryCardOrder = data?.summaryCardOrder ?? []
+  const summaryCardHidden = data?.summaryCardHidden ?? []
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -132,6 +149,13 @@ export function CustomizeDashboardModal({ open, onClose }: CustomizeDashboardMod
   const toggleHidden = (id: DashboardSectionId) => {
     const next = hidden.includes(id) ? hidden.filter((h) => h !== id) : [...hidden, id]
     updateDashboardLayout.mutate({ hidden: next })
+  }
+
+  const toggleSummaryCardHidden = (id: SummaryCardId) => {
+    const next = summaryCardHidden.includes(id)
+      ? summaryCardHidden.filter((h) => h !== id)
+      : [...summaryCardHidden, id]
+    updateDashboardLayout.mutate({ summaryCardHidden: next })
   }
 
   return (
@@ -168,7 +192,12 @@ export function CustomizeDashboardModal({ open, onClose }: CustomizeDashboardMod
                         <SortableContext items={summaryCardOrder} strategy={verticalListSortingStrategy}>
                           <ul className="flex flex-col gap-1.5">
                             {summaryCardOrder.map((cardId) => (
-                              <SummaryCardRow key={cardId} id={cardId} />
+                              <SummaryCardRow
+                                key={cardId}
+                                id={cardId}
+                                hidden={summaryCardHidden.includes(cardId)}
+                                onToggleHidden={() => toggleSummaryCardHidden(cardId)}
+                              />
                             ))}
                           </ul>
                         </SortableContext>

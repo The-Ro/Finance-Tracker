@@ -31,6 +31,7 @@ export interface UserSettings {
   dashboardOrder: DashboardSectionId[]
   dashboardHidden: string[]
   summaryCardOrder: SummaryCardId[]
+  summaryCardHidden: string[]
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -51,6 +52,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   dashboardOrder: DEFAULT_DASHBOARD_ORDER,
   dashboardHidden: [],
   summaryCardOrder: DEFAULT_SUMMARY_CARD_ORDER,
+  summaryCardHidden: [],
 }
 
 export function useUserSettings() {
@@ -93,6 +95,7 @@ export function useUserSettings() {
         dashboardOrder: normalizeDashboardOrder(data.dashboard_order),
         dashboardHidden: data.dashboard_hidden ?? [],
         summaryCardOrder: normalizeSummaryCardOrder(data.summary_card_order),
+        summaryCardHidden: data.summary_card_hidden ?? [],
       }
     },
   })
@@ -158,6 +161,7 @@ export function useUserSettings() {
       order?: DashboardSectionId[]
       hidden?: string[]
       summaryCardOrder?: SummaryCardId[]
+      summaryCardHidden?: string[]
     }) => {
       const previous = query.data
       queryClient.setQueryData(['user_settings', userId], (old: UserSettings | undefined) =>
@@ -167,6 +171,7 @@ export function useUserSettings() {
               ...(input.order ? { dashboardOrder: input.order } : {}),
               ...(input.hidden ? { dashboardHidden: input.hidden } : {}),
               ...(input.summaryCardOrder ? { summaryCardOrder: input.summaryCardOrder } : {}),
+              ...(input.summaryCardHidden ? { summaryCardHidden: input.summaryCardHidden } : {}),
             }
           : old
       )
@@ -176,6 +181,7 @@ export function useUserSettings() {
           ...(input.order ? { dashboard_order: input.order } : {}),
           ...(input.hidden ? { dashboard_hidden: input.hidden } : {}),
           ...(input.summaryCardOrder ? { summary_card_order: input.summaryCardOrder } : {}),
+          ...(input.summaryCardHidden ? { summary_card_hidden: input.summaryCardHidden } : {}),
         })
         .eq('owner_user_id', userId!)
       if (error) {

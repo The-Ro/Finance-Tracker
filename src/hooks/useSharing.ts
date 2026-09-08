@@ -81,6 +81,26 @@ export function useApproveAccessRequest() {
   })
 }
 
+/** Toggles an already-approved grant between 'approved' and 'paused' --
+ *  pausing hides your transactions from that person without deleting the
+ *  grant itself (unpausing needs no re-request). */
+export function useToggleAccessPause() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, paused }: { id: string; paused: boolean }) => {
+      const { error } = await supabase
+        .from('viewer_access')
+        .update({ status: paused ? 'paused' : 'approved' })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      invalidateAccess(queryClient)
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+}
+
 /** Cancels a pending outgoing request, declines a pending incoming one, or revokes approved access -- same delete either way. */
 export function useRemoveAccessRow() {
   const queryClient = useQueryClient()

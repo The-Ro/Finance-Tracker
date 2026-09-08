@@ -24,17 +24,28 @@ export function AccountBarChart({ transactions }: AccountBarChartProps) {
   const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
 
   const { data, hiddenCount } = useMemo(() => {
-    const byAccount = new Map<string, { income: number; expense: number }>()
+    const byAccount = new Map<string, { income: number; expense: number; transferred: number }>()
+    const bucketFor = (account: string) => {
+      if (!byAccount.has(account)) byAccount.set(account, { income: 0, expense: 0, transferred: 0 })
+      return byAccount.get(account)!
+    }
     for (const t of transactions) {
-      if (t.type !== 'income' && t.type !== 'expense') continue
-      if (!byAccount.has(t.account)) byAccount.set(t.account, { income: 0, expense: 0 })
-      const bucket = byAccount.get(t.account)!
-      if (t.type === 'income') bucket.income += t.amount
-      else bucket.expense += t.amount
+      if (t.type === 'income') bucketFor(t.account).income += t.amount
+      else if (t.type === 'expense') bucketFor(t.account).expense += t.amount
+      else if (t.type === 'transfer') {
+        // Transfers aren't income or spending, so they get their own series
+        // rather than being folded into either -- but they were previously
+        // skipped entirely, so moving money between your own accounts just
+        // never showed up on this chart at all. Both legs of the move count
+        // here (money leaving one account, arriving in another), so this
+        // reads as "how much activity", not a signed net change.
+        bucketFor(t.account).transferred += t.amount
+        if (t.to_account) bucketFor(t.to_account).transferred += t.amount
+      }
     }
     const sorted = Array.from(byAccount.entries())
-      .map(([name, v]) => ({ name, income: v.income, expense: v.expense }))
-      .sort((a, b) => b.income + b.expense - (a.income + a.expense))
+      .map(([name, v]) => ({ name, income: v.income, expense: v.expense, transferred: v.transferred }))
+      .sort((a, b) => b.income + b.expense + b.transferred - (a.income + a.expense + a.transferred))
     return { data: sorted.slice(0, MAX_ACCOUNTS_SHOWN), hiddenCount: Math.max(0, sorted.length - MAX_ACCOUNTS_SHOWN) }
   }, [transactions])
 
@@ -78,6 +89,7 @@ export function AccountBarChart({ transactions }: AccountBarChartProps) {
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
               <Bar dataKey="income" name="Income" fill={colors.positive} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
               <Bar dataKey="expense" name="Expense" fill={colors.caution} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="transferred" name="Transferred" fill={colors.accent} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -83,7 +83,7 @@ create policy viewer_access_insert on public.viewer_access for insert
 drop policy if exists viewer_access_update on public.viewer_access;
 create policy viewer_access_update on public.viewer_access for update
   using (auth.uid() = owner_user_id)
-  with check (auth.uid() = owner_user_id and status = 'approved');
+  with check (auth.uid() = owner_user_id and status in ('approved','paused'));
 
 drop policy if exists viewer_access_delete on public.viewer_access;
 create policy viewer_access_delete on public.viewer_access for delete

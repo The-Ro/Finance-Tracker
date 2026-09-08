@@ -12,12 +12,15 @@ interface SortableSummaryCardProps {
 }
 
 /**
- * Wraps a summary card with its own drag handle so the 4 cards can be
- * reordered right on Home, not just via the nested list in the Customize
- * modal (that still works too -- same summaryCardOrder underneath, just a
- * second way to get at it). The handle stays visible rather than
- * hover-revealed since this has to work by touch on mobile, which has no
- * hover state at all.
+ * The whole card is the drag surface (press and hold anywhere, not just the
+ * grip icon) -- attributes/listeners go on the outer div, and the grip icon
+ * is purely decorative, just a visual "this is draggable" hint riding along
+ * via event bubbling. Deliberately NOT touch-action:none here: the
+ * DashboardPage sensor setup uses a TouchSensor with a hold delay
+ * specifically so a normal scroll-swipe starting on a card passes straight
+ * through to the browser instead of getting captured as a drag attempt --
+ * forcing touch-action:none on the whole card would defeat that by blocking
+ * native scrolling the instant a finger lands on it.
  */
 export function SortableSummaryCard({ id, label, children }: SortableSummaryCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -26,18 +29,21 @@ export function SortableSummaryCard({ id, label, children }: SortableSummaryCard
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={clsx('relative', isDragging && 'z-10 shadow-card-lg')}
+      aria-label={`${label} card, press and hold to drag and reorder`}
+      className={clsx(
+        'relative select-none cursor-grab active:cursor-grabbing',
+        isDragging && 'z-10 shadow-card-lg'
+      )}
+      {...attributes}
+      {...listeners}
     >
       {children}
-      <button
-        type="button"
-        aria-label={`Drag to reorder ${label} card`}
-        className="absolute right-2 top-2 flex h-7 w-7 touch-none cursor-grab items-center justify-center rounded-full text-slate-300 hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-slate-300"
       >
         <GripVertical size={14} />
-      </button>
+      </span>
     </div>
   )
 }

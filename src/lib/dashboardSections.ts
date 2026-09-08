@@ -1,10 +1,18 @@
-export type DashboardSectionId = 'summary' | 'cashflow' | 'categoryChart' | 'accountChart' | 'activity' | 'review'
+export type DashboardSectionId =
+  | 'summary'
+  | 'cashflow'
+  | 'categoryChart'
+  | 'accountChart'
+  | 'accountBalances'
+  | 'activity'
+  | 'review'
 
 export const DEFAULT_DASHBOARD_ORDER: DashboardSectionId[] = [
   'summary',
   'cashflow',
   'categoryChart',
   'accountChart',
+  'accountBalances',
   'activity',
   'review',
 ]
@@ -14,6 +22,7 @@ export const DASHBOARD_SECTION_LABELS: Record<DashboardSectionId, string> = {
   cashflow: 'Cash flow chart',
   categoryChart: 'Category breakdown',
   accountChart: 'Account breakdown',
+  accountBalances: 'Account balances',
   activity: 'Recent activity',
   review: 'Needs-review banner',
 }

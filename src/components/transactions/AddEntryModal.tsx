@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -50,6 +50,7 @@ const EMPTY_STATE = {
 export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
   const [error, setError] = useState<string | null>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const isEditing = !!transaction
   const isTransfer = form.type === 'transfer'
 
@@ -160,16 +161,27 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
     onClose()
   }
 
+  // The form scrolls internally and the field a validation error is about
+  // (merchant, account, ...) can easily be scrolled out of view by the time
+  // someone hits Save -- setting the message alone left it rendered off the
+  // bottom of the visible area with no visible sign anything happened.
+  // Surfacing it at the very top of the form and scrolling back up there
+  // means it's always seen right away, wherever the user was scrolled to.
+  const fail = (message: string) => {
+    setError(message)
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const handleSubmit = async () => {
     setError(null)
 
-    if (!form.merchant.trim()) return setError('Enter a merchant or source.')
-    if (!form.date) return setError('Choose a date.')
-    if (!Number.isFinite(amountNum) || amountNum <= 0) return setError('Enter a valid amount greater than zero.')
-    if (!form.account) return setError('Choose an account.')
-    if (isTransfer && !form.toAccount) return setError('Choose an account to transfer to.')
-    if (isTransfer && form.toAccount === form.account) return setError('Choose a different account to transfer to.')
-    if (!isEditing && form.hasReceipt && !form.file) return setError('Choose a receipt file, or uncheck the receipt box.')
+    if (!form.merchant.trim()) return fail('Enter a merchant or source.')
+    if (!form.date) return fail('Choose a date.')
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter a valid amount greater than zero.')
+    if (!form.account) return fail('Choose an account.')
+    if (isTransfer && !form.toAccount) return fail('Choose an account to transfer to.')
+    if (isTransfer && form.toAccount === form.account) return fail('Choose a different account to transfer to.')
+    if (!isEditing && form.hasReceipt && !form.file) return fail('Choose a receipt file, or uncheck the receipt box.')
 
     const category = isTransfer ? null : form.category
     const toAccount = isTransfer ? form.toAccount : null
@@ -217,7 +229,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
       reset()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong saving this entry.')
+      fail(e instanceof Error ? e.message : 'Something went wrong saving this entry.')
     }
   }
 
@@ -228,6 +240,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
       open={open}
       onClose={handleClose}
       title={isEditing ? 'Edit entry' : 'Add entry'}
+      contentRef={contentRef}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={handleClose} disabled={saving}>
@@ -240,6 +253,8 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
       }
     >
       <div className="flex flex-col gap-4">
+        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+
         <div className="flex rounded-lg border border-app-border p-1">
           {(['expense', 'income', 'transfer'] as TransactionType[]).map((t) => (
             <button
@@ -368,8 +383,6 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
             className="text-sm"
           />
         )}
-
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
   )

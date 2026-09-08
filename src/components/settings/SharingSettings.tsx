@@ -1,12 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Search, Send, UserMinus, X } from 'lucide-react'
+import { Eye, EyeOff, Search, Send, UserMinus, X } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/context/AuthContext'
 import { useProfiles } from '@/hooks/useProfiles'
-import { useOwnedAccessRows, useRequestedAccessRows, useSendAccessRequest, useRemoveAccessRow } from '@/hooks/useSharing'
+import {
+  useOwnedAccessRows,
+  useRequestedAccessRows,
+  useSendAccessRequest,
+  useRemoveAccessRow,
+  useToggleAccessPause,
+} from '@/hooks/useSharing'
 
 export function SharingSettings() {
   const { userId } = useAuth()
@@ -15,6 +21,7 @@ export function SharingSettings() {
   const requested = useRequestedAccessRows()
   const sendRequest = useSendAccessRequest()
   const remove = useRemoveAccessRow()
+  const togglePause = useToggleAccessPause()
 
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -23,7 +30,11 @@ export function SharingSettings() {
   const profileMap = profiles.data ?? {}
   const nameFor = (id: string) => profileMap[id]?.displayName || profileMap[id]?.email || 'Unknown user'
 
-  const approvedViewers = (owned.data ?? []).filter((r) => r.status === 'approved')
+  // Paused grants stay in this list (not just approved) -- pausing is meant
+  // to be a quick, reversible toggle, not something that drops someone off
+  // the list and makes them dig through "requested" history to find them
+  // again.
+  const approvedViewers = (owned.data ?? []).filter((r) => r.status === 'approved' || r.status === 'paused')
   const outgoing = requested.data ?? []
   const requestedIds = new Set(outgoing.map((r) => r.owner_user_id))
 
@@ -59,30 +70,49 @@ export function SharingSettings() {
       <Card className="flex flex-col gap-3 p-5">
         <div>
           <h3 className="text-sm font-semibold text-slate-800">People who can see your transactions</h3>
-          <p className="mt-1 text-helper text-slate-500">Remove someone any time to revoke their access.</p>
+          <p className="mt-1 text-helper text-slate-500">
+            Toggle the eye to pause someone's access without removing them, or remove to revoke it outright.
+          </p>
         </div>
         {approvedViewers.length === 0 ? (
           <p className="text-helper text-slate-400">Nobody yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {approvedViewers.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-app-border px-3 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <Avatar avatar={profileMap[r.requester_user_id]?.avatar ?? null} name={nameFor(r.requester_user_id)} />
-                  <span className="truncate text-sm text-slate-800">{nameFor(r.requester_user_id)}</span>
-                </div>
-                <button
-                  aria-label={`Remove ${nameFor(r.requester_user_id)}`}
-                  onClick={() => remove.mutate(r.id)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
+            {approvedViewers.map((r) => {
+              const paused = r.status === 'paused'
+              return (
+                <li
+                  key={r.id}
+                  className={
+                    'flex items-center justify-between gap-3 rounded-lg border border-app-border px-3 py-2' +
+                    (paused ? ' opacity-60' : '')
+                  }
                 >
-                  <UserMinus size={16} />
-                </button>
-              </li>
-            ))}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Avatar avatar={profileMap[r.requester_user_id]?.avatar ?? null} name={nameFor(r.requester_user_id)} />
+                    <span className="truncate text-sm text-slate-800">{nameFor(r.requester_user_id)}</span>
+                    {paused && <span className="shrink-0 text-helper text-slate-400">Paused</span>}
+                  </div>
+                  <div className="flex shrink-0 items-center">
+                    <button
+                      aria-label={paused ? `Resume ${nameFor(r.requester_user_id)}'s access` : `Pause ${nameFor(r.requester_user_id)}'s access`}
+                      aria-pressed={!paused}
+                      onClick={() => togglePause.mutate({ id: r.id, paused: !paused })}
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      {paused ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                    <button
+                      aria-label={`Remove ${nameFor(r.requester_user_id)}`}
+                      onClick={() => remove.mutate(r.id)}
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <UserMinus size={16} />
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </Card>
@@ -167,7 +197,7 @@ export function SharingSettings() {
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <span className={'text-helper ' + (r.status === 'approved' ? 'text-positive' : 'text-slate-400')}>
-                    {r.status === 'approved' ? 'Approved' : 'Pending'}
+                    {r.status === 'approved' ? 'Approved' : r.status === 'paused' ? 'Paused by them' : 'Pending'}
                   </span>
                   {r.status === 'pending' && (
                     <button

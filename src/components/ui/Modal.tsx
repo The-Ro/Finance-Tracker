@@ -1,4 +1,4 @@
-import { useEffect, useRef, useLayoutEffect, type ReactNode } from 'react'
+import { useEffect, useRef, useLayoutEffect, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import clsx from 'clsx'
@@ -10,9 +10,21 @@ interface ModalProps {
   children: ReactNode
   footer?: ReactNode
   maxWidthClassName?: string
+  /** Lets a caller scroll the body back to top itself -- e.g. a form with a
+   *  validation error rendered up top, so it's visible even if the user had
+   *  already scrolled down past it before submitting. */
+  contentRef?: Ref<HTMLDivElement>
 }
 
-export function Modal({ open, onClose, title, children, footer, maxWidthClassName = 'max-w-lg' }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  maxWidthClassName = 'max-w-lg',
+  contentRef,
+}: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
 
@@ -141,7 +153,9 @@ export function Modal({ open, onClose, title, children, footer, maxWidthClassNam
             <X size={18} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div ref={contentRef} className="flex-1 overflow-y-auto px-5 py-4">
+          {children}
+        </div>
         {footer && <div className="border-t border-app-border px-5 py-4">{footer}</div>}
       </div>
     </div>,
