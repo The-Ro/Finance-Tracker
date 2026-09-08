@@ -40,15 +40,15 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="text-helper font-medium text-slate-600">
-                Password
-              </label>
-              <Link to="/forgot-password" className="text-helper font-medium text-accent hover:underline">
-                Forgot password?
-              </Link>
-            </div>
+          {/* The password input comes before the "Forgot password?" link in
+              DOM order (not label-then-link-then-input) so that tabbing out
+              of Email lands on Password next, not on the link -- the link
+              stays visually in the same top-right spot via absolute
+              positioning. */}
+          <div className="relative flex flex-col gap-1.5">
+            <label htmlFor="password" className="text-helper font-medium text-slate-600">
+              Password
+            </label>
             <TextField
               id="password"
               type="password"
@@ -57,6 +57,12 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <Link
+              to="/forgot-password"
+              className="absolute right-0 top-0 text-helper font-medium text-accent hover:underline"
+            >
+              Forgot password?
+            </Link>
           </div>
           {error && <InlineMessage tone="error">{error}</InlineMessage>}
           <Button type="submit" disabled={loading} className="w-full">
