@@ -1,5 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { AlertCircle, SlidersHorizontal } from 'lucide-react'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useMyTransactions, useEveryoneTransactions } from '@/hooks/useTransactions'
@@ -8,6 +18,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
+import { SortableSummaryCard } from '@/components/dashboard/SortableSummaryCard'
 import { CashFlowChart } from '@/components/dashboard/CashFlowChart'
 import { CategoryDonut } from '@/components/dashboard/CategoryDonut'
 import { AccountBarChart } from '@/components/dashboard/AccountBarChart'
@@ -21,6 +32,7 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import {
   DEFAULT_DASHBOARD_ORDER,
   DEFAULT_SUMMARY_CARD_ORDER,
+  SUMMARY_CARD_LABELS,
   type DashboardSectionId,
   type SummaryCardId,
 } from '@/lib/dashboardSections'
@@ -66,6 +78,14 @@ export function DashboardPage() {
   const everyoneTransactions = useEveryoneTransactions()
   const profiles = useProfiles()
 
+  // Lets the 4 summary cards be reordered by dragging them right here on
+  // Home, not just via the nested list in the Customize modal. Hooks, so
+  // this has to sit above the loading-state early return below.
+  const summaryCardSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
   const recurringItemsQuery = useQuery({
     queryKey: ['recurring_items', userId],
     enabled: !!userId,
@@ -108,6 +128,15 @@ export function DashboardPage() {
   const order = settings.data?.dashboardOrder ?? DEFAULT_DASHBOARD_ORDER
   const hidden = settings.data?.dashboardHidden ?? []
   const summaryCardOrder = settings.data?.summaryCardOrder ?? DEFAULT_SUMMARY_CARD_ORDER
+
+  const handleSummaryCardDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = summaryCardOrder.indexOf(active.id as SummaryCardId)
+    const newIndex = summaryCardOrder.indexOf(over.id as SummaryCardId)
+    if (oldIndex === -1 || newIndex === -1) return
+    settings.updateDashboardLayout.mutate({ summaryCardOrder: arrayMove(summaryCardOrder, oldIndex, newIndex) })
+  }
 
   // The four summary cards are reorderable among themselves too (nested
   // under "Summary cards" in Customize) -- same "build once, look up by id"
@@ -174,9 +203,17 @@ export function DashboardPage() {
   // layout) decide which of these actually render, and in what sequence.
   const sections: Record<DashboardSectionId, ReactNode> = {
     summary: (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summaryCardOrder.map((id) => summaryCards[id])}
-      </div>
+      <DndContext sensors={summaryCardSensors} collisionDetection={closestCenter} onDragEnd={handleSummaryCardDragEnd}>
+        <SortableContext items={summaryCardOrder} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {summaryCardOrder.map((id) => (
+              <SortableSummaryCard key={id} id={id} label={SUMMARY_CARD_LABELS[id]}>
+                {summaryCards[id]}
+              </SortableSummaryCard>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     ),
     // Cash flow is an independent trailing-months trend, not tied to the
     // period filter above -- otherwise "This month" would only ever have

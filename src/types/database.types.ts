@@ -262,6 +262,26 @@ export interface Database {
         Insert: { id?: string; owner_user_id: string; message: string }
         Update: never
       }
+      client_errors: {
+        Row: {
+          id: string
+          owner_user_id: string | null
+          message: string
+          stack: string | null
+          url: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_user_id?: string | null
+          message: string
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: never
+      }
       viewer_access: {
         Row: {
           id: string

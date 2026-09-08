@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
-import { Plus, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
-import { Pill } from '@/components/ui/Pill'
 import { useToast } from '@/context/ToastContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { ZODIAC_SIGNS } from '@/lib/zodiac'
@@ -20,49 +19,24 @@ const GENDER_LABELS: Record<Gender, string> = {
 const GENDER_OPTIONS: Gender[] = ['male', 'female', 'prefer_not_to_say']
 const UNSET = '(not set)'
 
-const SUGGESTED_INTERESTS = [
-  'Cycling',
-  'Reading',
-  'Cooking',
-  'Travel',
-  'Music',
-  'Gaming',
-  'Fitness',
-  'Photography',
-  'Movies',
-  'Gardening',
-  'Hiking',
-  'Art',
-]
-
 export function PersonalDetails() {
   const { data, updatePersonalDetails } = useUserSettings()
   const { show } = useToast()
   const [gender, setGender] = useState<Gender | null>(null)
   const [dob, setDob] = useState('')
-  const [interests, setInterests] = useState<string[]>([])
-  const [newInterest, setNewInterest] = useState('')
   const [zodiacSign, setZodiacSign] = useState<ZodiacSign | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setGender(data?.gender ?? null)
     setDob(data?.dateOfBirth ?? '')
-    setInterests(data?.interests ?? [])
     setZodiacSign(data?.zodiacSign ?? null)
-  }, [data?.gender, data?.dateOfBirth, data?.interests, data?.zodiacSign])
-
-  const addInterest = (value: string) => {
-    const trimmed = value.trim()
-    if (!trimmed || interests.some((i) => i.toLowerCase() === trimmed.toLowerCase())) return
-    setInterests([...interests, trimmed])
-    setNewInterest('')
-  }
+  }, [data?.gender, data?.dateOfBirth, data?.zodiacSign])
 
   const handleSave = async () => {
     setError(null)
     try {
-      await updatePersonalDetails.mutateAsync({ gender, dateOfBirth: dob || null, interests, zodiacSign })
+      await updatePersonalDetails.mutateAsync({ gender, dateOfBirth: dob || null, zodiacSign })
       show('Personal details saved.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.')
@@ -72,12 +46,7 @@ export function PersonalDetails() {
   const unchanged =
     gender === (data?.gender ?? null) &&
     dob === (data?.dateOfBirth ?? '') &&
-    zodiacSign === (data?.zodiacSign ?? null) &&
-    JSON.stringify(interests) === JSON.stringify(data?.interests ?? [])
-
-  const remainingSuggestions = SUGGESTED_INTERESTS.filter(
-    (s) => !interests.some((i) => i.toLowerCase() === s.toLowerCase())
-  )
+    zodiacSign === (data?.zodiacSign ?? null)
 
   return (
     <Card className="flex flex-col gap-4 p-5">
@@ -124,53 +93,6 @@ export function PersonalDetails() {
               </button>
             ))}
           </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-helper font-medium text-slate-600">Interests</label>
-        {interests.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {interests.map((interest) => (
-              <Pill key={interest} label={interest} onRemove={() => setInterests(interests.filter((i) => i !== interest))} />
-            ))}
-          </div>
-        )}
-        {remainingSuggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {remainingSuggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => addInterest(suggestion)}
-                className="rounded-full border border-app-border px-2.5 py-1 text-helper text-slate-600 hover:border-accent hover:text-accent-dark"
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input
-            value={newInterest}
-            onChange={(e) => setNewInterest(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                addInterest(newInterest)
-              }
-            }}
-            placeholder="e.g. Cycling"
-            className="min-h-[44px] flex-1 rounded-lg border border-app-border bg-white px-3 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-          <button
-            type="button"
-            onClick={() => addInterest(newInterest)}
-            aria-label="Add interest"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-app-border text-slate-600 hover:border-accent hover:text-accent-dark"
-          >
-            <Plus size={16} />
-          </button>
         </div>
       </div>
 

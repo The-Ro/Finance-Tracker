@@ -363,6 +363,21 @@ create table if not exists public.feedback (
 );
 create index if not exists feedback_owner_idx on public.feedback (owner_user_id, created_at desc);
 
+-- ===== client_errors (write-only crash reporting) =====
+-- owner_user_id is nullable -- a crash can happen before sign-in (e.g. on
+-- the Login page itself). Diagnostic data for whoever runs the project, not
+-- a user-facing feature -- see policies.sql, there's no select policy.
+create table if not exists public.client_errors (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid references auth.users(id) on delete cascade,
+  message text not null,
+  stack text,
+  url text,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+create index if not exists client_errors_created_at_idx on public.client_errors (created_at desc);
+
 -- ===== viewer access: private-by-default sharing of transactions =====
 -- A row is both the request AND, once approved, the standing grant. The
 -- requester wants to see the owner's transactions; only the owner can flip
@@ -452,3 +467,13 @@ end;
 $$ language plpgsql security definer set search_path = public;
 
 grant execute on function public.delete_own_account() to authenticated;
+
+-- Postgres grants EXECUTE to PUBLIC by default on function creation, which
+-- left every SECURITY DEFINER function above publicly callable as a
+-- /rest/v1/rpc/* endpoint -- including the two auth triggers and the RLS
+-- auto-enable event trigger, none of which are meant to be invoked directly
+-- (calling them outside their trigger/event-trigger context just errors).
+revoke execute on function public.handle_new_user() from public;
+revoke execute on function public.handle_user_email_update() from public;
+revoke execute on function public.rls_auto_enable() from public;
+revoke execute on function public.delete_own_account() from public;

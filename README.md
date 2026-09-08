@@ -1,8 +1,9 @@
 # Ledgerly
 
-A shared, multi-user personal finance tracker. Every signed-up user manages their own
-transactions, budgets, goals, recurring payments, subscriptions, documents, and rules —
-but everyone can see everyone else's **transactions** (read-only).
+A multi-user personal finance tracker. Every signed-up user manages their own transactions,
+budgets, goals, recurring payments, subscriptions, documents, and rules — everything is
+private by default. **Transactions** are the one thing that can be shared: approve someone
+in Settings → Sharing and they get read-only access to yours (or request access to theirs).
 
 Built as an installable Progressive Web App (PWA): it works on iOS and Android by adding
 it to your home screen from the browser, with no App Store, no developer account, and no
@@ -33,16 +34,22 @@ native build tooling required.
 
 While `npm run dev` is running, it's also reachable from other devices on the same Wi-Fi
 network at `http://<your-computer's-LAN-IP>:5173`. For a stable link you can open from
-anywhere (not just your home Wi-Fi), deploy the production build (`npm run build`,
-output in `dist/`) to a free static host such as Cloudflare Pages, Vercel, or Netlify.
+anywhere (not just your home Wi-Fi), deploy the production build — see
+[OPERATIONS.md](OPERATIONS.md) (`npm run build` + `npx wrangler deploy`, or any static host).
 
 Once you have a URL open on your phone:
 
 - **iPhone**: open it in Safari → Share → **Add to Home Screen**.
 - **Android**: open it in Chrome → menu → **Install app** (or use the install banner).
 
-## Project layout
+## More docs
 
-See the plan this was built from for the full architecture, data model, and Row Level
-Security policies: `supabase/schema.sql` and `supabase/policies.sql` are the source of
-truth for what's enforced server-side.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — how the app is put together: stack, source layout,
+  data model, auth/RLS security model, state management, error handling.
+- [OPERATIONS.md](OPERATIONS.md) — running it, deploying it, database migrations, logs and
+  monitoring, known operational gaps.
+- [supabase/README.md](supabase/README.md) — first-time Supabase project setup.
+
+`supabase/schema.sql` and `supabase/policies.sql` are the source of truth for what's actually
+enforced server-side — if the app's behavior and one of those files ever disagree, the SQL
+is right and the app has a bug.

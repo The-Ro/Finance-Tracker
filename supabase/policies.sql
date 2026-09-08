@@ -176,6 +176,16 @@ drop policy if exists feedback_insert_own on public.feedback;
 create policy feedback_insert_own on public.feedback for insert
   with check (auth.uid() = owner_user_id);
 
+-- client_errors: insert-only, no select policy for anyone -- diagnostic data
+-- for whoever runs the project (read via the Supabase dashboard/service
+-- role), not something surfaced back to users. owner_user_id may be null
+-- (a crash before sign-in), so the check allows that alongside the normal
+-- "you can only attribute an error to yourself" case.
+alter table public.client_errors enable row level security;
+drop policy if exists client_errors_insert on public.client_errors;
+create policy client_errors_insert on public.client_errors for insert
+  with check (owner_user_id is null or auth.uid() = owner_user_id);
+
 -- ================= Storage (documents bucket) =================
 -- Create the bucket once (private -- not publicly readable).
 insert into storage.buckets (id, name, public)
