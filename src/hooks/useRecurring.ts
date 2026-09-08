@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { useMyTransactions } from '@/hooks/useTransactions'
-import { detectRecurringCandidates, normalizeMerchant, type RecurringCandidate } from '@/lib/recurringDetection'
+import { detectRecurringCandidates, normalizeMerchant, nextDateForCadence, type RecurringCandidate } from '@/lib/recurringDetection'
+import { todayISO } from '@/lib/format'
 import type { Database, RecurringKind } from '@/types/database.types'
 
 export type RecurringItem = Database['public']['Tables']['recurring_items']['Row']
@@ -132,7 +133,23 @@ export function useRecurringMutations() {
     onSuccess: invalidateAll,
   })
 
-  return { keep, ignore, restoreIgnored, addManual, update, remove }
+  // Nothing ever advances next_date on its own -- no cron, no matching a new
+  // transaction against the item. This is the deliberate, user-initiated way
+  // to move it forward: always computed from today (not the stale stored
+  // date), so an item overdue by months still lands on a sane future date
+  // instead of one cadence step past whatever it used to be.
+  const markPaid = useMutation({
+    mutationFn: async (item: RecurringItem) => {
+      const { error } = await supabase
+        .from('recurring_items')
+        .update({ next_date: nextDateForCadence(todayISO(), item.cadence) })
+        .eq('id', item.id)
+      if (error) throw error
+    },
+    onSuccess: invalidateAll,
+  })
+
+  return { keep, ignore, restoreIgnored, addManual, update, remove, markPaid }
 }
 
 /**

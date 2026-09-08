@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { Bell, Upload, Plus, LogOut, ChevronDown, Settings, MessageSquare } from 'lucide-react'
+import { Bell, Upload, Plus, LogOut, ChevronDown, Settings, MessageSquare, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
@@ -86,6 +86,17 @@ export function TopBar() {
               // sm+ has room to anchor it normally under the bell instead.
               className="animate-scale-in fixed inset-x-4 top-[76px] z-30 flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[80vh] sm:w-96"
             >
+              <div className="flex items-center justify-between border-b border-app-border pb-2">
+                <h2 className="text-sm font-semibold text-slate-800">Notifications</h2>
+                <button
+                  type="button"
+                  aria-label="Close notifications"
+                  onClick={() => setNotifOpen(false)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
               {hasNotifications ? (
                 <>
                   {isAdmin && <AdminFeedbackInbox />}

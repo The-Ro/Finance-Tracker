@@ -266,9 +266,15 @@ export interface Database {
           admin_reply: string | null
           replied_at: string | null
           reply_seen_at: string | null
+          admin_dismissed_at: string | null
         }
         Insert: { id?: string; owner_user_id: string; message: string }
-        Update: Partial<{ admin_reply: string | null; replied_at: string | null; reply_seen_at: string | null }>
+        Update: Partial<{
+          admin_reply: string | null
+          replied_at: string | null
+          reply_seen_at: string | null
+          admin_dismissed_at: string | null
+        }>
       }
       client_errors: {
         Row: {

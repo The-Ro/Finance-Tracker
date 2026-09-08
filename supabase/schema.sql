@@ -370,6 +370,10 @@ create index if not exists feedback_owner_idx on public.feedback (owner_user_id,
 alter table public.feedback add column if not exists admin_reply text;
 alter table public.feedback add column if not exists replied_at timestamptz;
 alter table public.feedback add column if not exists reply_seen_at timestamptz;
+-- Lets the admin clear a handled item out of their own inbox view without
+-- affecting the submitter's copy at all -- covered by the existing
+-- feedback_update_admin_reply policy (admin can already update any row).
+alter table public.feedback add column if not exists admin_dismissed_at timestamptz;
 
 create or replace function public.mark_feedback_reply_seen(feedback_id uuid)
 returns void as $$

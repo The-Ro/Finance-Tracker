@@ -31,10 +31,30 @@ export function useAdminFeedbackInbox() {
     queryKey: ['feedback', 'admin-inbox'],
     enabled: isAdmin,
     queryFn: async (): Promise<FeedbackRow[]> => {
-      const { data, error } = await supabase.from('feedback').select('*').order('created_at', { ascending: false })
+      const { data, error } = await supabase
+        .from('feedback')
+        .select('*')
+        .is('admin_dismissed_at', null)
+        .order('created_at', { ascending: false })
       if (error) throw error
       return data
     },
+  })
+}
+
+/** Clears one item out of the admin's own inbox view -- doesn't touch the
+ *  submitter's copy or their notification (that's reply_seen_at, separate). */
+export function useDismissFeedbackItem() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('feedback')
+        .update({ admin_dismissed_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feedback', 'admin-inbox'] }),
   })
 }
 

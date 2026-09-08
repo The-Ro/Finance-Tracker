@@ -1,23 +1,42 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 import type { RecurringItem } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
-import { formatShortDate } from '@/lib/format'
+import { formatShortDate, todayISO } from '@/lib/format'
 
 interface ConfirmedItemRowProps {
   item: RecurringItem
   onEdit: () => void
   onDelete: () => void
   onToggleActive: () => void
+  onMarkPaid: () => void
+  markPaidPending: boolean
 }
 
-export function ConfirmedItemRow({ item, onEdit, onDelete, onToggleActive }: ConfirmedItemRowProps) {
+export function ConfirmedItemRow({
+  item,
+  onEdit,
+  onDelete,
+  onToggleActive,
+  onMarkPaid,
+  markPaidPending,
+}: ConfirmedItemRowProps) {
   const { format } = useFormatCurrency()
+  // Nothing ever advances next_date automatically (no cron, no matching a
+  // logged transaction back to this item) -- once today passes it, it just
+  // sits there looking like it's still "coming up" unless flagged here.
+  const isOverdue = item.active && item.next_date < todayISO()
+
   return (
     <li className="flex items-center justify-between gap-3 border-b border-app-border py-3 last:border-b-0">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-slate-800">{item.name}</p>
         <p className="truncate text-helper text-slate-500">
-          {item.category} · {item.cadence} · next {formatShortDate(item.next_date)}
+          {item.category} · {item.cadence} ·{' '}
+          {isOverdue ? (
+            <span className="font-medium text-caution">Overdue since {formatShortDate(item.next_date)}</span>
+          ) : (
+            <>next {formatShortDate(item.next_date)}</>
+          )}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -26,6 +45,17 @@ export function ConfirmedItemRow({ item, onEdit, onDelete, onToggleActive }: Con
           <input type="checkbox" checked={item.active} onChange={onToggleActive} className="h-3.5 w-3.5" />
           Active
         </label>
+        {isOverdue && (
+          <button
+            aria-label={`Mark ${item.name} as paid`}
+            title="Mark as paid -- moves the next due date forward"
+            onClick={onMarkPaid}
+            disabled={markPaidPending}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-positive-light hover:text-positive disabled:opacity-50"
+          >
+            <CheckCircle2 size={15} />
+          </button>
+        )}
         <button
           aria-label="Edit"
           onClick={onEdit}

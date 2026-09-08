@@ -87,7 +87,7 @@ function addMonthsPreserveDay(iso: string, months: number): string {
   return target.toISOString().slice(0, 10)
 }
 
-function nextDateForCadence(lastDate: string, cadence: Cadence): string {
+export function nextDateForCadence(lastDate: string, cadence: Cadence): string {
   switch (cadence) {
     case 'weekly':
       return addDays(lastDate, 7)

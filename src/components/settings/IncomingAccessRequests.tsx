@@ -88,16 +88,19 @@ export function IncomingAccessRequests() {
     followed: 'Follow request sent',
   }
 
+  // Settings' own Sharing section is where "you have no pending requests"
+  // reassurance belongs -- in the notification dropdown specifically, an
+  // empty section is just noise once something else in the panel actually
+  // needs attention.
+  if (visibleRows.length === 0) return null
+
   return (
     <Card className="flex flex-col gap-3 p-5">
       <div>
         <h3 className="text-sm font-semibold text-slate-800">Requests to view your transactions</h3>
         <p className="mt-1 text-helper text-slate-500">Your transactions are private until you approve someone here.</p>
       </div>
-      {visibleRows.length === 0 ? (
-        <p className="text-helper text-slate-400">No pending requests.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2">
           {visibleRows.map((r) => {
             const status = actioned[r.id]?.status
             const following = alreadyFollowing.has(r.requester_user_id)
@@ -134,8 +137,7 @@ export function IncomingAccessRequests() {
               </li>
             )
           })}
-        </ul>
-      )}
+      </ul>
     </Card>
   )
 }

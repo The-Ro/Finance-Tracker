@@ -19,7 +19,7 @@ interface RecurringLikePageProps {
 
 export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: RecurringLikePageProps) {
   const { isLoading, confirmed, suggestions } = useRecurringData(kind)
-  const { keep, ignore, update, remove } = useRecurringMutations()
+  const { keep, ignore, update, remove, markPaid } = useRecurringMutations()
   const { format } = useFormatCurrency()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<RecurringItem | null>(null)
@@ -99,6 +99,8 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
                   }}
                   onDelete={() => remove.mutate(item.id)}
                   onToggleActive={() => update.mutate({ id: item.id, active: !item.active })}
+                  onMarkPaid={() => markPaid.mutate(item)}
+                  markPaidPending={markPaid.isPending}
                 />
               ))}
             </ul>

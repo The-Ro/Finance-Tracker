@@ -1,9 +1,13 @@
 import { useState } from 'react'
-import { Send } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
-import { Button } from '@/components/ui/Button'
 import { useProfiles } from '@/hooks/useProfiles'
-import { useAdminFeedbackInbox, useSendFeedbackReply, type FeedbackRow } from '@/hooks/useFeedback'
+import {
+  useAdminFeedbackInbox,
+  useSendFeedbackReply,
+  useDismissFeedbackItem,
+  type FeedbackRow,
+} from '@/hooks/useFeedback'
 import { formatShortDate } from '@/lib/format'
 
 function ReplyComposer({ item }: { item: FeedbackRow }) {
@@ -53,13 +57,21 @@ function ReplyComposer({ item }: { item: FeedbackRow }) {
         rows={2}
         className="w-full rounded-lg border border-app-border bg-white px-2.5 py-1.5 text-helper focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
       />
-      <div className="flex justify-end gap-2">
+      {/* Send kept as plain text like Cancel, not a filled button -- this is
+          a compact two-word choice, not a primary call to action that needs
+          to visually dominate the row. */}
+      <div className="flex justify-end gap-3">
         <button type="button" onClick={() => setOpen(false)} className="text-helper text-slate-500 hover:text-slate-700">
           Cancel
         </button>
-        <Button onClick={handleSend} disabled={sendReply.isPending || !draft.trim()} className="h-7 px-2.5 text-helper">
-          <Send size={12} /> {sendReply.isPending ? 'Sending…' : 'Send'}
-        </Button>
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={sendReply.isPending || !draft.trim()}
+          className="text-helper font-medium text-accent hover:underline disabled:opacity-50 disabled:hover:no-underline"
+        >
+          {sendReply.isPending ? 'Sending…' : 'Send'}
+        </button>
       </div>
     </div>
   )
@@ -72,6 +84,7 @@ function ReplyComposer({ item }: { item: FeedbackRow }) {
 export function AdminFeedbackInbox() {
   const inbox = useAdminFeedbackInbox()
   const profiles = useProfiles()
+  const dismiss = useDismissFeedbackItem()
   const items = inbox.data ?? []
   const profileMap = profiles.data ?? {}
 
@@ -93,6 +106,16 @@ export function AdminFeedbackInbox() {
                 <span className="ml-auto shrink-0 text-helper text-slate-400">
                   {formatShortDate(item.created_at.slice(0, 10))}
                 </span>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  title="Dismiss -- doesn't notify or affect the sender"
+                  onClick={() => dismiss.mutate(item.id)}
+                  disabled={dismiss.isPending}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                >
+                  <X size={12} />
+                </button>
               </div>
               <p className="mt-1 text-sm text-slate-700">{item.message}</p>
               <ReplyComposer item={item} />
