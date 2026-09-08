@@ -84,8 +84,8 @@ export function AccountBarChart({ transactions }: AccountBarChartProps) {
                 itemStyle={{ color: colors.tick }}
               />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
-              <Bar dataKey="balance" name="Current balance" fill={colors.accent} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
-              <Bar dataKey="expense" name="Expense" fill={colors.caution} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="balance" name="Current balance" fill={colors.positive} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="expense" name="Expense" fill={colors.danger} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         </div>

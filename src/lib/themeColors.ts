@@ -25,6 +25,7 @@ export interface ChartTheme {
   accent: string
   positive: string
   caution: string
+  danger: string
   border: string
   tick: string
   tooltipBg: string
@@ -42,6 +43,9 @@ export function getChartTheme(accentHex: string, isDark: boolean): ChartTheme {
     // regardless of which accent color the user has picked.
     positive: isDark ? '#4AC995' : '#1E9E6B',
     caution: isDark ? '#F0A558' : '#E58A2E',
+    // Matches Tailwind's red-400/600 -- same fixed-semantic-color reasoning
+    // as positive: spending/expense reads as red regardless of accent.
+    danger: isDark ? '#F87171' : '#DC2626',
     border: isDark ? '#30343f' : '#E6E6ED',
     tick: isDark ? '#94a3b8' : '#64748b',
     tooltipBg: isDark ? '#1E2129' : '#FFFFFF',

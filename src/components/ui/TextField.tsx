@@ -5,10 +5,16 @@ import { DateField } from './DateField'
 
 interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
+  /** Only meaningful for type="password" -- lets a caller slot the
+   *  show/hide toggle into an explicit tab order alongside the input's own
+   *  tabIndex, for forms where the natural DOM order isn't the desired tab
+   *  order (e.g. a "Forgot password?" link visually beside the field but
+   *  meant to be reached later in the sequence). */
+  toggleTabIndex?: number
 }
 
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
-  ({ label, className, id, type, ...props }, ref) => {
+  ({ label, className, id, type, toggleTabIndex, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
     const [visible, setVisible] = useState(false)
     const isPassword = type === 'password'
@@ -48,6 +54,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           {isPassword && (
             <button
               type="button"
+              tabIndex={toggleTabIndex}
               onClick={() => setVisible((v) => !v)}
               aria-label={visible ? 'Hide password' : 'Show password'}
               className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 hover:text-slate-600"

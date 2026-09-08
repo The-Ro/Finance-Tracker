@@ -502,3 +502,10 @@ alter table public.user_settings add column if not exists summary_card_hidden te
 
 alter table public.user_settings alter column summary_card_order
   set default array['netWorth','income','spending','savingsRate','accountBalances'];
+
+-- Reverted: accountBalances moved back out to its own top-level section --
+-- kept separate from the 4 core summary cards after all.
+alter table public.user_settings alter column dashboard_order
+  set default array['summary','cashflow','categoryChart','accountChart','accountBalances','activity','review'];
+alter table public.user_settings alter column summary_card_order
+  set default array['netWorth','income','spending','savingsRate'];

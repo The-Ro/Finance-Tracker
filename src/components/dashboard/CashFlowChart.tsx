@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Area, ComposedChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, ComposedChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TrendingUp } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -32,20 +32,12 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
       if (t.type === 'income') bucket.income += t.amount
       else bucket.expense += t.amount
     }
-    // "Net held" is a running total across ALL history, not just the last 7
-    // shown months -- computed over every month first so the visible window
-    // starts already carrying whatever accumulated before it, then sliced.
-    const allKeysSorted = Array.from(byMonth.keys()).sort()
-    let running = 0
-    const withNet = allKeysSorted.map((key) => {
-      const bucket = byMonth.get(key)!
-      running += bucket.income - bucket.expense
-      return { key, income: bucket.income, expense: bucket.expense, net: running }
-    })
-    return withNet.slice(-7).map(({ key, income, expense, net }) => {
+    const sortedKeys = Array.from(byMonth.keys()).sort().slice(-7)
+    return sortedKeys.map((key) => {
       const [y, m] = key.split('-')
       const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'short' })
-      return { label, income, expense, net }
+      const bucket = byMonth.get(key)!
+      return { label, income: bucket.income, expense: bucket.expense }
     })
   }, [transactions])
 
@@ -67,8 +59,8 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
                   <stop offset="100%" stopColor={colors.positive} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={colors.caution} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={colors.caution} stopOpacity={0} />
+                  <stop offset="0%" stopColor={colors.danger} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={colors.danger} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={colors.border} />
@@ -88,8 +80,7 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
               />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
               <Area type="monotone" dataKey="income" stroke={colors.positive} fill="url(#incomeGradient)" strokeWidth={2} name="Income" />
-              <Area type="monotone" dataKey="expense" stroke={colors.caution} fill="url(#expenseGradient)" strokeWidth={2} name="Spending" />
-              <Line type="monotone" dataKey="net" stroke={colors.accent} strokeWidth={2} dot={false} name="Net held" />
+              <Area type="monotone" dataKey="expense" stroke={colors.danger} fill="url(#expenseGradient)" strokeWidth={2} name="Spending" />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

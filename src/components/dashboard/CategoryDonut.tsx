@@ -4,7 +4,6 @@ import { PieChart as PieIcon } from 'lucide-react'
 import clsx from 'clsx'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useTheme } from '@/context/ThemeContext'
@@ -53,10 +52,24 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
               {percentOfIncome !== null && ` (${percentOfIncome.toFixed(0)}%)`}
             </span>
           </div>
-          <ProgressBar
-            percent={percentOfIncome ?? 0}
-            tone={percentOfIncome !== null && percentOfIncome > 100 ? 'danger' : 'accent'}
-          />
+          {/* Income is the full green bar; spend is the red portion "within
+              it" -- a plain two-tone bar rather than the shared ProgressBar
+              component, since that only supports one fill color and this
+              needs both ends to carry fixed semantic meaning (green =
+              income, red = spend) regardless of the app's accent theme. */}
+          <div
+            className="h-2 w-full overflow-hidden rounded-full"
+            style={{ backgroundColor: colors.positive }}
+            role="progressbar"
+            aria-valuenow={Math.min(100, Math.max(0, percentOfIncome ?? 0))}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, percentOfIncome ?? 0))}%`, backgroundColor: colors.danger }}
+            />
+          </div>
         </div>
       )}
       {data.length === 0 ? (
