@@ -163,7 +163,12 @@ export function DashboardPage() {
         format={format}
         footer={
           settings.data?.netWorthConfigured ? (
-            'Assets minus liabilities'
+            <>
+              Assets minus liabilities ·{' '}
+              <Link to="/settings#net-worth" className="font-medium text-accent hover:underline">
+                Edit
+              </Link>
+            </>
           ) : (
             <>
               Add your assets and liabilities in{' '}

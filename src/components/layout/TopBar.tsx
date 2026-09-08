@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { Bell, Upload, Plus, LogOut, ChevronDown, Settings } from 'lucide-react'
+import { Bell, Upload, Plus, LogOut, ChevronDown, Settings, MessageSquare } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
 import { useBudgetAlerts } from '@/hooks/useBudgets'
+import { useAdminFeedbackInbox, useMyFeedbackReplies } from '@/hooks/useFeedback'
+import { ADMIN_EMAIL } from '@/lib/admin'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { IncomingAccessRequests } from '@/components/settings/IncomingAccessRequests'
 import { BudgetAlerts } from '@/components/budgets/BudgetAlerts'
+import { AdminFeedbackInbox } from '@/components/settings/AdminFeedbackInbox'
+import { FeedbackReplyNotice } from '@/components/settings/FeedbackReplyNotice'
 
 export function TopBar() {
   const { displayName, email, avatar, signOut } = useAuth()
@@ -21,7 +25,12 @@ export function TopBar() {
   const pendingCount = (owned.data ?? []).filter((r) => r.status === 'pending').length
   const budgetAlerts = useBudgetAlerts()
   const overBudgetCount = budgetAlerts.filter((a) => a.status === 'over').length
-  const hasNotifications = pendingCount > 0 || overBudgetCount > 0
+  const isAdmin = email === ADMIN_EMAIL
+  const adminInbox = useAdminFeedbackInbox()
+  const unrepliedCount = isAdmin ? (adminInbox.data ?? []).filter((f) => !f.admin_reply).length : 0
+  const myReplies = useMyFeedbackReplies()
+  const hasNotifications =
+    pendingCount > 0 || overBudgetCount > 0 || unrepliedCount > 0 || (myReplies.data ?? []).length > 0
 
   useEffect(() => {
     if (!notifOpen) return
@@ -79,6 +88,8 @@ export function TopBar() {
             >
               {hasNotifications ? (
                 <>
+                  {isAdmin && <AdminFeedbackInbox />}
+                  <FeedbackReplyNotice />
                   <BudgetAlerts />
                   <IncomingAccessRequests />
                 </>
@@ -132,6 +143,18 @@ export function TopBar() {
                 }
               >
                 <Settings size={15} /> Settings
+              </NavLink>
+              {/* Temporary shortcut while the notification-bell reply flow
+                  is new -- makes it easy to find the feedback form itself,
+                  not just the replies to it. Revisit whether this earns a
+                  permanent spot once that flow's been used for a while. */}
+              <NavLink
+                role="menuitem"
+                to="/settings#feedback"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <MessageSquare size={15} /> Feedback
               </NavLink>
               <button
                 role="menuitem"

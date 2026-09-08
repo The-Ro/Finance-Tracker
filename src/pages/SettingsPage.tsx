@@ -109,7 +109,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section id="feedback" className="flex scroll-mt-24 flex-col gap-4">
         <SectionHeading title="Feedback" description="Bugs, requests, anything -- goes straight to us." />
         <FeedbackForm />
       </section>

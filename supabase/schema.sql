@@ -363,6 +363,26 @@ create table if not exists public.feedback (
 );
 create index if not exists feedback_owner_idx on public.feedback (owner_user_id, created_at desc);
 
+-- Admin (by email, see policies.sql) can reply to a submission; the
+-- submitter sees it as a notification until reply_seen_at is set (via the
+-- mark_feedback_reply_seen() RPC below, not a direct update -- see
+-- policies.sql for why).
+alter table public.feedback add column if not exists admin_reply text;
+alter table public.feedback add column if not exists replied_at timestamptz;
+alter table public.feedback add column if not exists reply_seen_at timestamptz;
+
+create or replace function public.mark_feedback_reply_seen(feedback_id uuid)
+returns void as $$
+begin
+  update public.feedback
+  set reply_seen_at = now()
+  where id = feedback_id and owner_user_id = auth.uid();
+end;
+$$ language plpgsql security definer set search_path = public;
+
+revoke execute on function public.mark_feedback_reply_seen(uuid) from public;
+grant execute on function public.mark_feedback_reply_seen(uuid) to authenticated;
+
 -- ===== client_errors (write-only crash reporting) =====
 -- owner_user_id is nullable -- a crash can happen before sign-in (e.g. on
 -- the Login page itself). Diagnostic data for whoever runs the project, not

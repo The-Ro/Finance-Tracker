@@ -7,6 +7,7 @@ import { InlineTagEditor } from './InlineTagEditor'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Transaction } from '@/hooks/useTransactions'
 import { useDeleteTransaction } from '@/hooks/useTransactions'
+import { useViewReceipt } from '@/hooks/useDocuments'
 import type { ProfileMap } from '@/hooks/useProfiles'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
@@ -38,6 +39,13 @@ export function TransactionTable({
   const deleteTransaction = useDeleteTransaction()
   const { formatSigned } = useFormatCurrency()
   const { openEditEntry } = useGlobalModals()
+  const viewReceipt = useViewReceipt()
+
+  const handleViewReceipt = (documentId: string) => {
+    viewReceipt.mutate(documentId, {
+      onSuccess: ({ url }) => window.open(url, '_blank', 'noopener,noreferrer'),
+    })
+  }
 
   const ALL_PEOPLE = 'Everyone'
   const peopleOptions = useMemo(() => {
@@ -194,7 +202,21 @@ export function TransactionTable({
                         <span className="truncate text-base font-semibold text-slate-900" title={t.merchant}>
                           {t.merchant}
                         </span>
-                        {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                        {t.receipt &&
+                          (t.receipt_document_id ? (
+                            <button
+                              type="button"
+                              aria-label="View receipt"
+                              title="View receipt"
+                              onClick={() => handleViewReceipt(t.receipt_document_id!)}
+                              disabled={viewReceipt.isPending}
+                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent disabled:opacity-50"
+                            >
+                              <Receipt size={13} />
+                            </button>
+                          ) : (
+                            <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
+                          ))}
                       </div>
                       {scope === 'everyone' && owner && (
                         <Avatar avatar={owner.avatar} name={owner.displayName} size={20} className="ml-auto shrink-0" />
@@ -248,7 +270,21 @@ export function TransactionTable({
                         <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
                           {t.merchant}
                         </span>
-                        {t.receipt && <Receipt size={13} className="shrink-0 text-slate-400" />}
+                        {t.receipt &&
+                          (t.receipt_document_id ? (
+                            <button
+                              type="button"
+                              aria-label="View receipt"
+                              title="View receipt"
+                              onClick={() => handleViewReceipt(t.receipt_document_id!)}
+                              disabled={viewReceipt.isPending}
+                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent disabled:opacity-50"
+                            >
+                              <Receipt size={13} />
+                            </button>
+                          ) : (
+                            <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
+                          ))}
                       </div>
                       {t.remarks && (
                         <span className="truncate text-helper text-slate-400" title={t.remarks}>

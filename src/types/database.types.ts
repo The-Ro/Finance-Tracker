@@ -258,9 +258,17 @@ export interface Database {
         Update: Partial<{ when_text: string; then_text: string; enabled: boolean }>
       }
       feedback: {
-        Row: { id: string; owner_user_id: string; message: string; created_at: string }
+        Row: {
+          id: string
+          owner_user_id: string
+          message: string
+          created_at: string
+          admin_reply: string | null
+          replied_at: string | null
+          reply_seen_at: string | null
+        }
         Insert: { id?: string; owner_user_id: string; message: string }
-        Update: never
+        Update: Partial<{ admin_reply: string | null; replied_at: string | null; reply_seen_at: string | null }>
       }
       client_errors: {
         Row: {

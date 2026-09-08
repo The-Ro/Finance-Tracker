@@ -144,6 +144,22 @@ begin
   end loop;
 end $$;
 
+-- documents: also selectable by approved viewers of the owner's
+-- transactions -- a receipt attached to a shared transaction needs its
+-- filename/storage_path readable by whoever's been granted access to see
+-- that transaction, not just the owner. budgets/goals/recurring_items stay
+-- strictly own-only (private even when transactions are shared).
+drop policy if exists documents_select_shared on public.documents;
+create policy documents_select_shared on public.documents for select
+  using (
+    exists (
+      select 1 from public.viewer_access
+      where viewer_access.owner_user_id = documents.owner_user_id
+        and viewer_access.requester_user_id = auth.uid()
+        and viewer_access.status = 'approved'
+    )
+  );
+
 -- dismissed_patterns has no update policy (rows are only ever inserted/deleted).
 drop policy if exists dismissed_patterns_select_own on public.dismissed_patterns;
 create policy dismissed_patterns_select_own on public.dismissed_patterns for select
@@ -176,6 +192,20 @@ drop policy if exists feedback_insert_own on public.feedback;
 create policy feedback_insert_own on public.feedback for insert
   with check (auth.uid() = owner_user_id);
 
+-- feedback: the one hardcoded admin (by email) can see every submission and
+-- write a reply on any row -- deliberately no general "owner can update
+-- their own row" policy, since that would also let a submitter quietly
+-- edit their original message after the fact (see the comment above).
+-- Clearing a seen reply notification goes through the narrow
+-- mark_feedback_reply_seen() RPC (schema.sql) instead.
+drop policy if exists feedback_select_admin on public.feedback;
+create policy feedback_select_admin on public.feedback for select
+  using (auth.jwt() ->> 'email' = 'rohith24112@gmail.com');
+drop policy if exists feedback_update_admin_reply on public.feedback;
+create policy feedback_update_admin_reply on public.feedback for update
+  using (auth.jwt() ->> 'email' = 'rohith24112@gmail.com')
+  with check (auth.jwt() ->> 'email' = 'rohith24112@gmail.com');
+
 -- client_errors: insert-only, no select policy for anyone -- diagnostic data
 -- for whoever runs the project (read via the Supabase dashboard/service
 -- role), not something surfaced back to users. owner_user_id may be null
@@ -205,6 +235,22 @@ create policy documents_storage_insert_own on storage.objects for insert
 drop policy if exists documents_storage_delete_own on storage.objects;
 create policy documents_storage_delete_own on storage.objects for delete
   using (bucket_id = 'documents' and (storage.foldername(name))[2] = auth.uid()::text);
+
+-- Also selectable by approved viewers of the owner's transactions -- a
+-- receipt attached to a shared transaction needs to actually be openable
+-- by whoever's been granted access to see that transaction, matching
+-- documents_select_shared on the table itself (above).
+drop policy if exists documents_storage_select_shared on storage.objects;
+create policy documents_storage_select_shared on storage.objects for select
+  using (
+    bucket_id = 'documents'
+    and exists (
+      select 1 from public.viewer_access
+      where viewer_access.owner_user_id = ((storage.foldername(name))[2])::uuid
+        and viewer_access.requester_user_id = auth.uid()
+        and viewer_access.status = 'approved'
+    )
+  );
 
 -- ================= Storage (avatars bucket) =================
 -- Public bucket -- profile pictures must be viewable by every user (they show

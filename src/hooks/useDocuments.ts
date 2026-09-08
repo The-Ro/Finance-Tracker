@@ -75,3 +75,26 @@ export function useDocuments() {
 
   return { ...query, upload, remove }
 }
+
+/** Opens the receipt attached to a transaction (attached via
+ *  receipt_document_id) in a new tab. The documents bucket is private, so
+ *  this needs a short-lived signed URL rather than a plain public link --
+ *  works for the owner and for anyone with approved viewer_access to that
+ *  owner's transactions (see documents_select_shared /
+ *  documents_storage_select_shared in policies.sql). */
+export function useViewReceipt() {
+  return useMutation({
+    mutationFn: async (documentId: string): Promise<{ url: string; filename: string }> => {
+      const { data: doc, error: docError } = await supabase
+        .from('documents')
+        .select('storage_path, filename')
+        .eq('id', documentId)
+        .single()
+      if (docError) throw docError
+
+      const { data, error } = await supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(doc.storage_path, 60)
+      if (error) throw error
+      return { url: data.signedUrl, filename: doc.filename }
+    },
+  })
+}

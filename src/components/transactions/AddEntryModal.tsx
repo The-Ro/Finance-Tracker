@@ -50,6 +50,8 @@ const EMPTY_STATE = {
 export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
   const [error, setError] = useState<string | null>(null)
+  const [shakeField, setShakeField] = useState<string | null>(null)
+  const [shakeToken, setShakeToken] = useState(0)
   const contentRef = useRef<HTMLDivElement>(null)
   const isEditing = !!transaction
   const isTransfer = form.type === 'transfer'
@@ -178,21 +180,35 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   // bottom of the visible area with no visible sign anything happened.
   // Surfacing it at the very top of the form and scrolling back up there
   // means it's always seen right away, wherever the user was scrolled to.
-  const fail = (message: string) => {
+  //
+  // `field` additionally shakes that specific input so it's obvious which
+  // one needs attention, not just that *something* does. Shaking works via
+  // `key`, not just the class: if the same field fails twice in a row (user
+  // hits Save again without changing anything), the class alone wouldn't
+  // change and the CSS animation wouldn't restart -- bumping shakeToken
+  // into the key forces React to remount that wrapper, restarting it every
+  // time.
+  const fail = (message: string, field?: string) => {
     setError(message)
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    if (field) {
+      setShakeField(field)
+      setShakeToken((t) => t + 1)
+    }
   }
+  const shakeKey = (field: string) => (shakeField === field ? `${field}-${shakeToken}` : field)
+  const shakeClass = (field: string) => (shakeField === field ? 'animate-shake' : undefined)
 
   const handleSubmit = async () => {
     setError(null)
 
-    if (!form.merchant.trim()) return fail('Enter a merchant or source.')
-    if (!form.date) return fail('Choose a date.')
-    if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter a valid amount greater than zero.')
-    if (!form.account) return fail('Choose an account.')
-    if (isTransfer && !form.toAccount) return fail('Choose an account to transfer to.')
-    if (isTransfer && form.toAccount === form.account) return fail('Choose a different account to transfer to.')
-    if (!isEditing && form.hasReceipt && !form.file) return fail('Choose a receipt file, or uncheck the receipt box.')
+    if (!form.merchant.trim()) return fail('Enter a merchant or source.', 'merchant')
+    if (!form.date) return fail('Choose a date.', 'date')
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter a valid amount greater than zero.', 'amount')
+    if (!form.account) return fail('Choose an account.', 'account')
+    if (isTransfer && !form.toAccount) return fail('Choose an account to transfer to.', 'toAccount')
+    if (isTransfer && form.toAccount === form.account) return fail('Choose a different account to transfer to.', 'toAccount')
+    if (!isEditing && form.hasReceipt && !form.file) return fail('Choose a receipt file, or uncheck the receipt box.', 'file')
 
     const category = isTransfer ? null : form.category
     const toAccount = isTransfer ? form.toAccount : null
@@ -283,33 +299,39 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         </div>
 
         <div className="grid grid-cols-2 gap-3">
+          <div key={shakeKey('amount')} className={shakeClass('amount')}>
+            <TextField
+              label="Amount"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+            />
+          </div>
+          <div key={shakeKey('date')} className={shakeClass('date')}>
+            <TextField
+              label="Date"
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div key={shakeKey('merchant')} className={shakeClass('merchant')}>
           <TextField
-            label="Amount"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            value={form.amount}
-            onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-          />
-          <TextField
-            label="Date"
-            type="date"
-            value={form.date}
-            onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+            label="Merchant or source"
+            placeholder="e.g. Trader Joe's"
+            maxLength={60}
+            value={form.merchant}
+            onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
           />
         </div>
 
-        <TextField
-          label="Merchant or source"
-          placeholder="e.g. Trader Joe's"
-          maxLength={60}
-          value={form.merchant}
-          onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
-        />
-
         <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
+          <div key={shakeKey('account')} className={clsx('flex flex-col gap-1.5', shakeClass('account'))}>
             <label className="text-helper font-medium text-slate-600">{isTransfer ? 'From account' : 'Account'}</label>
             <Dropdown
               options={fromAccountOptions}
@@ -326,7 +348,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
             )}
           </div>
           {isTransfer ? (
-            <div className="flex flex-col gap-1.5">
+            <div key={shakeKey('toAccount')} className={clsx('flex flex-col gap-1.5', shakeClass('toAccount'))}>
               <label className="text-helper font-medium text-slate-600">To account</label>
               <Dropdown
                 options={toAccountOptions.length > 0 ? toAccountOptions : ['No other accounts yet']}
@@ -368,7 +390,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           </div>
           <TextField
             label="Remarks"
-            placeholder="Any extra detail worth remembering"
+            placeholder="Add a note"
             maxLength={200}
             value={form.remarks}
             onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
@@ -391,10 +413,11 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
 
         {!isEditing && form.hasReceipt && (
           <input
+            key={shakeKey('file')}
             type="file"
             accept="image/*,.pdf,.csv,.xls,.xlsx"
             onChange={(e) => setForm((f) => ({ ...f, file: e.target.files?.[0] ?? null }))}
-            className="text-sm"
+            className={clsx('text-sm', shakeClass('file'))}
           />
         )}
       </div>
