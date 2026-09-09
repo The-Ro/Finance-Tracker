@@ -27,6 +27,26 @@ export function formatCurrencyAs(amount: number, currency: string): string {
   }
 }
 
+/** "$1.2K", "₹4.6L", "¥890" -- for compact summaries (badges, chart axes)
+ *  where a full "$1,234.56" would be too wide to read at a glance. */
+export function formatCompactCurrencyAs(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(amount)
+  } catch {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: DEFAULT_CURRENCY,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(amount)
+  }
+}
+
 export function formatSignedCurrencyAs(
   amount: number,
   currency: string,

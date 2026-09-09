@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Receipt, Trash2 } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Pencil, Receipt, Trash2 } from 'lucide-react'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { InlineCategoryEditor } from './InlineCategoryEditor'
@@ -37,7 +37,7 @@ export function TransactionTable({
   const [typeFilter, setTypeFilter] = useState('All types')
   const [personFilter, setPersonFilter] = useState('Everyone')
   const deleteTransaction = useDeleteTransaction()
-  const { formatSigned } = useFormatCurrency()
+  const { formatSigned, formatCompact } = useFormatCurrency()
   const { openEditEntry } = useGlobalModals()
   const viewReceipt = useViewReceipt()
 
@@ -81,8 +81,37 @@ export function TransactionTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, search, categoryFilter, accountFilter, typeFilter, personFilter, scope])
 
+  // Money in/out for whatever's currently visible -- search text, type,
+  // category, account, and person filters all narrow this the same way
+  // they narrow the list below, so the two stay in sync.
+  const { totalCredit, totalDebit } = useMemo(() => {
+    let credit = 0
+    let debit = 0
+    for (const t of filtered) {
+      if (t.type === 'income') credit += t.amount
+      else if (t.type === 'expense') debit += t.amount
+    }
+    return { totalCredit: credit, totalDebit: debit }
+  }, [filtered])
+
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          title={`Credit -- ${formatSigned(totalCredit, 'income')} in from this list`}
+          className="inline-flex items-center gap-1 rounded-full bg-positive-light px-2.5 py-1 text-helper font-medium text-positive"
+        >
+          <ArrowUpRight size={12} />
+          {formatCompact(totalCredit)}
+        </span>
+        <span
+          title={`Debit -- ${formatSigned(totalDebit, 'expense')} out from this list`}
+          className="inline-flex items-center gap-1 rounded-full bg-caution-light px-2.5 py-1 text-helper font-medium text-caution"
+        >
+          <ArrowDownRight size={12} />
+          {formatCompact(totalDebit)}
+        </span>
+      </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
           value={search}
