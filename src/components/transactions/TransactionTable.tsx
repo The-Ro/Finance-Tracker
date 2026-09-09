@@ -96,17 +96,17 @@ export function TransactionTable({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="inline-flex w-fit items-center divide-x divide-app-border overflow-hidden rounded-full border border-app-border bg-white text-helper font-medium">
         <span
           title={`Credit -- ${formatSigned(totalCredit, 'income')} in from this list`}
-          className="inline-flex items-center gap-1 rounded-full bg-positive-light px-2.5 py-1 text-helper font-medium text-positive"
+          className="flex items-center gap-1 px-2.5 py-1 text-positive"
         >
           <ArrowUpRight size={12} />
           {formatCompact(totalCredit)}
         </span>
         <span
           title={`Debit -- ${formatSigned(totalDebit, 'expense')} out from this list`}
-          className="inline-flex items-center gap-1 rounded-full bg-caution-light px-2.5 py-1 text-helper font-medium text-caution"
+          className="flex items-center gap-1 px-2.5 py-1 text-red-600"
         >
           <ArrowDownRight size={12} />
           {formatCompact(totalDebit)}

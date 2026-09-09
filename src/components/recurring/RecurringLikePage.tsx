@@ -8,6 +8,8 @@ import { ConfirmedItemRow } from './ConfirmedItemRow'
 import { RecurringFormModal } from './RecurringFormModal'
 import { useRecurringData, useRecurringMutations, type RecurringItem } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { useAuth } from '@/context/AuthContext'
+import { useAccountBalances } from '@/hooks/useTransactions'
 import type { RecurringKind } from '@/types/database.types'
 
 interface RecurringLikePageProps {
@@ -21,6 +23,8 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
   const { isLoading, confirmed, suggestions } = useRecurringData(kind)
   const { keep, ignore, update, remove, markPaid } = useRecurringMutations()
   const { format } = useFormatCurrency()
+  const { userId } = useAuth()
+  const accountBalances = useAccountBalances(userId)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<RecurringItem | null>(null)
 
@@ -93,6 +97,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
                 <ConfirmedItemRow
                   key={item.id}
                   item={item}
+                  accountBalance={item.account ? accountBalances.get(item.account) ?? 0 : null}
                   onEdit={() => {
                     setEditing(item)
                     setModalOpen(true)

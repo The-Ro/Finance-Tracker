@@ -1,10 +1,14 @@
-import { CheckCircle2, Pencil, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 import type { RecurringItem } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate, todayISO } from '@/lib/format'
 
 interface ConfirmedItemRowProps {
   item: RecurringItem
+  /** The item's account balance (derived from logged transactions), or null
+   *  when it has no account yet -- used only to flag a payment the account
+   *  can't currently cover, never to block anything. */
+  accountBalance: number | null
   onEdit: () => void
   onDelete: () => void
   onToggleActive: () => void
@@ -14,6 +18,7 @@ interface ConfirmedItemRowProps {
 
 export function ConfirmedItemRow({
   item,
+  accountBalance,
   onEdit,
   onDelete,
   onToggleActive,
@@ -25,6 +30,11 @@ export function ConfirmedItemRow({
   // logged transaction back to this item) -- once today passes it, it just
   // sits there looking like it's still "coming up" unless flagged here.
   const isOverdue = item.active && item.next_date < todayISO()
+  // Nothing here actually pauses anything (there's no automated charge to
+  // pause -- every payment is a manual "mark as paid") -- this just warns
+  // that the account behind it can't currently cover the amount, same
+  // heads-up AddEntryModal already gives for an overdrawing transfer.
+  const insufficientBalance = item.active && accountBalance !== null && accountBalance < item.amount
 
   return (
     <li className="flex items-center justify-between gap-3 border-b border-app-border py-3 last:border-b-0">
@@ -38,6 +48,12 @@ export function ConfirmedItemRow({
             <>next {formatShortDate(item.next_date)}</>
           )}
         </p>
+        {insufficientBalance && (
+          <p className="mt-0.5 flex items-center gap-1 text-helper font-medium text-red-600">
+            <AlertTriangle size={11} className="shrink-0" />
+            Paused -- {item.account} doesn't have enough to cover this
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-sm font-semibold text-slate-900">{format(item.amount)}</span>

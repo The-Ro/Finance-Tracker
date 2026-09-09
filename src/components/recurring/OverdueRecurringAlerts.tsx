@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useOverdueRecurringItems, useRecurringMutations } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { useAuth } from '@/context/AuthContext'
+import { useAccountBalances } from '@/hooks/useTransactions'
 import { formatShortDate } from '@/lib/format'
 
 /** Recurring bills and subscriptions past their next_date -- surfaced in the
@@ -12,6 +14,8 @@ export function OverdueRecurringAlerts() {
   const overdue = useOverdueRecurringItems()
   const { markPaid } = useRecurringMutations()
   const { format } = useFormatCurrency()
+  const { userId } = useAuth()
+  const accountBalances = useAccountBalances(userId)
 
   // In the notification dropdown specifically, an empty section is just
   // noise once something else in the panel actually needs attention -- the
@@ -25,16 +29,27 @@ export function OverdueRecurringAlerts() {
         <p className="mt-1 text-helper text-slate-500">Recurring bills and subscriptions past their due date.</p>
       </div>
       <ul className="flex flex-col gap-3">
-        {overdue.map((item) => (
+        {overdue.map((item) => {
+          const balance = item.account ? accountBalances.get(item.account) ?? 0 : null
+          const insufficientBalance = balance !== null && balance < item.amount
+          return (
           <li key={item.id} className="flex items-center justify-between gap-3">
-            <Link
-              to={item.kind === 'subscription' ? '/subscriptions' : '/recurring'}
-              className="flex min-w-0 items-center gap-1.5 text-sm hover:underline"
-            >
-              <AlertCircle size={14} className="shrink-0 text-caution" />
-              <span className="truncate font-medium text-slate-800">{item.name}</span>
-              <span className="shrink-0 text-helper text-caution">since {formatShortDate(item.next_date)}</span>
-            </Link>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <Link
+                to={item.kind === 'subscription' ? '/subscriptions' : '/recurring'}
+                className="flex min-w-0 items-center gap-1.5 text-sm hover:underline"
+              >
+                <AlertCircle size={14} className="shrink-0 text-caution" />
+                <span className="truncate font-medium text-slate-800">{item.name}</span>
+                <span className="shrink-0 text-helper text-caution">since {formatShortDate(item.next_date)}</span>
+              </Link>
+              {insufficientBalance && (
+                <span className="flex items-center gap-1 text-helper font-medium text-red-600">
+                  <AlertTriangle size={11} className="shrink-0" />
+                  Paused -- {item.account} doesn't have enough to cover this
+                </span>
+              )}
+            </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className="text-sm font-semibold text-slate-900">{format(item.amount)}</span>
               {item.account ? (
@@ -64,7 +79,8 @@ export function OverdueRecurringAlerts() {
               )}
             </div>
           </li>
-        ))}
+          )
+        })}
       </ul>
     </Card>
   )
