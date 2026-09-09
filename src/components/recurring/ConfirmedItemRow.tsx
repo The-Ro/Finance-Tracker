@@ -46,10 +46,13 @@ export function ConfirmedItemRow({
           Active
         </label>
         {isOverdue && (
+          // Pre-existing items created before an account was required can
+          // still be missing one -- mark-as-paid needs somewhere to log the
+          // expense transaction against, so route to Edit instead until then.
           <button
-            aria-label={`Mark ${item.name} as paid`}
-            title="Mark as paid -- moves the next due date forward"
-            onClick={onMarkPaid}
+            aria-label={item.account ? `Mark ${item.name} as paid` : `Add an account to ${item.name} before marking it paid`}
+            title={item.account ? 'Mark as paid -- logs the expense and moves the next due date forward' : 'Add an account first (Edit) to mark this paid'}
+            onClick={item.account ? onMarkPaid : onEdit}
             disabled={markPaidPending}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-positive-light hover:text-positive disabled:opacity-50"
           >

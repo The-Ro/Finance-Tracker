@@ -303,7 +303,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
             <TextField
               label="Amount"
               type="number"
-              min="0"
+              min="0.01"
               step="0.01"
               placeholder="0.00"
               value={form.amount}

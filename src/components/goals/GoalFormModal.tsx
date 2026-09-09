@@ -89,8 +89,8 @@ export function GoalFormModal({ open, onClose, editing }: GoalFormModalProps) {
       <div className="flex flex-col gap-4">
         <TextField label="Goal name" value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
-          <TextField label="Target amount" type="number" step="0.01" value={target} onChange={(e) => setTarget(e.target.value)} />
-          <TextField label="Current saved" type="number" step="0.01" value={current} onChange={(e) => setCurrent(e.target.value)} />
+          <TextField label="Target amount" type="number" step="0.01" min="0.01" value={target} onChange={(e) => setTarget(e.target.value)} />
+          <TextField label="Current saved" type="number" step="0.01" min="0" value={current} onChange={(e) => setCurrent(e.target.value)} />
         </div>
         <TextField label="Due date (optional)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         <TextField label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />

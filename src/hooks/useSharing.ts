@@ -15,6 +15,10 @@ export function useOwnedAccessRows() {
   return useQuery({
     queryKey: ['viewer_access', 'owned', userId],
     enabled: !!userId,
+    // A new request comes from someone else's session, with nothing to push
+    // it into this one -- poll so the bell's pending count and the incoming
+    // requests panel notice it without a manual reload.
+    refetchInterval: 30_000,
     queryFn: async (): Promise<ViewerAccessRow[]> => {
       const { data, error } = await supabase
         .from('viewer_access')

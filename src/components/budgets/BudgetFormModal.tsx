@@ -79,7 +79,7 @@ export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps
           <label className="text-helper font-medium text-slate-600">Category</label>
           <Dropdown options={categories} value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
-        <TextField label="Monthly limit" type="number" step="0.01" value={limit} onChange={(e) => setLimit(e.target.value)} />
+        <TextField label="Monthly limit" type="number" step="0.01" min="0" value={limit} onChange={(e) => setLimit(e.target.value)} />
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>

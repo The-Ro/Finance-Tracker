@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
+import { buildFingerprint } from '@/lib/fingerprint'
 import { useMyTransactions } from '@/hooks/useTransactions'
 import { detectRecurringCandidates, normalizeMerchant, nextDateForCadence, type RecurringCandidate } from '@/lib/recurringDetection'
 import { todayISO } from '@/lib/format'
@@ -60,6 +61,7 @@ export function useRecurringMutations() {
         amount: candidate.averageAmount,
         cadence: candidate.cadence,
         next_date: candidate.nextDate,
+        account: candidate.account,
       })
       if (error) throw error
     },
@@ -117,6 +119,7 @@ export function useRecurringMutations() {
       cadence: RecurringItem['cadence']
       next_date: string
       active: boolean
+      account: string
     }>) => {
       const { id, ...rest } = input
       const { error } = await supabase.from('recurring_items').update(rest).eq('id', id)
@@ -137,16 +140,48 @@ export function useRecurringMutations() {
   // transaction against the item. This is the deliberate, user-initiated way
   // to move it forward: always computed from today (not the stale stored
   // date), so an item overdue by months still lands on a sane future date
-  // instead of one cadence step past whatever it used to be.
+  // instead of one cadence step past whatever it used to be. It also logs
+  // the actual expense transaction (so it shows up in Transactions and comes
+  // out of the account's balance) -- previously this only moved the date,
+  // silently losing the fact that money had actually left an account.
   const markPaid = useMutation({
     mutationFn: async (item: RecurringItem) => {
+      if (!item.account) throw new Error('Add an account to this item (Edit) before marking it paid.')
+
+      const date = todayISO()
+      const fingerprint = buildFingerprint({ date, merchant: item.name, amount: item.amount, account: item.account })
+      const { error: txnError } = await supabase.from('transactions').insert({
+        owner_user_id: userId!,
+        date,
+        merchant: item.name,
+        category: item.category,
+        amount: item.amount,
+        type: 'expense',
+        account: item.account,
+        to_account: null,
+        remarks: null,
+        payment_method: null,
+        tags: [],
+        receipt: false,
+        receipt_document_id: null,
+        source: 'manual',
+        fingerprint,
+      })
+      if (txnError) {
+        if (txnError.code === '23505') throw new Error('Already logged as paid for today.')
+        throw txnError
+      }
+
       const { error } = await supabase
         .from('recurring_items')
-        .update({ next_date: nextDateForCadence(todayISO(), item.cadence) })
+        .update({ next_date: nextDateForCadence(date, item.cadence) })
         .eq('id', item.id)
       if (error) throw error
     },
-    onSuccess: invalidateAll,
+    onSuccess: () => {
+      invalidateAll()
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
   })
 
   return { keep, ignore, restoreIgnored, addManual, update, remove, markPaid }
@@ -172,7 +207,7 @@ export function useRecurringData(kind: RecurringKind) {
     if (!transactionsQuery.data || !itemsQuery.data || !dismissedQuery.data) return []
     const expenseTxns = transactionsQuery.data
       .filter((t) => t.type === 'expense')
-      .map((t) => ({ date: t.date, merchant: t.merchant, category: t.category ?? '', amount: t.amount, tags: t.tags }))
+      .map((t) => ({ date: t.date, merchant: t.merchant, category: t.category ?? '', amount: t.amount, tags: t.tags, account: t.account }))
     const confirmedNormalized = new Set(itemsQuery.data.map((item) => normalizeMerchant(item.name)))
     const all = detectRecurringCandidates(expenseTxns, confirmedNormalized, dismissedQuery.data)
     return all.filter((c) => c.kind === kind)

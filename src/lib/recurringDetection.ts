@@ -6,6 +6,7 @@ export interface DetectableTransaction {
   category: string
   amount: number
   tags: string[]
+  account: string
 }
 
 export interface RecurringCandidate {
@@ -20,6 +21,9 @@ export interface RecurringCandidate {
   monthlyEquivalent: number
   nextDate: string
   kind: RecurringKind
+  /** Account the most recent matching transaction was logged against, carried
+   *  over so confirming this suggestion doesn't lose the account it belongs to. */
+  account: string
 }
 
 const SUBSCRIPTION_HINTS = [
@@ -207,6 +211,7 @@ export function detectRecurringCandidates(
       monthlyEquivalent: monthlyEquivalent(avgAmount, cadence),
       nextDate: nextDateForCadence(uniqueDates[uniqueDates.length - 1], cadence),
       kind: isSubscription ? 'subscription' : 'recurring',
+      account: mostRecentTxn.account,
     })
   }
 

@@ -30,6 +30,11 @@ export function useAdminFeedbackInbox() {
   return useQuery({
     queryKey: ['feedback', 'admin-inbox'],
     enabled: isAdmin,
+    // Someone else's submission has no way to push into this tab -- there's
+    // no realtime subscription or cron anywhere in this app (see project
+    // notes) -- so without polling, a new item only ever shows up after a
+    // manual reload or an unrelated refetchOnWindowFocus trigger.
+    refetchInterval: 30_000,
     queryFn: async (): Promise<FeedbackRow[]> => {
       const { data, error } = await supabase
         .from('feedback')
@@ -81,6 +86,9 @@ export function useMyFeedbackReplies() {
   return useQuery({
     queryKey: ['feedback', 'my-replies', userId],
     enabled: !!userId,
+    // Same reasoning as the admin inbox above -- the admin's reply lands in
+    // another user's session with nothing to notify this one.
+    refetchInterval: 30_000,
     queryFn: async (): Promise<FeedbackRow[]> => {
       const { data, error } = await supabase
         .from('feedback')

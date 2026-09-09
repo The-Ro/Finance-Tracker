@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { Toaster } from '@/components/ui/Toaster'
+import { UpdateBanner } from '@/components/layout/UpdateBanner'
 import { ProtectedRoute, PublicOnlyRoute } from '@/routes/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 
@@ -49,6 +50,7 @@ export default function App() {
         <ThemeProvider>
           <ToastProvider>
             <Toaster />
+            <UpdateBanner />
             <BrowserRouter>
               <Suspense fallback={<RouteFallback />}>
                 <Routes>

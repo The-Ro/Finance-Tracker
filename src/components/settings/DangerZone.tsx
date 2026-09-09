@@ -22,8 +22,13 @@ export function DangerZone() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const deleteAccount = useDeleteAccount()
 
-  const canConfirm = confirmText === WIPE_CONFIRMATION_TEXT
-  const canConfirmDelete = deleteConfirmText === DELETE_ACCOUNT_CONFIRMATION_TEXT
+  // Case-insensitive and whitespace-trimmed: an exact-match confirmation
+  // input is notoriously flaky on mobile, where iOS/Android autocapitalize
+  // the first letter of what's typed (or autocorrect nudges it) regardless
+  // of the ALL-CAPS text shown -- which silently left the button disabled
+  // with no visible reason, easy to mistake for "delete isn't working".
+  const canConfirm = confirmText.trim().toUpperCase() === WIPE_CONFIRMATION_TEXT
+  const canConfirmDelete = deleteConfirmText.trim().toUpperCase() === DELETE_ACCOUNT_CONFIRMATION_TEXT
 
   const handleErase = async () => {
     await eraseData.mutateAsync()
@@ -104,6 +109,10 @@ export function DangerZone() {
             <input
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
               className="min-h-[44px] rounded-lg border border-app-border bg-white px-3 text-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
             />
           </div>
@@ -143,6 +152,10 @@ export function DangerZone() {
           <input
             value={deleteConfirmText}
             onChange={(e) => setDeleteConfirmText(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
             className="min-h-[44px] rounded-lg border border-app-border bg-white px-3 text-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
           />
           {deleteError && <InlineMessage tone="error">{deleteError}</InlineMessage>}

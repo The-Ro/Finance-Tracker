@@ -11,6 +11,16 @@ import type { Cadence, RecurringKind } from '@/types/database.types'
 
 const CADENCES: Cadence[] = ['weekly', 'biweekly', 'monthly', 'quarterly', 'half-yearly', 'annual']
 
+// A subscription is a recurring digital service; a recurring payment is
+// everything else recurring (bills, loans, insurance...). Showing every
+// expense category (Groceries, Dining, Travel, ...) in both pickers made it
+// easy to file a subscription under a category that made no sense for it --
+// each kind now only offers the categories actually relevant to it, though
+// the item's current category (if edited elsewhere) and "Other" always stay
+// available so nothing already-set becomes unselectable.
+const SUBSCRIPTION_CATEGORIES = ['Subscriptions', 'Entertainment', 'Education', 'Other']
+const RECURRING_CATEGORIES = ['Housing', 'Utilities', 'Insurance', 'Transportation', 'Health', 'Education', 'Fees & charges', 'Other']
+
 interface RecurringFormModalProps {
   open: boolean
   onClose: () => void
@@ -21,14 +31,22 @@ interface RecurringFormModalProps {
 export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFormModalProps) {
   // Recurring/subscription detection only ever runs over expense transactions
   // (see useRecurring.ts), so recurring/subscription items are expense-only too.
-  const { expense: categories } = useCategories()
+  const { expense: allExpenseCategories } = useCategories()
   const { data: accounts = [] } = useAccounts()
   const { addManual, update } = useRecurringMutations()
   const [error, setError] = useState<string | null>(null)
 
+  const relevant = kind === 'subscription' ? SUBSCRIPTION_CATEGORIES : RECURRING_CATEGORIES
+  const categories = allExpenseCategories.filter(
+    (c) => relevant.includes(c) || c === editing?.category
+  )
+  // If the user deleted every relevant default category, fall back to the
+  // full list rather than showing an empty dropdown.
+  const categoryOptions = categories.length > 0 ? categories : allExpenseCategories
+
   const [form, setForm] = useState(() => ({
     name: editing?.name ?? '',
-    category: editing?.category ?? categories[0] ?? 'Needs review',
+    category: editing?.category ?? categoryOptions[0] ?? 'Needs review',
     amount: editing ? String(editing.amount) : '',
     cadence: editing?.cadence ?? ('monthly' as Cadence),
     nextDate: editing?.next_date ?? todayISO(),
@@ -44,7 +62,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
     if (!open) return
     setForm({
       name: editing?.name ?? '',
-      category: editing?.category ?? categories[0] ?? 'Needs review',
+      category: editing?.category ?? categoryOptions[0] ?? 'Needs review',
       amount: editing ? String(editing.amount) : '',
       cadence: editing?.cadence ?? ('monthly' as Cadence),
       nextDate: editing?.next_date ?? todayISO(),
@@ -54,12 +72,21 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing])
 
+  useEffect(() => {
+    if (!form.account && accounts.length > 0) {
+      setForm((f) => ({ ...f, account: accounts[0] }))
+    }
+  }, [accounts, form.account])
+
   const handleSubmit = async () => {
     setError(null)
     const amountNum = Number(form.amount)
     if (!form.name.trim()) return setError(`Enter a ${kind === 'subscription' ? 'service' : 'payment'} name.`)
     if (!Number.isFinite(amountNum) || amountNum <= 0) return setError('Enter a valid amount.')
     if (!form.nextDate) return setError('Choose the next date.')
+    // Required so "Mark as paid" always has somewhere to log the actual
+    // expense transaction against -- see useRecurring.ts's markPaid.
+    if (!form.account) return setError('Choose an account.')
 
     try {
       if (editing) {
@@ -70,6 +97,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
           amount: amountNum,
           cadence: form.cadence,
           next_date: form.nextDate,
+          account: form.account,
         })
       } else {
         await addManual.mutateAsync({
@@ -79,7 +107,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
           amount: amountNum,
           cadence: form.cadence,
           nextDate: form.nextDate,
-          account: form.account || null,
+          account: form.account,
         })
       }
       onClose()
@@ -117,6 +145,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
             label="Amount"
             type="number"
             step="0.01"
+            min="0.01"
             value={form.amount}
             onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
           />
@@ -133,7 +162,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
           <div className="flex flex-col gap-1.5">
             <label className="text-helper font-medium text-slate-600">Category</label>
             <Dropdown
-              options={categories}
+              options={categoryOptions}
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
             />
@@ -145,16 +174,15 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
             onChange={(e) => setForm((f) => ({ ...f, nextDate: e.target.value }))}
           />
         </div>
-        {!editing && (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-helper font-medium text-slate-600">Account (optional)</label>
-            <Dropdown
-              options={['(none)', ...accounts]}
-              value={form.account || '(none)'}
-              onChange={(e) => setForm((f) => ({ ...f, account: e.target.value === '(none)' ? '' : e.target.value }))}
-            />
-          </div>
-        )}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-helper font-medium text-slate-600">Account</label>
+          <Dropdown
+            options={accounts}
+            value={form.account}
+            onChange={(e) => setForm((f) => ({ ...f, account: e.target.value }))}
+          />
+          <p className="text-helper text-slate-400">Marking this paid logs an expense against this account.</p>
+        </div>
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
