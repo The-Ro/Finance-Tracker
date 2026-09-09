@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, Pencil, Receipt, Trash2 } from 'lucide-react'
+import { Pencil, Receipt, Trash2 } from 'lucide-react'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { InlineCategoryEditor } from './InlineCategoryEditor'
@@ -37,7 +37,7 @@ export function TransactionTable({
   const [typeFilter, setTypeFilter] = useState('All types')
   const [personFilter, setPersonFilter] = useState('Everyone')
   const deleteTransaction = useDeleteTransaction()
-  const { formatSigned, formatCompact } = useFormatCurrency()
+  const { formatSigned } = useFormatCurrency()
   const { openEditEntry } = useGlobalModals()
   const viewReceipt = useViewReceipt()
 
@@ -81,37 +81,8 @@ export function TransactionTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, search, categoryFilter, accountFilter, typeFilter, personFilter, scope])
 
-  // Money in/out for whatever's currently visible -- search text, type,
-  // category, account, and person filters all narrow this the same way
-  // they narrow the list below, so the two stay in sync.
-  const { totalCredit, totalDebit } = useMemo(() => {
-    let credit = 0
-    let debit = 0
-    for (const t of filtered) {
-      if (t.type === 'income') credit += t.amount
-      else if (t.type === 'expense') debit += t.amount
-    }
-    return { totalCredit: credit, totalDebit: debit }
-  }, [filtered])
-
   return (
     <div className="flex flex-col gap-3">
-      <div className="inline-flex w-fit items-center divide-x divide-app-border overflow-hidden rounded-full border border-app-border bg-white text-helper font-medium">
-        <span
-          title={`Credit -- ${formatSigned(totalCredit, 'income')} in from this list`}
-          className="flex items-center gap-1 px-2.5 py-1 text-positive"
-        >
-          <ArrowDownRight size={12} />
-          {formatCompact(totalCredit)}
-        </span>
-        <span
-          title={`Debit -- ${formatSigned(totalDebit, 'expense')} out from this list`}
-          className="flex items-center gap-1 px-2.5 py-1 text-red-600"
-        >
-          <ArrowUpRight size={12} />
-          {formatCompact(totalDebit)}
-        </span>
-      </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
           value={search}
