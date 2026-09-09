@@ -25,6 +25,18 @@ export function initialsFor(nameOrEmail: string): string {
   return trimmed.slice(0, 2).toUpperCase()
 }
 
+// `.toISOString().slice(0, 10)` reads as "just get the date part" but it
+// doesn't -- toISOString() converts to UTC first, so for anyone east of UTC
+// (IST included) it silently returns *yesterday's* date for the first few
+// hours of each local day (and the reverse -- tomorrow's date in the
+// evening -- for anyone west of UTC). Every transaction date, recurring
+// next_date, and overdue check ultimately runs through this, so building
+// the string from the Date object's own local Y/M/D fields instead is what
+// actually gives "today" in the sense a human typing a date means it.
+export function toLocalISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+  return toLocalISODate(new Date())
 }

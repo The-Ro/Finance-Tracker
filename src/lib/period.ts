@@ -1,4 +1,5 @@
 import type { SelectedPeriod } from '@/types/database.types'
+import { toLocalISODate } from '@/lib/format'
 
 export interface DateRange {
   /** Inclusive ISO date (YYYY-MM-DD), or null for "no lower bound" (All time). */
@@ -16,9 +17,10 @@ export const PERIOD_OPTIONS: { value: SelectedPeriod; label: string }[] = [
   { value: 'this-year', label: 'This year' },
 ]
 
-function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
+// Was `d.toISOString().slice(0, 10)` -- converts to UTC first, which shifts
+// every period boundary by a day for anyone not in UTC+0 (see the note on
+// toLocalISODate in @/lib/format). Every range below is built from this.
+const toISODate = toLocalISODate
 
 /** Resolves a selected period into an actual date range, anchored to "now". */
 export function resolvePeriod(period: SelectedPeriod, now: Date = new Date()): DateRange {

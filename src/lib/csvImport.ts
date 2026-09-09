@@ -1,4 +1,5 @@
 import Papa from 'papaparse'
+import { toLocalISODate } from '@/lib/format'
 
 export interface CsvColumnMapping {
   date: string | null
@@ -79,8 +80,12 @@ function normalizeDate(raw: string): string | null {
     const [, mm, dd, yyyy] = slashMatch
     return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
   }
+  // JS parses a non-ISO date-only string like "January 5, 2026" as local
+  // midnight, so pulling it back out has to read the same Date object's
+  // local fields -- toISOString() would convert to UTC first and could
+  // shift the date by a day depending on the importing user's timezone.
   const parsed = new Date(trimmed)
-  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10)
+  if (!Number.isNaN(parsed.getTime())) return toLocalISODate(parsed)
   return null
 }
 
