@@ -37,7 +37,7 @@ export function OverdueRecurringAlerts() {
             </Link>
             <div className="flex shrink-0 items-center gap-2">
               <span className="text-sm font-semibold text-slate-900">{format(item.amount)}</span>
-              {item.account && (
+              {item.account ? (
                 <button
                   type="button"
                   aria-label={`Mark ${item.name} as paid`}
@@ -48,6 +48,19 @@ export function OverdueRecurringAlerts() {
                 >
                   <CheckCircle2 size={14} />
                 </button>
+              ) : (
+                // An item confirmed before an account was required (or one
+                // that's never had it filled in) has nothing to log the
+                // expense against -- previously this just rendered nothing
+                // here, which looked identical to "mark as paid" being
+                // broken. This makes the reason visible and gives a way out.
+                <Link
+                  to={item.kind === 'subscription' ? '/subscriptions' : '/recurring'}
+                  title="Add an account to this item (Edit) before marking it paid"
+                  className="text-helper font-medium text-accent hover:underline"
+                >
+                  Add account
+                </Link>
               )}
             </div>
           </li>

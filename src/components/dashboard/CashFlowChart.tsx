@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Area, ComposedChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TrendingUp } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -18,6 +18,20 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
   const { format } = useFormatCurrency()
   const { accentHex, isDark } = useTheme()
   const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
+
+  // Both series show by default; clicking a legend label isolates just that
+  // one (or hides it) instead of always showing income and spending
+  // stacked together -- recharts doesn't do this itself, so it's tracked here.
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const toggleSeries = (dataKey: unknown) => {
+    if (typeof dataKey !== 'string') return
+    setHidden((prev) => {
+      const next = new Set(prev)
+      if (next.has(dataKey)) next.delete(dataKey)
+      else next.add(dataKey)
+      return next
+    })
+  }
 
   const points = useMemo(() => {
     const byMonth = new Map<string, { income: number; expense: number }>()
@@ -45,7 +59,9 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
     <Card className="p-5">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-slate-800">Cash flow</h3>
-        <p className="text-helper text-slate-500">Last {points.length || 7} months, independent of the period filter above.</p>
+        <p className="text-helper text-slate-500">
+          Last {points.length || 7} months, independent of the period filter above. Click Income or Spending below to isolate it.
+        </p>
       </div>
       {points.length === 0 ? (
         <EmptyState icon={TrendingUp} title="No cash flow yet" description="Import or add transactions to see cash flow." />
@@ -78,9 +94,33 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
                 labelStyle={{ color: colors.tick }}
                 itemStyle={{ color: colors.tick }}
               />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
-              <Area type="monotone" dataKey="income" stroke={colors.positive} fill="url(#incomeGradient)" strokeWidth={2} name="Income" />
-              <Area type="monotone" dataKey="expense" stroke={colors.danger} fill="url(#expenseGradient)" strokeWidth={2} name="Spending" />
+              <Legend
+                iconType="circle"
+                iconSize={8}
+                wrapperStyle={{ fontSize: 12, color: colors.tick, cursor: 'pointer' }}
+                onClick={(e) => toggleSeries(e.dataKey)}
+                formatter={(value, entry) => (
+                  <span style={{ opacity: hidden.has(String(entry.dataKey)) ? 0.4 : 1 }}>{value}</span>
+                )}
+              />
+              <Area
+                type="monotone"
+                dataKey="income"
+                stroke={colors.positive}
+                fill="url(#incomeGradient)"
+                strokeWidth={2}
+                name="Income"
+                hide={hidden.has('income')}
+              />
+              <Area
+                type="monotone"
+                dataKey="expense"
+                stroke={colors.danger}
+                fill="url(#expenseGradient)"
+                strokeWidth={2}
+                name="Spending"
+                hide={hidden.has('expense')}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
