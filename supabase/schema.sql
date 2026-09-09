@@ -533,3 +533,25 @@ alter table public.user_settings alter column dashboard_order
   set default array['summary','cashflow','categoryChart','accountChart','accountBalances','activity','review'];
 alter table public.user_settings alter column summary_card_order
   set default array['netWorth','income','spending','savingsRate'];
+
+-- These three constraints were live without an ON DELETE clause (defaults
+-- to RESTRICT) despite the CREATE TABLE statements above already declaring
+-- "on delete set null" -- a drift between what this file describes and what
+-- actually existed in the database, probably from before these tables were
+-- reshaped into their current owner_user_id/created_by split. In practice
+-- this meant delete_own_account() failed for any account that had ever
+-- added its own custom account/category/tag: every other owner_user_id
+-- cascade on that row would succeed, then this one FK would reject the
+-- whole `delete from auth.users`, rolling everything back -- read by the
+-- user simply as "delete my account doesn't work".
+alter table public.categories drop constraint if exists categories_created_by_fkey;
+alter table public.categories add constraint categories_created_by_fkey
+  foreign key (created_by) references auth.users(id) on delete set null;
+
+alter table public.accounts drop constraint if exists accounts_created_by_fkey;
+alter table public.accounts add constraint accounts_created_by_fkey
+  foreign key (created_by) references auth.users(id) on delete set null;
+
+alter table public.tags drop constraint if exists tags_created_by_fkey;
+alter table public.tags add constraint tags_created_by_fkey
+  foreign key (created_by) references auth.users(id) on delete set null;

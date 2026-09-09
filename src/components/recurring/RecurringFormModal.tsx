@@ -13,11 +13,19 @@ const CADENCES: Cadence[] = ['weekly', 'biweekly', 'monthly', 'quarterly', 'half
 
 // A subscription is a recurring digital service; a recurring payment is
 // everything else recurring (bills, loans, insurance...). Showing every
-// expense category (Groceries, Dining, Travel, ...) in both pickers made it
-// easy to file a subscription under a category that made no sense for it --
-// each kind now only offers the categories actually relevant to it, though
-// the item's current category (if edited elsewhere) and "Other" always stay
-// available so nothing already-set becomes unselectable.
+// built-in expense category (Groceries, Dining, Travel, ...) in both
+// pickers made it easy to file a subscription under a category that made no
+// sense for it -- each kind now only offers the built-in categories actually
+// relevant to it. A category the user made themselves (Settings > Financial
+// setup > Expense categories) isn't one of these built-ins, so it always
+// stays available in both pickers -- there's no way to know which kind a
+// custom category is "for", and hiding it would make it look like it can't
+// be used for recurring items at all.
+const BUILT_IN_EXPENSE_CATEGORIES = [
+  'Housing', 'Utilities', 'Groceries', 'Dining', 'Transportation', 'Shopping', 'Health', 'Insurance',
+  'Entertainment', 'Subscriptions', 'Education', 'Travel', 'Personal care', 'Gifts & donations',
+  'Fees & charges', 'Other',
+]
 const SUBSCRIPTION_CATEGORIES = ['Subscriptions', 'Entertainment', 'Education', 'Other']
 const RECURRING_CATEGORIES = ['Housing', 'Utilities', 'Insurance', 'Transportation', 'Health', 'Education', 'Fees & charges', 'Other']
 
@@ -38,7 +46,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
 
   const relevant = kind === 'subscription' ? SUBSCRIPTION_CATEGORIES : RECURRING_CATEGORIES
   const categories = allExpenseCategories.filter(
-    (c) => relevant.includes(c) || c === editing?.category
+    (c) => relevant.includes(c) || c === editing?.category || !BUILT_IN_EXPENSE_CATEGORIES.includes(c)
   )
   // If the user deleted every relevant default category, fall back to the
   // full list rather than showing an empty dropdown.
