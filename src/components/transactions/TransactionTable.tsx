@@ -101,14 +101,14 @@ export function TransactionTable({
           title={`Credit -- ${formatSigned(totalCredit, 'income')} in from this list`}
           className="flex items-center gap-1 px-2.5 py-1 text-positive"
         >
-          <ArrowUpRight size={12} />
+          <ArrowDownRight size={12} />
           {formatCompact(totalCredit)}
         </span>
         <span
           title={`Debit -- ${formatSigned(totalDebit, 'expense')} out from this list`}
           className="flex items-center gap-1 px-2.5 py-1 text-red-600"
         >
-          <ArrowDownRight size={12} />
+          <ArrowUpRight size={12} />
           {formatCompact(totalDebit)}
         </span>
       </div>
