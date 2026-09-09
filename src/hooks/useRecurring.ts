@@ -188,6 +188,17 @@ export function useRecurringMutations() {
 }
 
 /**
+ * Active recurring/subscription items past their next_date, across both
+ * kinds -- shares `useRecurringItemsRaw`'s query cache (same key) rather
+ * than issuing its own fetch, so this stays in sync with whatever the
+ * Recurring/Subscriptions pages already loaded.
+ */
+export function useOverdueRecurringItems(): RecurringItem[] {
+  const { data } = useRecurringItemsRaw()
+  return useMemo(() => (data ?? []).filter((item) => item.active && item.next_date < todayISO()), [data])
+}
+
+/**
  * Runs detection over the user's own expense transactions and returns both
  * confirmed items and live suggestions for a given kind, with already-confirmed
  * merchants and dismissed patterns filtered out.

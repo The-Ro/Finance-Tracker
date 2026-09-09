@@ -7,11 +7,13 @@ import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
 import { useBudgetAlerts } from '@/hooks/useBudgets'
 import { useAdminFeedbackInbox, useMyFeedbackReplies } from '@/hooks/useFeedback'
+import { useOverdueRecurringItems } from '@/hooks/useRecurring'
 import { ADMIN_EMAIL } from '@/lib/admin'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { IncomingAccessRequests } from '@/components/settings/IncomingAccessRequests'
 import { BudgetAlerts } from '@/components/budgets/BudgetAlerts'
+import { OverdueRecurringAlerts } from '@/components/recurring/OverdueRecurringAlerts'
 import { AdminFeedbackInbox } from '@/components/settings/AdminFeedbackInbox'
 import { FeedbackReplyNotice } from '@/components/settings/FeedbackReplyNotice'
 
@@ -29,8 +31,13 @@ export function TopBar() {
   const adminInbox = useAdminFeedbackInbox()
   const unrepliedCount = isAdmin ? (adminInbox.data ?? []).filter((f) => !f.admin_reply).length : 0
   const myReplies = useMyFeedbackReplies()
+  const overdueRecurring = useOverdueRecurringItems()
   const hasNotifications =
-    pendingCount > 0 || overBudgetCount > 0 || unrepliedCount > 0 || (myReplies.data ?? []).length > 0
+    pendingCount > 0 ||
+    overBudgetCount > 0 ||
+    unrepliedCount > 0 ||
+    (myReplies.data ?? []).length > 0 ||
+    overdueRecurring.length > 0
 
   useEffect(() => {
     if (!notifOpen) return
@@ -101,6 +108,7 @@ export function TopBar() {
                 <>
                   {isAdmin && <AdminFeedbackInbox />}
                   <FeedbackReplyNotice />
+                  <OverdueRecurringAlerts />
                   <BudgetAlerts />
                   <IncomingAccessRequests />
                 </>
