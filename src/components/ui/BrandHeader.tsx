@@ -5,13 +5,29 @@ interface BrandHeaderProps {
   tagline?: boolean
 }
 
-/** The icon here is the real app icon (public/icons/icon-192.png) shown
- *  directly at its own native rounded-square treatment -- not wrapped in a
- *  second colored circle/box the way the old placeholder "L" mark was. */
+/** Just the card + "Rs" glyph from the app icon -- no background square
+ *  behind it here. (The app icon file itself still has its own filled
+ *  background baked in, for favicon/home-screen use where a transparent
+ *  icon wouldn't work; this is a separate transparent outline version of
+ *  the same artwork, colored via currentColor, for sitting directly on a
+ *  page instead.) */
+function WalletMark() {
+  return (
+    <svg viewBox="0 0 220 150" className="h-9 w-9 shrink-0 text-accent" fill="none" stroke="currentColor" strokeWidth="13">
+      <rect x="6.5" y="6.5" width="207" height="137" rx="16" />
+      <line x1="6.5" y1="56.5" x2="213.5" y2="56.5" />
+      <rect x="138.5" y="106.5" width="63.5" height="33.5" rx="6" strokeWidth="5" />
+      <text x="170" y="130" fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fontSize="21" fill="currentColor" stroke="none" textAnchor="middle">
+        Rs
+      </text>
+    </svg>
+  )
+}
+
 export function BrandHeader({ tagline = false }: BrandHeaderProps) {
   return (
     <div className="flex items-center gap-2.5">
-      <img src="/icons/icon-192.png" alt="" className="h-9 w-9 shrink-0 rounded-lg" />
+      <WalletMark />
       <div className="flex flex-col gap-0">
         <span className="font-serif text-xl font-semibold leading-tight text-slate-900">
           Ledge<span className="text-accent">Eaze</span>
