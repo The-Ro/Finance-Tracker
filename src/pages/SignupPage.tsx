@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
+import { BrandHeader } from '@/components/ui/BrandHeader'
 
 export function SignupPage() {
   const [displayName, setDisplayName] = useState('')
@@ -58,11 +59,8 @@ export function SignupPage() {
   return (
     <AuthLayout>
       <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 shadow-card">
-        <div className="mb-6 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
-            L
-          </div>
-          <span className="text-lg font-semibold text-slate-900">LedgeEaze</span>
+        <div className="mb-6">
+          <BrandHeader tagline />
         </div>
         <h1 className="mb-4 text-base font-semibold text-slate-800">Create your account</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

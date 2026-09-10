@@ -58,10 +58,8 @@ export function Sidebar() {
           <X size={18} />
         ) : (
           <span className="flex items-center gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:bg-white/15">
-              L
-            </span>
-            <span className="hidden whitespace-nowrap text-sm font-semibold sm:inline">LedgeEaze</span>
+            <img src="/icons/icon-192.png" alt="" className="h-9 w-9 shrink-0 rounded-full" />
+            <span className="hidden whitespace-nowrap font-serif text-sm font-semibold sm:inline">LedgeEaze</span>
           </span>
         )}
       </button>
