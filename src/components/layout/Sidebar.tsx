@@ -8,9 +8,10 @@ import { NAV_ITEMS } from './navItems'
  * Floating brand/nav toggle, shown at every viewport size (not just desktop)
  * -- fixed positioning means it never scrolls away with page content, and it
  * stays reachable even when the window is narrow/short, alongside BottomNav
- * on small screens. Resting (closed) it's a "LedgeEaze" pill; clicking it
- * collapses the pill down to a small circle showing the close icon while the
- * nav panel is open, then expands back out to the pill when closed again.
+ * on small screens. Resting (closed) it's just the app icon (plus the
+ * wordmark at sm+) sitting directly on the page -- no colored bubble or
+ * pulsing animation behind it, since the icon artwork already carries its
+ * own background. Open, it becomes a plain close (X) button.
  */
 export function Sidebar() {
   const [open, setOpen] = useState(false)
@@ -46,21 +47,19 @@ export function Sidebar() {
         aria-haspopup="true"
         aria-expanded={open}
         className={clsx(
-          'fixed left-4 top-[calc(1rem+var(--safe-top))] z-40 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-accent text-white shadow-card transition-[width] duration-300 ease-out hover:scale-105 active:scale-95',
-          // The expanded "LedgeEaze" pill only fits at sm+ -- on a phone-width
-          // screen it would crowd out the top bar's own buttons, so mobile
-          // always stays a plain 48px circle regardless of open state.
-          !open && 'sm:w-[152px] sm:justify-start sm:pl-1 sm:pr-4',
-          !open && 'animate-shadow-breathe'
+          'fixed left-4 top-[calc(1rem+var(--safe-top))] z-40 flex items-center transition-transform hover:scale-105 active:scale-95',
+          open
+            ? 'h-12 w-12 justify-center rounded-full bg-slate-900/85 text-white shadow-card'
+            : 'gap-2'
         )}
       >
         {open ? (
           <X size={18} />
         ) : (
-          <span className="flex items-center gap-2">
-            <img src="/icons/icon-192.png" alt="" className="h-9 w-9 shrink-0 rounded-full" />
-            <span className="hidden whitespace-nowrap font-serif text-sm font-semibold sm:inline">LedgeEaze</span>
-          </span>
+          <>
+            <img src="/icons/icon-192.png" alt="" className="h-11 w-11 shrink-0 rounded-lg" />
+            <span className="hidden whitespace-nowrap font-serif text-sm font-semibold text-slate-900 sm:inline">LedgeEaze</span>
+          </>
         )}
       </button>
 

@@ -12,12 +12,12 @@ export function BrandHeader({ tagline = false }: BrandHeaderProps) {
   return (
     <div className="flex items-center gap-2.5">
       <img src="/icons/icon-192.png" alt="" className="h-9 w-9 shrink-0 rounded-lg" />
-      <div>
-        <span className="font-serif text-xl font-semibold text-slate-900">
+      <div className="flex flex-col gap-0">
+        <span className="font-serif text-xl font-semibold leading-tight text-slate-900">
           Ledge<span className="text-accent">Eaze</span>
         </span>
         {tagline && (
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+          <p className="text-[10px] font-medium uppercase leading-tight tracking-wider text-slate-400">
             Effortless money management
           </p>
         )}
