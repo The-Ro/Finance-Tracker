@@ -15,6 +15,7 @@ const MODES: { value: ThemeMode; label: string }[] = [
 ]
 
 const ACCENTS: { value: ThemeAccent; label: string; swatch: string }[] = [
+  { value: 'oxblood', label: 'Oxblood', swatch: ACCENT_HEX.oxblood },
   { value: 'violet', label: 'Violet', swatch: ACCENT_HEX.violet },
   { value: 'ocean', label: 'Ocean', swatch: ACCENT_HEX.ocean },
   { value: 'sunset', label: 'Sunset', swatch: ACCENT_HEX.sunset },

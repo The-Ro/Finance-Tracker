@@ -5,19 +5,32 @@ interface BrandHeaderProps {
   tagline?: boolean
 }
 
-/** Just the card + "Rs" glyph from the app icon -- no background square
+/** The wallet mark, transparent and outline-only -- no background square
  *  behind it here. (The app icon file itself still has its own filled
  *  background baked in, for favicon/home-screen use where a transparent
  *  icon wouldn't work; this is a separate transparent outline version of
  *  the same artwork, colored via currentColor, for sitting directly on a
- *  page instead.) */
+ *  page instead.) A card sits tucked inside behind the fold -- its path has
+ *  no closing bottom edge, which is what sells "behind" rather than "on
+ *  top of." */
 function WalletMark() {
   return (
-    <svg viewBox="0 0 220 150" className="h-9 w-9 shrink-0 text-accent" fill="none" stroke="currentColor" strokeWidth="13">
-      <rect x="6.5" y="6.5" width="207" height="137" rx="16" />
-      <line x1="6.5" y1="56.5" x2="213.5" y2="56.5" />
-      <rect x="138.5" y="106.5" width="63.5" height="33.5" rx="6" strokeWidth="5" />
-      <text x="170" y="130" fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fontSize="21" fill="currentColor" stroke="none" textAnchor="middle">
+    <svg viewBox="0 0 220 170" className="h-9 w-9 shrink-0 text-accent" fill="none" stroke="currentColor" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round">
+      {/* Card tucked inside the wallet -- open bottom, no closing segment, so
+          it reads as sitting behind the fold rather than floating on top. */}
+      <path d="M42,68 L42,20 Q42,6 56,6 L164,6 Q178,6 178,20 L178,68" />
+      <text x="54" y="38" fontFamily="'Segoe UI', system-ui, sans-serif" fontWeight="600" fontSize="15" letterSpacing="1.5" fill="currentColor" stroke="none">
+        ROSA
+      </text>
+      <text x="166" y="38" fontFamily="'Segoe UI', system-ui, sans-serif" fontWeight="600" fontSize="17" fill="currentColor" stroke="none" textAnchor="end">
+        ₹246.26
+      </text>
+      {/* Wallet body */}
+      <rect x="10" y="50" width="200" height="114" rx="18" />
+      {/* Fold, a single soft curve rather than a straight crease */}
+      <path d="M10,72 C70,50 130,100 210,66" />
+      {/* Free-standing signature -- never boxed */}
+      <text x="190" y="148" fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fontSize="44" fill="currentColor" stroke="none" textAnchor="end">
         Rs
       </text>
     </svg>

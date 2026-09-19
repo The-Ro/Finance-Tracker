@@ -26,6 +26,7 @@ export type SelectedPeriod =
   | 'this-year'
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type ThemeAccent =
+  | 'oxblood'
   | 'violet'
   | 'ocean'
   | 'sunset'
@@ -377,6 +378,12 @@ export interface Database {
           summary_card_order: string[]
           summary_card_hidden: string[]
         }>
+      }
+    }
+    Functions: {
+      mark_recurring_item_paid: {
+        Args: { recurring_item_id: string; paid_on: string }
+        Returns: undefined
       }
     }
   }

@@ -5,6 +5,7 @@ import type { ThemeAccent } from '@/types/database.types'
 // charts need concrete hex values that are recomputed when the theme changes,
 // rather than `rgb(var(--accent))` baked into the JSX.
 export const ACCENT_HEX: Record<ThemeAccent, string> = {
+  oxblood: '#5C1B2E',
   violet: '#6558D3',
   ocean: '#0284C7',
   sunset: '#EA580C',

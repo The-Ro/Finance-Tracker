@@ -555,3 +555,13 @@ alter table public.accounts add constraint accounts_created_by_fkey
 alter table public.tags drop constraint if exists tags_created_by_fkey;
 alter table public.tags add constraint tags_created_by_fkey
   foreign key (created_by) references auth.users(id) on delete set null;
+
+-- Brand refresh: 'oxblood' becomes the new default accent preset (the
+-- CREATE TABLE above still says 'violet' -- append-only, so the current
+-- default lives here instead). Existing rows are untouched; this only
+-- changes what a session with no saved preference falls back to.
+alter table public.user_settings alter column theme_accent set default 'oxblood';
+
+alter table public.user_settings drop constraint if exists user_settings_theme_accent_check;
+alter table public.user_settings add constraint user_settings_theme_accent_check
+  check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve','plum','crimson','charcoal','oxblood','custom'));

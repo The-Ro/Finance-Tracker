@@ -26,7 +26,7 @@ function computeIsDark(mode: ThemeMode): boolean {
 
 function resolveAccentHex(accent: ThemeAccent, customColor: string | null): string {
   if (accent === 'custom' && customColor) return customColor
-  return ACCENT_HEX[accent] ?? ACCENT_HEX.violet
+  return ACCENT_HEX[accent] ?? ACCENT_HEX.oxblood
 }
 
 /**
@@ -65,7 +65,7 @@ function applyToDocument(mode: ThemeMode, accent: ThemeAccent, customColor: stri
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { data: settings, updateTheme } = useUserSettings()
   const mode = settings?.themeMode ?? 'system'
-  const accent = settings?.themeAccent ?? 'violet'
+  const accent = settings?.themeAccent ?? 'oxblood'
   const customColor = settings?.themeCustomColor ?? null
   const [isDark, setIsDark] = useState(() => computeIsDark(mode))
 

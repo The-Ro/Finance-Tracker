@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'LedgeEaze',
         short_name: 'LedgeEaze',
         description: 'Shared personal finance tracker',
-        theme_color: '#6558D3',
+        theme_color: '#5C1B2E',
         background_color: '#F4F4F7',
         display: 'standalone',
         orientation: 'portrait',
