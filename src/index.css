@@ -182,6 +182,11 @@
      of it in pills, badges, active-nav, banners), making them unreadable.
      Keep this one light instead, the way it reads in light mode. */
   --accent-light: 210 213 219;
+  /* Also brighten accent-dark for dark mode, like every other preset below
+     -- it's used standalone too (the wordmark's "Eaze", the header logo),
+     not just on top of accent-light, and light mode's near-black value
+     would otherwise vanish against the dark page background. */
+  --accent-dark: 180 184 192;
 }
 
 @layer base {

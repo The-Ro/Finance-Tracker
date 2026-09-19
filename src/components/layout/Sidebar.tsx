@@ -3,15 +3,16 @@ import { NavLink, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { NAV_ITEMS } from './navItems'
+import { WalletMark } from '@/components/ui/BrandHeader'
 
 /**
  * Floating brand/nav toggle, shown at every viewport size (not just desktop)
  * -- fixed positioning means it never scrolls away with page content, and it
  * stays reachable even when the window is narrow/short, alongside BottomNav
- * on small screens. Resting (closed) it's just the app icon (plus the
- * wordmark at sm+) sitting directly on the page -- no colored bubble or
- * pulsing animation behind it, since the icon artwork already carries its
- * own background. Open, it becomes a plain close (X) button.
+ * on small screens. Resting (closed) it's the same WalletMark used on the
+ * auth pages (plus the wordmark at sm+) sitting directly on the page, at
+ * the same size as on login -- no colored bubble or pulsing animation
+ * behind it. Open, it becomes a plain close (X) button.
  */
 export function Sidebar() {
   const [open, setOpen] = useState(false)
@@ -57,8 +58,10 @@ export function Sidebar() {
           <X size={18} />
         ) : (
           <>
-            <img src="/icons/icon-192.png" alt="" className="h-11 w-11 shrink-0 rounded-lg" />
-            <span className="hidden whitespace-nowrap font-serif text-sm font-semibold text-slate-900 sm:inline">LedgeEaze</span>
+            <WalletMark />
+            <span className="hidden whitespace-nowrap font-serif text-sm font-semibold text-slate-900 sm:inline">
+              Ledge<span className="text-accent-dark">Eaze</span>
+            </span>
           </>
         )}
       </button>
@@ -68,7 +71,9 @@ export function Sidebar() {
           aria-label="Primary"
           className="animate-scale-in fixed left-4 top-[calc(5rem+var(--safe-top))] z-40 flex max-h-[calc(100vh-6rem)] w-60 flex-col gap-1 overflow-y-auto rounded-card border border-app-border bg-app-card p-3 shadow-card"
         >
-          <p className="px-2 pb-2 text-sm font-semibold text-slate-900">LedgeEaze</p>
+          <p className="px-2 pb-2 text-sm font-semibold text-slate-900">
+            Ledge<span className="text-accent-dark">Eaze</span>
+          </p>
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
