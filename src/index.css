@@ -118,47 +118,70 @@
   --danger: 248 113 113;
   --danger-light: 59 31 31;
 
+  /* accent-dark is text/icon color drawn on top of accent-light (pills,
+     badges, active-nav, banners -- see Pill.tsx, Avatar.tsx, Sidebar.tsx,
+     RecurringLikePage.tsx). Every preset below darkens accent-light for
+     dark mode but was missing a matching dark-mode accent-dark, so it stayed
+     pinned to its light-mode shade (picked to sit on a near-white chip) --
+     against the new dark chip the two converge to nearly the same color,
+     making anything using this pairing unreadable. Brighten accent-dark
+     for dark mode alongside each accent-light override below. */
   --accent-light: 45 40 74;
+  --accent-dark: 165 155 235;
 }
 
 .dark[data-accent='oxblood'] {
   --accent-light: 58 22 32;
+  --accent-dark: 224 130 148;
 }
 
 .dark[data-accent='ocean'] {
   --accent-light: 14 41 59;
+  --accent-dark: 103 197 245;
 }
 
 .dark[data-accent='sunset'] {
   --accent-light: 61 36 15;
+  --accent-dark: 251 146 60;
 }
 
 .dark[data-accent='pink'] {
   --accent-light: 63 21 45;
+  --accent-dark: 244 114 182;
 }
 
 .dark[data-accent='green'] {
   --accent-light: 17 46 28;
+  --accent-dark: 74 222 128;
 }
 
 .dark[data-accent='sage'] {
   --accent-light: 26 46 38;
+  --accent-dark: 163 191 175;
 }
 
 .dark[data-accent='mauve'] {
   --accent-light: 46 34 40;
+  --accent-dark: 214 180 196;
 }
 
 .dark[data-accent='plum'] {
   --accent-light: 46 22 36;
+  --accent-dark: 199 122 167;
 }
 
 .dark[data-accent='crimson'] {
   --accent-light: 58 22 26;
+  --accent-dark: 239 119 128;
 }
 
 .dark[data-accent='charcoal'] {
-  --accent-light: 40 44 51;
+  /* Charcoal has no hue to fall back on, unlike every other accent -- the
+     usual "darken accent-light for dark mode" treatment collapses it onto
+     nearly the same gray as accent-dark (the text/icon color drawn on top
+     of it in pills, badges, active-nav, banners), making them unreadable.
+     Keep this one light instead, the way it reads in light mode. */
+  --accent-light: 210 213 219;
 }
 
 @layer base {
