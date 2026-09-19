@@ -33,9 +33,13 @@ export default {
           DEFAULT: withOpacity('--info'),
           light: withOpacity('--info-light'),
         },
+        danger: {
+          DEFAULT: withOpacity('--danger'),
+          light: withOpacity('--danger-light'),
+        },
       },
       borderRadius: {
-        card: '16px',
+        card: '18px',
       },
       boxShadow: {
         card: '0 1px 2px rgba(16, 16, 40, 0.04), 0 4px 12px rgba(16, 16, 40, 0.06)',

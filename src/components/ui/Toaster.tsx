@@ -10,7 +10,7 @@ const TONE_ICON: Record<ToastTone, typeof CheckCircle2> = {
 
 const TONE_CLASSES: Record<ToastTone, string> = {
   success: 'text-positive',
-  error: 'text-red-600',
+  error: 'text-danger',
   info: 'text-info',
 }
 

@@ -11,7 +11,7 @@ const VARIANT_CLASSES: Record<Variant, string> = {
   primary: 'bg-accent text-white hover:bg-accent-dark disabled:bg-accent/50',
   secondary: 'bg-white text-slate-700 border border-app-border hover:bg-slate-50',
   ghost: 'bg-transparent text-slate-600 hover:bg-slate-100',
-  danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300',
+  danger: 'bg-danger text-white hover:bg-danger/90 disabled:bg-danger/50',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

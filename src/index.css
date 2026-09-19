@@ -28,6 +28,9 @@
   --info: 46 125 229;
   --info-light: 233 241 253;
 
+  --danger: 220 38 38;
+  --danger-light: 254 226 226;
+
   --accent: 101 88 211;
   --accent-light: 239 237 251;
   --accent-dark: 78 67 176;
@@ -37,6 +40,12 @@
   :root {
     --safe-top: calc(env(safe-area-inset-top) + 10px);
   }
+}
+
+:root[data-accent='oxblood'] {
+  --accent: 92 27 46;
+  --accent-light: 245 228 231;
+  --accent-dark: 61 18 32;
 }
 
 :root[data-accent='ocean'] {
@@ -106,7 +115,14 @@
   --info: 96 165 250;
   --info-light: 22 40 66;
 
+  --danger: 248 113 113;
+  --danger-light: 59 31 31;
+
   --accent-light: 45 40 74;
+}
+
+.dark[data-accent='oxblood'] {
+  --accent-light: 58 22 32;
 }
 
 .dark[data-accent='ocean'] {

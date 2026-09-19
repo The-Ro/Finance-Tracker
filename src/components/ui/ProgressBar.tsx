@@ -9,7 +9,7 @@ const TONE_CLASSES: Record<NonNullable<ProgressBarProps['tone']>, string> = {
   accent: 'bg-accent',
   positive: 'bg-positive',
   caution: 'bg-caution',
-  danger: 'bg-red-500',
+  danger: 'bg-danger',
 }
 
 export function ProgressBar({ percent, tone = 'accent' }: ProgressBarProps) {

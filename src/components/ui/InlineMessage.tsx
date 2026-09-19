@@ -11,7 +11,7 @@ export function InlineMessage({ tone, children }: InlineMessageProps) {
       role={tone === 'error' ? 'alert' : 'status'}
       className={clsx(
         'animate-fade-in-up rounded-lg px-3 py-2 text-helper',
-        tone === 'error' ? 'bg-red-50 text-red-700' : 'bg-positive-light text-positive'
+        tone === 'error' ? 'bg-danger-light text-danger' : 'bg-positive-light text-positive'
       )}
     >
       {children}
