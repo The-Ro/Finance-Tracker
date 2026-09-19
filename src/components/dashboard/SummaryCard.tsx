@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import clsx from 'clsx'
 import { Card } from '@/components/ui/Card'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 
@@ -10,19 +11,39 @@ interface SummaryCardProps {
   format?: (n: number) => string
   valueClassName?: string
   footer: ReactNode
+  /**
+   * Marks this as the headline metric (net worth) -- gives it a subtle warm
+   * accent tint (via the accent-light token) so it stands out from the other
+   * summary cards, same as the "Total balance" card in the dashboard mockups.
+   */
+  highlight?: boolean
 }
 
-export function SummaryCard({ label, value, numericValue, format, valueClassName, footer }: SummaryCardProps) {
+export function SummaryCard({ label, value, numericValue, format, valueClassName, footer, highlight }: SummaryCardProps) {
   const animated = useAnimatedNumber(numericValue ?? 0)
   const displayValue = numericValue !== undefined && format ? format(animated) : value
 
   return (
-    <Card className="flex flex-col gap-3 p-5">
-      <span className="text-helper font-medium uppercase tracking-wide text-slate-500">{label}</span>
-      <span className={'text-2xl font-semibold tabular-nums text-slate-900 ' + (valueClassName ?? '')}>
+    <Card className={clsx('flex flex-col gap-3 p-5', highlight && 'border-accent/30 bg-accent-light')}>
+      <span
+        className={clsx(
+          'text-helper font-medium uppercase tracking-wide',
+          highlight ? 'text-accent-dark/80' : 'text-slate-500'
+        )}
+      >
+        {label}
+      </span>
+      <span className={clsx('font-mono text-2xl font-semibold tabular-nums text-slate-900', valueClassName)}>
         {displayValue}
       </span>
-      <div className="border-t border-app-border pt-2 text-helper text-slate-500">{footer}</div>
+      <div
+        className={clsx(
+          'border-t pt-2 text-helper',
+          highlight ? 'border-accent/20 text-accent-dark/70' : 'border-app-border text-slate-500'
+        )}
+      >
+        {footer}
+      </div>
     </Card>
   )
 }

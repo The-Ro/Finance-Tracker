@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -23,9 +24,13 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout>
-      <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 shadow-card">
-        <div className="mb-6">
+    <AuthLayout
+      split
+      headline="Every rupee, in one clear ledger."
+      supportingText="Track spending, split shared expenses, and stay ahead of every bill."
+    >
+      <Card className="w-full max-w-sm p-6">
+        <div className="mb-6 lg:hidden">
           <BrandHeader tagline />
         </div>
         <h1 className="mb-4 text-base font-semibold text-slate-800">Sign in</h1>
@@ -78,7 +83,7 @@ export function LoginPage() {
             Sign up
           </Link>
         </p>
-      </div>
+      </Card>
     </AuthLayout>
   )
 }

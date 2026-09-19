@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SuggestionCard } from './SuggestionCard'
@@ -51,23 +52,25 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
-        <Button
-          onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
-          }}
-        >
-          {addLabel}
-        </Button>
-      </div>
+      <PageHeader
+        title={title}
+        actions={
+          <Button
+            onClick={() => {
+              setEditing(null)
+              setModalOpen(true)
+            }}
+          >
+            {addLabel}
+          </Button>
+        }
+      />
 
-      <Card className="flex items-center gap-3 bg-app-navy p-4 text-white">
-        <Repeat size={18} />
-        <p className="text-sm">
+      <Card className="flex items-center gap-3 border-accent/20 bg-accent-light p-4">
+        <Repeat size={18} className="shrink-0 text-accent" />
+        <p className="text-sm text-slate-700">
           Active detection is scanning your own expense transactions for {kind === 'subscription' ? 'subscriptions' : 'recurring payments'}. Estimated commitment:{' '}
-          <span className="font-semibold">{format(totals.monthly)}/mo</span> ({format(totals.annual)}/yr)
+          <span className="font-semibold text-accent-dark">{format(totals.monthly)}/mo</span> ({format(totals.annual)}/yr)
         </p>
       </Card>
 

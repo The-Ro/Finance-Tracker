@@ -2,32 +2,60 @@ import { useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { useRules, type Rule } from '@/hooks/useRules'
 import { Button } from '@/components/ui/Button'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { RuleRow } from '@/components/rules/RuleRow'
 import { RuleFormModal } from '@/components/rules/RuleFormModal'
 import { TagManager } from '@/components/rules/TagManager'
 
+function RulesSkeleton() {
+  return (
+    <Card className="p-4">
+      <ul>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <li
+            key={i}
+            className="flex items-center justify-between gap-3 border-b border-app-border py-3 last:border-b-0"
+          >
+            <Skeleton className="h-3.5 w-2/3" />
+            <div className="flex shrink-0 items-center gap-2">
+              <Skeleton className="h-3.5 w-16" />
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 export function RulesPage() {
-  const { data: rules = [], update, remove } = useRules()
+  const { data: rules = [], update, remove, isLoading } = useRules()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Rule | null>(null)
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Rules</h1>
-        <Button
-          onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
-          }}
-        >
-          Create rule
-        </Button>
-      </div>
+      <PageHeader
+        title="Rules"
+        actions={
+          <Button
+            onClick={() => {
+              setEditing(null)
+              setModalOpen(true)
+            }}
+          >
+            Create rule
+          </Button>
+        }
+      />
 
-      {rules.length === 0 ? (
+      {isLoading ? (
+        <RulesSkeleton />
+      ) : rules.length === 0 ? (
         <EmptyState
           icon={SlidersHorizontal}
           title="No rules yet"

@@ -18,6 +18,7 @@ import { useProfiles } from '@/hooks/useProfiles'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
 import { SortableSummaryCard } from '@/components/dashboard/SortableSummaryCard'
 import { CashFlowChart } from '@/components/dashboard/CashFlowChart'
@@ -157,6 +158,7 @@ export function DashboardPage() {
     netWorth: (
       <SummaryCard
         key="netWorth"
+        highlight
         label="Net worth"
         value={settings.data?.netWorthConfigured ? format(netWorth ?? 0) : 'Not set'}
         numericValue={settings.data?.netWorthConfigured ? (netWorth ?? 0) : undefined}
@@ -273,20 +275,22 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-slate-900">Home</h1>
-          <button
-            type="button"
-            aria-label="Customize dashboard"
-            onClick={() => setCustomizeOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <SlidersHorizontal size={16} />
-          </button>
-        </div>
-        <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
-      </div>
+      <PageHeader
+        title={
+          <>
+            Home
+            <button
+              type="button"
+              aria-label="Customize dashboard"
+              onClick={() => setCustomizeOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <SlidersHorizontal size={16} />
+            </button>
+          </>
+        }
+        actions={<PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />}
+      />
 
       {order.filter((id) => !hidden.includes(id)).map((id) => (
         <div key={id}>{sections[id]}</div>

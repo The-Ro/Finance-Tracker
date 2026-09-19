@@ -4,18 +4,49 @@ import { useAuth } from '@/context/AuthContext'
 import { useBudgets, type Budget } from '@/hooks/useBudgets'
 import { useMyTransactions } from '@/hooks/useTransactions'
 import { Button } from '@/components/ui/Button'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { BudgetCard } from '@/components/budgets/BudgetCard'
 import { BudgetFormModal } from '@/components/budgets/BudgetFormModal'
 import { resolvePeriod, isWithinRange } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 
+function BudgetsSkeleton() {
+  return (
+    <>
+      <Card className="p-4">
+        <div className="mb-2 flex items-center justify-between text-sm">
+          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-2 w-full rounded-full" />
+      </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className="flex flex-col gap-3 p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex flex-col gap-1.5">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+            <Skeleton className="h-2 w-full rounded-full" />
+            <Skeleton className="h-3 w-28" />
+          </Card>
+        ))}
+      </div>
+    </>
+  )
+}
+
 export function BudgetsPage() {
   const { userId } = useAuth()
   const { format } = useFormatCurrency()
-  const { data: budgets = [], remove } = useBudgets()
+  const { data: budgets = [], remove, isLoading } = useBudgets()
   const myTransactions = useMyTransactions(userId)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Budget | null>(null)
@@ -36,19 +67,23 @@ export function BudgetsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Budgets</h1>
-        <Button
-          onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
-          }}
-        >
-          Create budget
-        </Button>
-      </div>
+      <PageHeader
+        title="Budgets"
+        actions={
+          <Button
+            onClick={() => {
+              setEditing(null)
+              setModalOpen(true)
+            }}
+          >
+            Create budget
+          </Button>
+        }
+      />
 
-      {budgets.length === 0 ? (
+      {isLoading ? (
+        <BudgetsSkeleton />
+      ) : budgets.length === 0 ? (
         <EmptyState
           icon={PiggyBank}
           title="No budgets yet"

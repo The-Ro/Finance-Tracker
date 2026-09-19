@@ -7,6 +7,7 @@ import { useProfiles } from '@/hooks/useProfiles'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { ScopeToggle, type TransactionScope } from '@/components/transactions/ScopeToggle'
 import { TransactionTable } from '@/components/transactions/TransactionTable'
 import { Card } from '@/components/ui/Card'
@@ -63,31 +64,35 @@ export function TransactionsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold text-slate-900">Transactions</h1>
-          <div className="inline-flex w-fit items-center divide-x divide-app-border overflow-hidden rounded-full border border-app-border bg-white text-helper font-medium">
-            <span
-              title={`Credit -- ${formatSigned(totalCredit, 'income')} in this period`}
-              className="flex items-center gap-1 px-2.5 py-1 text-positive"
-            >
-              <ArrowDownRight size={12} />
-              {formatCompact(totalCredit)}
-            </span>
-            <span
-              title={`Debit -- ${formatSigned(totalDebit, 'expense')} out this period`}
-              className="flex items-center gap-1 px-2.5 py-1 text-red-600"
-            >
-              <ArrowUpRight size={12} />
-              {formatCompact(totalDebit)}
-            </span>
+      <PageHeader
+        title={
+          <>
+            Transactions
+            <div className="inline-flex w-fit items-center divide-x divide-app-border overflow-hidden rounded-full border border-app-border bg-white text-helper font-medium">
+              <span
+                title={`Credit -- ${formatSigned(totalCredit, 'income')} in this period`}
+                className="flex items-center gap-1 px-2.5 py-1 text-positive"
+              >
+                <ArrowDownRight size={12} />
+                {formatCompact(totalCredit)}
+              </span>
+              <span
+                title={`Debit -- ${formatSigned(totalDebit, 'expense')} out this period`}
+                className="flex items-center gap-1 px-2.5 py-1 text-danger"
+              >
+                <ArrowUpRight size={12} />
+                {formatCompact(totalDebit)}
+              </span>
+            </div>
+          </>
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <ScopeToggle value={scope} onChange={setScope} />
+            <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ScopeToggle value={scope} onChange={setScope} />
-          <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
-        </div>
-      </div>
+        }
+      />
 
       {(scope === 'mine' ? myTransactions : everyoneTransactions).isLoading ? (
         <TransactionTableSkeleton />

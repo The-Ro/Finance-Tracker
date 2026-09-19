@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { AlertTriangle, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 import type { RecurringItem } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
@@ -37,19 +38,30 @@ export function ConfirmedItemRow({
   const insufficientBalance = item.active && accountBalance !== null && accountBalance < item.amount
 
   return (
-    <li className="flex items-center justify-between gap-3 border-b border-app-border py-3 last:border-b-0">
+    <li
+      className={clsx(
+        'flex items-center justify-between gap-3 rounded-xl px-3 py-3',
+        insufficientBalance
+          ? 'bg-danger-light'
+          : isOverdue
+          ? 'bg-caution-light'
+          : 'border-b border-app-border last:border-b-0'
+      )}
+    >
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-slate-800">{item.name}</p>
         <p className="truncate text-helper text-slate-500">
           {item.category} · {item.cadence} ·{' '}
           {isOverdue ? (
-            <span className="font-medium text-caution">Overdue since {formatShortDate(item.next_date)}</span>
+            <span className="inline-flex items-center rounded-full bg-app-card px-2 py-0.5 text-[11px] font-semibold text-caution">
+              Overdue since {formatShortDate(item.next_date)}
+            </span>
           ) : (
             <>next {formatShortDate(item.next_date)}</>
           )}
         </p>
         {insufficientBalance && (
-          <p className="mt-0.5 flex items-center gap-1 text-helper font-medium text-red-600">
+          <p className="mt-1 flex items-center gap-1 text-helper font-medium text-danger">
             <AlertTriangle size={11} className="shrink-0" />
             Paused -- {item.account} doesn't have enough to cover this
           </p>
@@ -85,7 +97,7 @@ export function ConfirmedItemRow({
         <button
           aria-label="Delete"
           onClick={onDelete}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
         >
           <Trash2 size={14} />
         </button>

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -41,8 +42,12 @@ export function SignupPage() {
 
   if (confirmationSent) {
     return (
-      <AuthLayout>
-        <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 text-center shadow-card">
+      <AuthLayout
+        split
+        headline="Start tracking in minutes."
+        supportingText="Create your ledger to track spending, split shared expenses, and stay ahead of every bill."
+      >
+        <Card className="w-full max-w-sm p-6 text-center">
           <h1 className="mb-2 text-base font-semibold text-slate-800">Check your email</h1>
           <p className="text-sm text-slate-600">
             We sent a confirmation link to <span className="font-medium">{email}</span>. Click it, then come
@@ -51,15 +56,19 @@ export function SignupPage() {
           <Link to="/login" className="mt-4 inline-block text-sm font-medium text-accent hover:underline">
             Back to sign in
           </Link>
-        </div>
+        </Card>
       </AuthLayout>
     )
   }
 
   return (
-    <AuthLayout>
-      <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 shadow-card">
-        <div className="mb-6">
+    <AuthLayout
+      split
+      headline="Start tracking in minutes."
+      supportingText="Create your ledger to track spending, split shared expenses, and stay ahead of every bill."
+    >
+      <Card className="w-full max-w-sm p-6">
+        <div className="mb-6 lg:hidden">
           <BrandHeader tagline />
         </div>
         <h1 className="mb-4 text-base font-semibold text-slate-800">Create your account</h1>
@@ -92,7 +101,7 @@ export function SignupPage() {
             Sign in
           </Link>
         </p>
-      </div>
+      </Card>
     </AuthLayout>
   )
 }

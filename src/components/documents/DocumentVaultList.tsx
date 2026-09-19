@@ -1,6 +1,7 @@
 import { FileText, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { useDocuments } from '@/hooks/useDocuments'
 import { formatDate } from '@/lib/format'
 
@@ -10,8 +11,39 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function DocumentVaultSkeleton() {
+  return (
+    <Card className="overflow-hidden p-0">
+      <ul>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <li
+            key={i}
+            className="flex items-center justify-between gap-3 border-b border-app-border px-4 py-3 last:border-b-0"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <Skeleton className="h-[18px] w-[18px] shrink-0 rounded" />
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="h-3 w-56" />
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Skeleton className="h-4 w-14 rounded-full" />
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 export function DocumentVaultList() {
-  const { data: documents = [], remove } = useDocuments()
+  const { data: documents = [], remove, isLoading } = useDocuments()
+
+  if (isLoading) {
+    return <DocumentVaultSkeleton />
+  }
 
   if (documents.length === 0) {
     return (

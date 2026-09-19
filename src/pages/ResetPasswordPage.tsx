@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -51,7 +52,7 @@ export function ResetPasswordPage() {
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-sm rounded-card border border-app-border bg-white p-6 shadow-card">
+      <Card className="w-full max-w-sm p-6">
         <div className="mb-6">
           <BrandHeader tagline />
         </div>
@@ -94,7 +95,7 @@ export function ResetPasswordPage() {
             </Button>
           </form>
         )}
-      </div>
+      </Card>
     </AuthLayout>
   )
 }

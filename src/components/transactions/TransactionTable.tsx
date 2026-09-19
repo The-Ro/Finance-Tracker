@@ -159,8 +159,8 @@ export function TransactionTable({
               const owner = profiles[t.owner_user_id]
               const editable = t.owner_user_id === currentUserId
               const amountClassName =
-                'text-sm font-semibold ' +
-                (t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-caution' : 'text-slate-600')
+                'text-sm font-mono font-semibold ' +
+                (t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-danger' : 'text-slate-600')
               const amountLabel = t.type === 'income' ? 'Credit' : t.type === 'expense' ? 'Debit' : 'Transfer'
               const accountDisplay = t.type === 'transfer' && t.to_account ? `${t.account} → ${t.to_account}` : t.account
 
@@ -177,7 +177,7 @@ export function TransactionTable({
                 <button
                   aria-label="Delete transaction"
                   onClick={() => deleteTransaction.mutate(t.id)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -229,7 +229,7 @@ export function TransactionTable({
                     )}
                     <div className="flex items-center justify-between gap-3">
                       {t.type === 'transfer' ? (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-helper font-medium text-slate-500">
+                        <span className="w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
                           Transfer
                         </span>
                       ) : (
@@ -294,7 +294,7 @@ export function TransactionTable({
                     </div>
                     <div>
                       {t.type === 'transfer' ? (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-helper font-medium text-slate-500">
+                        <span className="w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
                           Transfer
                         </span>
                       ) : (

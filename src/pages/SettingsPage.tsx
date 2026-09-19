@@ -18,7 +18,7 @@ import { AboutSection } from '@/components/settings/AboutSection'
 function SectionHeading({ title, description }: { title: string; description?: string }) {
   return (
     <div>
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
+      <h2 className="font-serif text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
       {description && <p className="mt-1 text-helper text-slate-400">{description}</p>}
     </div>
   )
