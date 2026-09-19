@@ -1,11 +1,10 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#CB9A3F"/>
-  <g transform="translate(102,137) scale(1.4)" fill="none" stroke="#5C1B2E" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M42,68 L42,20 Q42,6 56,6 L164,6 Q178,6 178,20 L178,68"/>
-    <text x="54" y="38" font-family="'Segoe UI', system-ui, sans-serif" font-weight="600" font-size="15" letter-spacing="1.5" fill="#5C1B2E" stroke="none">ROSA</text>
-    <text x="166" y="38" font-family="'Segoe UI', system-ui, sans-serif" font-weight="600" font-size="17" fill="#5C1B2E" stroke="none" text-anchor="end">₹246.26</text>
+  <g transform="translate(102,137) scale(1.4)" fill="none" stroke="#5C1B2E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32,62 L32,20 Q32,6 46,6 L174,6 Q188,6 188,20 L188,70"/>
+    <text x="44" y="38" font-family="'Segoe UI', system-ui, sans-serif" font-weight="600" font-size="15" letter-spacing="1.5" fill="#5C1B2E" stroke="none">ROSA</text>
+    <text x="176" y="38" font-family="'Segoe UI', system-ui, sans-serif" font-weight="600" font-size="17" fill="#5C1B2E" stroke="none" text-anchor="end">₹246.26</text>
     <rect x="10" y="50" width="200" height="114" rx="18"/>
-    <path d="M10,72 C70,50 130,100 210,66"/>
+    <path d="M10,68 C25,80 45,54 65,60 C95,66 130,76 155,78 C175,81 193,68 210,64"/>
     <text x="190" y="148" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="44" fill="#5C1B2E" stroke="none" text-anchor="end">Rs</text>
   </g>
 </svg>

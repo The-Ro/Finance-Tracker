@@ -15,20 +15,20 @@ interface BrandHeaderProps {
  *  top of." */
 function WalletMark() {
   return (
-    <svg viewBox="0 0 220 170" className="h-9 w-9 shrink-0 text-accent" fill="none" stroke="currentColor" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 220 170" className="h-9 w-9 shrink-0 text-accent" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
       {/* Card tucked inside the wallet -- open bottom, no closing segment, so
           it reads as sitting behind the fold rather than floating on top. */}
-      <path d="M42,68 L42,20 Q42,6 56,6 L164,6 Q178,6 178,20 L178,68" />
-      <text x="54" y="38" fontFamily="'Segoe UI', system-ui, sans-serif" fontWeight="600" fontSize="15" letterSpacing="1.5" fill="currentColor" stroke="none">
+      <path d="M32,62 L32,20 Q32,6 46,6 L174,6 Q188,6 188,20 L188,70" />
+      <text x="44" y="38" fontFamily="'Segoe UI', system-ui, sans-serif" fontWeight="600" fontSize="15" letterSpacing="1.5" fill="currentColor" stroke="none">
         ROSA
       </text>
-      <text x="166" y="38" fontFamily="'Segoe UI', system-ui, sans-serif" fontWeight="600" fontSize="17" fill="currentColor" stroke="none" textAnchor="end">
+      <text x="176" y="38" fontFamily="'Segoe UI', system-ui, sans-serif" fontWeight="600" fontSize="17" fill="currentColor" stroke="none" textAnchor="end">
         ₹246.26
       </text>
       {/* Wallet body */}
       <rect x="10" y="50" width="200" height="114" rx="18" />
-      {/* Fold, a single soft curve rather than a straight crease */}
-      <path d="M10,72 C70,50 130,100 210,66" />
+      {/* Fold -- a double wave rather than a single crease */}
+      <path d="M10,68 C25,80 45,54 65,60 C95,66 130,76 155,78 C175,81 193,68 210,64" />
       {/* Free-standing signature -- never boxed */}
       <text x="190" y="148" fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic" fontSize="44" fill="currentColor" stroke="none" textAnchor="end">
         Rs
