@@ -13,6 +13,16 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 
+# Claude Code / Codex project-local tooling config -- launch.json (dev
+# server config, used by the Browser pane tooling) is worth sharing;
+# settings.local.json and Codex's own config are per-developer.
+.claude/*
+!.claude/launch.json
+.codex/
+
+# Supabase CLI's local cache (stores things like the pinned CLI version)
+supabase/.temp/
+
 # logs
 npm-debug.log*
 yarn-debug.log*

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { buildFingerprint } from '@/lib/fingerprint'
 import { applyRules, type SimpleRule } from '@/lib/rules'
+import { calculateAccountBalances } from '@/lib/accountBalances'
 import type { Database, PaymentMethod, TransactionType } from '@/types/database.types'
 
 export type Transaction = Database['public']['Tables']['transactions']['Row']
@@ -283,19 +284,7 @@ export function useBulkImportTransactions() {
  */
 export function useAccountBalances(userId: string | null): Map<string, number> {
   const { data: transactions } = useMyTransactions(userId)
-  return useMemo(() => {
-    const balances = new Map<string, number>()
-    const adjust = (account: string, delta: number) => balances.set(account, (balances.get(account) ?? 0) + delta)
-    for (const t of transactions ?? []) {
-      if (t.type === 'income') adjust(t.account, t.amount)
-      else if (t.type === 'expense') adjust(t.account, -t.amount)
-      else if (t.type === 'transfer') {
-        adjust(t.account, -t.amount)
-        if (t.to_account) adjust(t.to_account, t.amount)
-      }
-    }
-    return balances
-  }, [transactions])
+  return useMemo(() => calculateAccountBalances(transactions ?? []), [transactions])
 }
 
 const RECENT_ACCOUNTS_LIMIT = 4

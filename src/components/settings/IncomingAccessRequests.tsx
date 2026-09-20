@@ -37,8 +37,9 @@ export function IncomingAccessRequests() {
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   useEffect(() => {
+    const currentTimers = timers.current
     return () => {
-      Object.values(timers.current).forEach(clearTimeout)
+      Object.values(currentTimers).forEach(clearTimeout)
     }
   }, [])
 

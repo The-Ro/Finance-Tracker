@@ -20,9 +20,13 @@ without deploying anything — see the README for the "Add to Home Screen" steps
 | `npm run build` | `tsc -b && vite build` — type-checks, then emits `dist/` |
 | `npm run preview` | Serves the built `dist/` locally, for a final check before deploying |
 | `npm run lint` | ESLint |
+| `npm test` | Runs the Vitest unit suite once |
+| `npm run test:watch` | Runs Vitest in watch mode while developing |
+| `npm run check` | Runs linting, tests, type-checking, and the production build |
 
-Run `npm run build` before every deploy, not just `vite build` — it's the only thing that
-type-checks the whole project; `vite build` alone will happily ship a type error.
+Run `npm run check` before every deploy. It runs linting and tests as well as `npm run build`;
+the build performs the full TypeScript check before emitting `dist/`. `vite build` alone will
+happily ship a type error.
 
 ## Database changes
 
@@ -49,7 +53,7 @@ Currently deployed as static assets via Cloudflare Workers (`wrangler.jsonc` —
 configured, so client-side routing works on a hard refresh of any path):
 
 ```bash
-npm run build
+npm run check
 npx wrangler deploy
 ```
 

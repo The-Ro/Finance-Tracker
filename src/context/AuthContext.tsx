@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const userId = session?.user?.id
+    const email = session?.user?.email
     if (!userId) {
       setDisplayName('')
       setAvatar(null)
@@ -59,14 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return
-        setDisplayName(data?.display_name ?? session?.user?.email ?? '')
+        setDisplayName(data?.display_name ?? email ?? '')
         setAvatar(data?.avatar ?? null)
       })
 
     return () => {
       cancelled = true
     }
-  }, [session?.user?.id, refreshTick])
+  }, [session?.user?.id, session?.user?.email, refreshTick])
 
   const refreshProfile = useCallback(() => setRefreshTick((t) => t + 1), [])
 

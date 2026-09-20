@@ -40,7 +40,6 @@ export function useAnimatedNumber(target: number, duration = 700): number {
       if (frameRef.current) cancelAnimationFrame(frameRef.current)
       fromRef.current = target
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, duration])
 
   return value
