@@ -2,9 +2,8 @@ import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
-import { buildFingerprint } from '@/lib/fingerprint'
 import { useMyTransactions } from '@/hooks/useTransactions'
-import { detectRecurringCandidates, normalizeMerchant, nextDateForCadence, type RecurringCandidate } from '@/lib/recurringDetection'
+import { detectRecurringCandidates, normalizeMerchant, type RecurringCandidate } from '@/lib/recurringDetection'
 import { todayISO } from '@/lib/format'
 import type { Database, RecurringKind } from '@/types/database.types'
 
@@ -136,46 +135,18 @@ export function useRecurringMutations() {
     onSuccess: invalidateAll,
   })
 
-  // Nothing ever advances next_date on its own -- no cron, no matching a new
-  // transaction against the item. This is the deliberate, user-initiated way
-  // to move it forward: always computed from today (not the stale stored
-  // date), so an item overdue by months still lands on a sane future date
-  // instead of one cadence step past whatever it used to be. It also logs
-  // the actual expense transaction (so it shows up in Transactions and comes
-  // out of the account's balance) -- previously this only moved the date,
-  // silently losing the fact that money had actually left an account.
+  // Nothing advances next_date automatically. This explicit action records
+  // the expense and advances its due date in one database transaction, so a
+  // network failure cannot leave only one half of the operation completed.
   const markPaid = useMutation({
     mutationFn: async (item: RecurringItem) => {
       if (!item.account) throw new Error('Add an account to this item (Edit) before marking it paid.')
 
-      const date = todayISO()
-      const fingerprint = buildFingerprint({ date, merchant: item.name, amount: item.amount, account: item.account })
-      const { error: txnError } = await supabase.from('transactions').insert({
-        owner_user_id: userId!,
-        date,
-        merchant: item.name,
-        category: item.category,
-        amount: item.amount,
-        type: 'expense',
-        account: item.account,
-        to_account: null,
-        remarks: null,
-        payment_method: null,
-        tags: [],
-        receipt: false,
-        receipt_document_id: null,
-        source: 'manual',
-        fingerprint,
+      const { error } = await supabase.rpc('mark_recurring_item_paid', {
+        recurring_item_id: item.id,
+        paid_on: todayISO(),
       })
-      if (txnError) {
-        if (txnError.code === '23505') throw new Error('Already logged as paid for today.')
-        throw txnError
-      }
-
-      const { error } = await supabase
-        .from('recurring_items')
-        .update({ next_date: nextDateForCadence(date, item.cadence) })
-        .eq('id', item.id)
+      if (error?.code === '23505') throw new Error('Already logged as paid for today.')
       if (error) throw error
     },
     onSuccess: () => {

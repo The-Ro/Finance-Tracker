@@ -276,3 +276,8 @@ create policy avatars_storage_update_own on storage.objects for update
 drop policy if exists avatars_storage_delete_own on storage.objects;
 create policy avatars_storage_delete_own on storage.objects for delete
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- mark_recurring_item_paid(uuid, date) is a narrow SECURITY DEFINER RPC
+-- defined in schema.sql. It validates auth.uid() and ownership itself before
+-- atomically inserting the expense and advancing recurring_items.next_date;
+-- no broad RLS write policy is added for this workflow.
