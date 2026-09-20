@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import { useMyTransactions } from '@/hooks/useTransactions'
 import { detectRecurringCandidates, normalizeMerchant, type RecurringCandidate } from '@/lib/recurringDetection'
 import { todayISO } from '@/lib/format'
@@ -45,6 +46,7 @@ function useDismissedPatterns() {
 export function useRecurringMutations() {
   const { userId } = useAuth()
   const queryClient = useQueryClient()
+  const { show } = useToast()
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['recurring_items', userId] })
     queryClient.invalidateQueries({ queryKey: ['dismissed_patterns', userId] })
@@ -152,6 +154,14 @@ export function useRecurringMutations() {
     onSuccess: () => {
       invalidateAll()
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+    // Without this, a rejected mutation (e.g. the 23505 duplicate-payment
+    // case above) failed completely silently -- no toast, no inline error,
+    // nothing -- confirmed by a smoke test clicking "mark paid" twice in a
+    // row. The mutation's error was real and correctly prevented bad data,
+    // it just never reached the user.
+    onError: (error: Error) => {
+      show(error.message, { tone: 'error' })
     },
   })
 
