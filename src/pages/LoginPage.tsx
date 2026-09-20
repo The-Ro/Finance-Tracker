@@ -67,7 +67,7 @@ export function LoginPage() {
             <Link
               to="/forgot-password"
               tabIndex={6}
-              className="absolute right-0 top-0 text-helper font-medium text-accent hover:underline"
+              className="absolute right-0 top-0 text-helper font-medium text-accent-dark hover:underline"
             >
               Forgot password?
             </Link>
@@ -79,7 +79,7 @@ export function LoginPage() {
         </form>
         <p className="mt-4 text-center text-helper text-slate-500">
           Don't have an account?{' '}
-          <Link to="/signup" tabIndex={5} className="font-medium text-accent hover:underline">
+          <Link to="/signup" tabIndex={5} className="font-medium text-accent-dark hover:underline">
             Sign up
           </Link>
         </p>

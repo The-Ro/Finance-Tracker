@@ -53,7 +53,7 @@ export function SignupPage() {
             We sent a confirmation link to <span className="font-medium">{email}</span>. Click it, then come
             back and sign in.
           </p>
-          <Link to="/login" className="mt-4 inline-block text-sm font-medium text-accent hover:underline">
+          <Link to="/login" className="mt-4 inline-block text-sm font-medium text-accent-dark hover:underline">
             Back to sign in
           </Link>
         </Card>
@@ -97,7 +97,7 @@ export function SignupPage() {
         </form>
         <p className="mt-4 text-center text-helper text-slate-500">
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-accent hover:underline">
+          <Link to="/login" className="font-medium text-accent-dark hover:underline">
             Sign in
           </Link>
         </p>

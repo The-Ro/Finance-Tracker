@@ -62,7 +62,7 @@ export function ForgotPasswordPage() {
         )}
 
         <p className="mt-4 text-center text-helper text-slate-500">
-          <Link to="/login" className="font-medium text-accent hover:underline">
+          <Link to="/login" className="font-medium text-accent-dark hover:underline">
             Back to sign in
           </Link>
         </p>

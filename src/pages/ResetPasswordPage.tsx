@@ -66,7 +66,7 @@ export function ResetPasswordPage() {
           <>
             <InlineMessage tone="error">This reset link is invalid or has expired.</InlineMessage>
             <p className="mt-4 text-center text-helper text-slate-500">
-              <Link to="/forgot-password" className="font-medium text-accent hover:underline">
+              <Link to="/forgot-password" className="font-medium text-accent-dark hover:underline">
                 Request a new link
               </Link>
             </p>

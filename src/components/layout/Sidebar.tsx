@@ -51,7 +51,7 @@ export function Sidebar() {
           'fixed left-4 top-[calc(1rem+var(--safe-top))] z-40 flex items-center transition-transform hover:scale-105 active:scale-95',
           open
             ? 'h-12 w-12 justify-center rounded-full bg-slate-900/85 text-white shadow-card'
-            : 'gap-2'
+            : 'min-h-[44px] gap-2'
         )}
       >
         {open ? (
