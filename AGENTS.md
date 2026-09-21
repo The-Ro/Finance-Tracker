@@ -5,7 +5,7 @@ A shared personal finance tracker (PWA). Multiple users can see each other's tra
 - **Live:** https://finance-tracker.rohith24112.workers.dev
 - **Stack:** React 18 + Vite + TypeScript + Tailwind + TanStack Query + React Router v6 + Recharts + lucide-react + dnd-kit
 - **Backend:** Supabase (Postgres, Auth, Storage, RLS) — project id `izidxazhknyoxeqgnqdb`
-- **Hosting:** Cloudflare Workers (static assets), deployed via `npx wrangler deploy`
+- **Hosting:** Cloudflare Workers (static assets), deployed via `npm run deploy` (`wrangler` is a pinned exact-version devDependency, not fetched fresh by `npx` each time)
 - **Admin:** `rohith24112@gmail.com` is the single hardcoded admin (see Admin pattern below)
 
 ## Commands
@@ -16,10 +16,10 @@ npm run build    # tsc -b && vite build
 npm run lint     # eslint .
 npm run test     # vitest run (src/lib/*.test.ts — pure-function unit tests only, no component/integration tests yet)
 npm run check    # lint && test && build, in that order
-npx wrangler deploy   # deploy dist/ to Cloudflare Workers
+npm run deploy   # check, then wrangler deploy — deploy dist/ to Cloudflare Workers
 ```
 
-Standard workflow after a batch of changes: `npm run check` (or at minimum `npx tsc -b`) → commit → push → `npx wrangler deploy`. There is no CI; deployment is manual.
+Standard workflow after a batch of changes: `npm run check` (or at minimum `npx tsc -b`) → commit → push → `npm run deploy`. `.github/workflows/ci.yml` runs `npm run check` on every push/PR to `main` as a validation gate — but it only checks, it doesn't deploy; deployment is still a manual `npm run deploy` from someone's machine.
 
 ## Database
 
@@ -61,6 +61,7 @@ Use `toLocalISODate(d: Date)` (in `src/lib/format.ts`) instead — builds the st
 - **PWA update handling**: `src/components/layout/UpdateBanner.tsx` uses `virtual:pwa-register/react` to poll for a new service worker periodically and show a "new version available" prompt — `registerType: 'autoUpdate'` alone in `vite.config.ts` does not proactively push a new build into an already-open tab (a real problem for a PWA people keep pinned open for days).
 - **Recurring/subscription items require an `account`** (added this session — previously optional). A row created before that change can still have `account: null`; UI in `ConfirmedItemRow.tsx` and `OverdueRecurringAlerts.tsx` must handle that gracefully (route to Edit / show "Add account" rather than silently rendering nothing where a "mark as paid" button should be).
 - **Custom categories/accounts/tags** are added via Settings → Financial setup (`ManagedListEditor`), not inline from any add-transaction/add-recurring form — there is no inline "+ add new category" affordance anywhere in this app; don't build a picker that filters out anything not in a hardcoded default list without also explicitly re-including anything the user added themselves (this was a real bug: the recurring/subscription category picker's curated relevant-categories filter initially hid custom categories entirely).
+- **CSV import amount/date parsing** (`src/lib/csvImport.ts`): `parseAmount()` strips any currency symbol (not just `$`), treats a parenthesized amount as negative (`"(45.00)"` — a common bank-export debit convention), and disambiguates US (`1,234.56`) vs European (`1.234,56`) thousands/decimal separators by treating whichever of `.`/`,` appears *last* in the string as the decimal point. `normalizeDate()` only swaps day/month for slash- or dot-separated dates when the swap is unambiguous (one of the two numbers is `>12` and so can't be a month, e.g. `25/12/2026`) — when both numbers are `<=12` (e.g. `03/04/2026`) it's genuinely ambiguous from the string alone and keeps assuming MM/DD/YYYY, same as before. Don't try to "fix" the ambiguous case with a smarter default; there isn't one without a per-import locale hint.
 
 ## Design system & theming
 

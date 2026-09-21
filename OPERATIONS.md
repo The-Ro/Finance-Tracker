@@ -53,19 +53,19 @@ Currently deployed as static assets via Cloudflare Workers (`wrangler.jsonc` —
 configured, so client-side routing works on a hard refresh of any path):
 
 ```bash
-npm run check
-npx wrangler deploy
+npm run deploy   # runs check (lint+test+build), then wrangler deploy
 ```
 
-`wrangler` is not currently a pinned `devDependency` — `npx wrangler` fetches whatever the
-latest version is at deploy time. For anything beyond solo/occasional deploys, pin it
-(`npm install -D wrangler`) and add an npm script (`"deploy": "vite build && wrangler
-deploy"`) so the deploy command and its version are both reproducible and reviewable in
-`package.json`, rather than living only in a person's memory or shell history.
+`wrangler` is a pinned `devDependency` (exact version, no `^` range) so `npx wrangler` /
+`npm run deploy` always resolve to the same locally-installed version instead of `npx`
+fetching whatever's latest at deploy time — bump it deliberately (`npm install -D
+wrangler@<version>`) when there's a reason to, not silently on every deploy.
 
-There's no CI/CD pipeline (no `.github/workflows`) — every deploy today is a manual
-`npm run build && npx wrangler deploy` from someone's machine. Fine at this scale; worth
-automating (build + deploy on push to `main`) once more than one person ships changes.
+`.github/workflows/ci.yml` runs `npm run check` (lint + test + build) on every push and PR
+against `main` — this only *validates*, it does not deploy. Deploying is still a manual
+`npm run deploy` from someone's machine. Worth automating the deploy step too (on push to
+`main`, after CI passes) once more than one person ships changes and a human running it by
+hand becomes the actual bottleneck rather than a deliberate checkpoint.
 
 **PWA rollout behavior**: the service worker precaches the whole app (`generateSW`,
 `registerType: 'autoUpdate'`). A deploy is immediately live for anyone opening the app fresh;
@@ -105,8 +105,7 @@ resurface for users who already dismissed the last one.
   your current Supabase plan actually gives you (point-in-time recovery vs. daily snapshot
   vs. nothing) rather than assuming — check Database → Backups in the dashboard.
 - **No CI.** Nothing currently blocks a broken build/type error from being deployed other
-  than a human running `npm run build` first.
-- **`wrangler` unpinned** (see Deployment above).
+  than a human running `npm run check` first.
 
 ## Environment / secrets
 

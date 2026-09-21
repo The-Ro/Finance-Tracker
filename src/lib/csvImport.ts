@@ -74,11 +74,25 @@ function normalizeDate(raw: string): string | null {
   const trimmed = raw.trim()
   // Already ISO.
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
-  // MM/DD/YYYY or M/D/YYYY (most common US bank export format).
-  const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (slashMatch) {
-    const [, mm, dd, yyyy] = slashMatch
-    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
+  // Two 1-2-digit numbers plus a 4-digit year, separated by /, -, or . --
+  // covers MM/DD/YYYY (US), DD/MM/YYYY (UK/EU/India), and DD.MM.YYYY.
+  const dateMatch = trimmed.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
+  if (dateMatch) {
+    const [, a, b, yyyy] = dateMatch
+    const aNum = Number(a)
+    const bNum = Number(b)
+    // Only swap when the format is unambiguous -- one of the two numbers is
+    // >12 and so can't possibly be a month, meaning it must be the day. When
+    // both are <=12 (e.g. "03/04/2026") there's no way to tell from the
+    // string alone, so this keeps assuming MM/DD/YYYY as before rather than
+    // guessing a "better" default that could just as easily be wrong.
+    let month = a
+    let day = b
+    if (aNum > 12 && bNum <= 12) {
+      month = b
+      day = a
+    }
+    return `${yyyy}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
   }
   // JS parses a non-ISO date-only string like "January 5, 2026" as local
   // midnight, so pulling it back out has to read the same Date object's
@@ -87,6 +101,47 @@ function normalizeDate(raw: string): string | null {
   const parsed = new Date(trimmed)
   if (!Number.isNaN(parsed.getTime())) return toLocalISODate(parsed)
   return null
+}
+
+/** Strips currency symbols (only $ and , were handled before -- now any
+ *  non-digit/separator character, covering ₹/€/£/¥ etc.), treats a
+ *  parenthesized amount as negative ("(123.45)", a common bank-export
+ *  convention for debits), and disambiguates US (1,234.56) vs European
+ *  (1.234,56) thousands/decimal separators by treating whichever of '.'/','
+ *  appears LAST as the decimal point. Returns NaN if nothing numeric-looking
+ *  is left, same as a failed `Number()` call would have before. */
+function parseAmount(raw: string): number {
+  let s = raw.trim()
+  if (!s) return NaN
+
+  let negative = false
+  const parenMatch = s.match(/^\((.+)\)$/)
+  if (parenMatch) {
+    negative = true
+    s = parenMatch[1].trim()
+  }
+  if (s.startsWith('-')) {
+    negative = true
+    s = s.slice(1)
+  }
+
+  s = s.replace(/[^0-9.,]/g, '')
+
+  const lastDot = s.lastIndexOf('.')
+  const lastComma = s.lastIndexOf(',')
+  if (lastDot !== -1 && lastComma !== -1) {
+    s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '')
+  } else if (lastComma !== -1) {
+    // Only a comma present -- treat it as the decimal point when exactly 2
+    // digits follow it (e.g. "1234,56"), otherwise as a thousands separator
+    // (e.g. "1,234").
+    const digitsAfter = s.length - lastComma - 1
+    s = digitsAfter === 2 ? s.replace(',', '.') : s.replace(/,/g, '')
+  }
+
+  const num = Number(s)
+  if (!Number.isFinite(num)) return NaN
+  return negative ? -num : num
 }
 
 export interface NormalizedCsvRow {
@@ -130,8 +185,8 @@ export function normalizeCsvRows(
     let type: 'expense' | 'income' | null = null
 
     if (mapping.amount) {
-      const raw = row[mapping.amount]?.replace(/[$,]/g, '').trim()
-      const num = raw ? Number(raw) : NaN
+      const raw = row[mapping.amount]?.trim()
+      const num = raw ? parseAmount(raw) : NaN
       if (!Number.isFinite(num) || num === 0) {
         skipped++
         continue
@@ -139,10 +194,10 @@ export function normalizeCsvRows(
       amount = Math.abs(num)
       type = num < 0 ? 'expense' : 'income'
     } else {
-      const debitRaw = mapping.debit ? row[mapping.debit]?.replace(/[$,]/g, '').trim() : ''
-      const creditRaw = mapping.credit ? row[mapping.credit]?.replace(/[$,]/g, '').trim() : ''
-      const debit = debitRaw ? Number(debitRaw) : NaN
-      const credit = creditRaw ? Number(creditRaw) : NaN
+      const debitRaw = mapping.debit ? row[mapping.debit]?.trim() : ''
+      const creditRaw = mapping.credit ? row[mapping.credit]?.trim() : ''
+      const debit = debitRaw ? parseAmount(debitRaw) : NaN
+      const credit = creditRaw ? parseAmount(creditRaw) : NaN
 
       if (Number.isFinite(debit) && debit > 0) {
         amount = Math.abs(debit)
