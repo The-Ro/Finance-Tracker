@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { NetWorthForm } from '@/components/settings/NetWorthForm'
 import { ManagedListEditor } from '@/components/settings/ManagedListEditor'
 import { DetectionSettings } from '@/components/settings/DetectionSettings'
@@ -43,7 +44,7 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
+      <PageHeader title="Settings" />
 
       <section className="flex flex-col gap-4">
         <SectionHeading title="Profile" description="Your name, avatar, and personal details." />
