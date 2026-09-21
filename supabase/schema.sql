@@ -249,6 +249,13 @@ alter table public.transactions add constraint transactions_payment_method_check
     ('UPI','Cash','Debit card','Credit card','Net banking','Cheque','NEFT/RTGS/IMPS','Other')
 );
 
+-- A transfer's source and destination account can't be the same account --
+-- the client already prevents this in the Add Entry form, but a DB-level
+-- guard makes it impossible via any other write path (API, RPC, a future bug).
+alter table public.transactions drop constraint if exists transactions_transfer_distinct_accounts;
+alter table public.transactions add constraint transactions_transfer_distinct_accounts
+  check (type <> 'transfer' or account <> to_account);
+
 -- ===== budgets (own-only) =====
 create table if not exists public.budgets (
   id uuid primary key default gen_random_uuid(),

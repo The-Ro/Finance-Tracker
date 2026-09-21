@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
-import { useMyTransactions, useEveryoneTransactions } from '@/hooks/useTransactions'
+import { useMyTransactions, useEveryoneTransactions, TRANSACTIONS_QUERY_LIMIT } from '@/hooks/useTransactions'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
@@ -47,6 +47,9 @@ export function TransactionsPage() {
 
   const source = scope === 'mine' ? myTransactions.data ?? [] : everyoneTransactions.data ?? []
   const inPeriod = source.filter((t) => isWithinRange(t.date, range))
+  // A list that comes back exactly at the query cap is the one observable
+  // sign older rows got silently cut off -- there's no pagination yet.
+  const isCapped = source.length === TRANSACTIONS_QUERY_LIMIT
 
   const { formatSigned, formatCompact } = useFormatCurrency()
   // Page-level, so this reflects scope + period like the heading it sits
@@ -93,6 +96,16 @@ export function TransactionsPage() {
           </div>
         }
       />
+
+      {isCapped && (
+        <div className="flex items-center gap-2 rounded-lg bg-caution-light px-3 py-2 text-helper text-caution">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>
+            Showing the most recent {TRANSACTIONS_QUERY_LIMIT.toLocaleString()} transactions -- older ones aren't
+            included yet.
+          </span>
+        </div>
+      )}
 
       {(scope === 'mine' ? myTransactions : everyoneTransactions).isLoading ? (
         <TransactionTableSkeleton />

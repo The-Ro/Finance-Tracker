@@ -26,6 +26,12 @@ export interface NewTransactionInput {
 
 const DUPLICATE_CODE = '23505'
 
+/** Both transaction queries below cap out at this many rows -- there's no
+ *  pagination yet, so a list that hits the cap is silently missing older
+ *  rows. Exported so a page rendering the list can warn when its data hit
+ *  it exactly (the one observable signal a plain `.limit()` gives you). */
+export const TRANSACTIONS_QUERY_LIMIT = 5000
+
 function invalidateTransactionQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['transactions'] })
 }
@@ -41,7 +47,7 @@ export function useMyTransactions(userId: string | null) {
         .eq('owner_user_id', userId!)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(5000)
+        .limit(TRANSACTIONS_QUERY_LIMIT)
       if (error) throw error
       return data
     },
@@ -57,7 +63,7 @@ export function useEveryoneTransactions() {
         .select('*')
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(5000)
+        .limit(TRANSACTIONS_QUERY_LIMIT)
       if (error) throw error
       return data
     },
