@@ -98,7 +98,7 @@ export function AvatarPicker() {
           disabled={busy}
           aria-label="Use initials instead of an avatar"
           className={clsx(
-            'flex h-11 w-11 items-center justify-center rounded-full border-2 bg-accent-light text-xs font-semibold text-accent-dark transition-transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:hover:scale-100',
+            'flex h-11 w-11 items-center justify-center rounded-full border-2 bg-accent-light text-xs font-semibold text-accent-on-light transition-transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:hover:scale-100',
             avatar === null ? 'border-accent' : 'border-transparent'
           )}
         >

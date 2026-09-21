@@ -31,7 +31,7 @@ export function Avatar({ avatar, name, size = 28, className }: AvatarProps) {
   return (
     <span
       className={
-        'flex shrink-0 items-center justify-center rounded-full bg-accent-light font-semibold text-accent-dark ' +
+        'flex shrink-0 items-center justify-center rounded-full bg-accent-light font-semibold text-accent-on-light ' +
         (className ?? '')
       }
       style={style}

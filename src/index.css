@@ -34,6 +34,15 @@
   --accent: 101 88 211;
   --accent-light: 239 237 251;
   --accent-dark: 78 67 176;
+  /* Text/icon color specifically for content drawn ON TOP of accent-light
+     (pills, badges, active-nav, tinted cards -- Pill.tsx, Avatar.tsx,
+     SummaryCard.tsx, etc). Tracks accent-dark by default via var() (so every
+     preset above/below gets this for free with no extra lines) -- only
+     overridden where accent-dark's OTHER job (standalone text/icon color,
+     e.g. the wordmark, not sitting on accent-light) needs a different value
+     than the on-accent-light job. See the charcoal dark-mode override below
+     for the one case where that actually happens. */
+  --accent-on-light: var(--accent-dark);
 }
 
 @media (display-mode: standalone) {
@@ -120,12 +129,15 @@
 
   /* accent-dark is text/icon color drawn on top of accent-light (pills,
      badges, active-nav, banners -- see Pill.tsx, Avatar.tsx, Sidebar.tsx,
-     RecurringLikePage.tsx). Every preset below darkens accent-light for
-     dark mode but was missing a matching dark-mode accent-dark, so it stayed
-     pinned to its light-mode shade (picked to sit on a near-white chip) --
-     against the new dark chip the two converge to nearly the same color,
-     making anything using this pairing unreadable. Brighten accent-dark
-     for dark mode alongside each accent-light override below. */
+     RecurringLikePage.tsx) AND standalone (the wordmark, plain hover-text
+     links) -- accent-on-light above exists to let those two jobs diverge
+     for the one preset (charcoal, below) where they need different values in
+     dark mode. Every preset below darkens accent-light for dark mode but was
+     missing a matching dark-mode accent-dark, so it stayed pinned to its
+     light-mode shade (picked to sit on a near-white chip) -- against the new
+     dark chip the two converge to nearly the same color, making anything
+     using this pairing unreadable. Brighten accent-dark for dark mode
+     alongside each accent-light override below. */
   --accent-light: 45 40 74;
   --accent-dark: 165 155 235;
 }
@@ -182,11 +194,21 @@
      of it in pills, badges, active-nav, banners), making them unreadable.
      Keep this one light instead, the way it reads in light mode. */
   --accent-light: 210 213 219;
-  /* Also brighten accent-dark for dark mode, like every other preset below
-     -- it's used standalone too (the wordmark's "Eaze", the header logo),
-     not just on top of accent-light, and light mode's near-black value
-     would otherwise vanish against the dark page background. */
+  /* Brighten accent-dark for dark mode, like every other preset above --
+     it's used standalone too (the wordmark's "Eaze", the header logo, plain
+     hover-text links), not just on top of accent-light, and light mode's
+     near-black value would otherwise vanish against the dark page/card
+     background. */
   --accent-dark: 180 184 192;
+  /* But because accent-light stayed LIGHT above (unlike every other preset,
+     where it darkens and so stays a good match for a brightened
+     accent-dark), pairing it with that same brightened accent-dark is
+     near-white-on-near-white -- confirmed via smoke test as a real WCAG
+     failure (~1.3:1 contrast) on the Dashboard's Net Worth card. Override
+     accent-on-light back to the light-mode dark value so pills/badges/tinted
+     cards stay legible against charcoal's still-light dark-mode
+     accent-light, independent of what standalone accent-dark is doing. */
+  --accent-on-light: 41 46 56;
 }
 
 @layer base {
@@ -241,7 +263,7 @@
   }
 
   ::selection {
-    @apply bg-accent-light text-accent-dark;
+    @apply bg-accent-light text-accent-on-light;
   }
 }
 
@@ -492,6 +514,16 @@ button {
 }
 .dark .text-slate-900 {
   color: #f8fafc;
+}
+/* The blanket flip above assumes text-slate-900 always sits on a dark
+   background in dark mode -- true everywhere except SummaryCard's
+   highlighted (Net Worth) card under the charcoal accent, whose
+   --accent-light deliberately stays light in dark mode (see the
+   .dark[data-accent='charcoal'] block above). Undo the flip in exactly that
+   one combination so the value number stays dark-on-light instead of
+   turning near-white-on-light-gray. */
+.dark[data-accent='charcoal'] .bg-accent-light .text-slate-900 {
+  color: #0f172a;
 }
 .dark .text-slate-800 {
   color: #e2e8f0;

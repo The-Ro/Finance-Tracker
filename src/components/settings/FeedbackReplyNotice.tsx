@@ -29,7 +29,7 @@ export function FeedbackReplyNotice() {
                 <X size={14} />
               </button>
             </div>
-            <p className="mt-1 rounded-lg bg-accent-light px-2.5 py-2 text-sm text-accent-dark">{item.admin_reply}</p>
+            <p className="mt-1 rounded-lg bg-accent-light px-2.5 py-2 text-sm text-accent-on-light">{item.admin_reply}</p>
           </li>
         ))}
       </ul>

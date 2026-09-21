@@ -82,7 +82,7 @@ export function Sidebar() {
               className={({ isActive }) =>
                 clsx(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive ? 'bg-accent-light text-accent-dark' : 'text-slate-600 hover:bg-slate-50'
+                  isActive ? 'bg-accent-light text-accent-on-light' : 'text-slate-600 hover:bg-slate-50'
                 )
               }
             >

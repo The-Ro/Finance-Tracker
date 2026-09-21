@@ -70,7 +70,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
         <Repeat size={18} className="shrink-0 text-accent" />
         <p className="text-sm text-slate-700">
           Active detection is scanning your own expense transactions for {kind === 'subscription' ? 'subscriptions' : 'recurring payments'}. Estimated commitment:{' '}
-          <span className="font-semibold text-accent-dark">{format(totals.monthly)}/mo</span> ({format(totals.annual)}/yr)
+          <span className="font-semibold text-accent-on-light">{format(totals.monthly)}/mo</span> ({format(totals.annual)}/yr)
         </p>
       </Card>
 

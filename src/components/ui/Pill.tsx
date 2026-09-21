@@ -7,7 +7,7 @@ interface PillProps {
 
 export function Pill({ label, onRemove }: PillProps) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-accent-light px-2.5 py-1 text-helper font-medium text-accent-dark">
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent-light px-2.5 py-1 text-helper font-medium text-accent-on-light">
       {label}
       {onRemove && (
         <button

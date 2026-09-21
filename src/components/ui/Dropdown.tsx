@@ -120,8 +120,8 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
         type="button"
         onClick={() => selectValue(opt)}
         className={clsx(
-          'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-accent-light hover:text-accent-dark sm:py-2',
-          opt === value ? 'bg-accent-light font-medium text-accent-dark' : 'text-slate-700'
+          'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-accent-light hover:text-accent-on-light sm:py-2',
+          opt === value ? 'bg-accent-light font-medium text-accent-on-light' : 'text-slate-700'
         )}
       >
         <span className="truncate">{opt}</span>

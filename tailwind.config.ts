@@ -20,6 +20,11 @@ export default {
           DEFAULT: withOpacity('--accent'),
           light: withOpacity('--accent-light'),
           dark: withOpacity('--accent-dark'),
+          // Text/icon color specifically for content drawn on top of
+          // accent-light (pills, badges, active-nav, tinted cards) -- see
+          // the --accent-on-light comment in index.css for why this needs
+          // to be a separate token from accent-dark.
+          'on-light': withOpacity('--accent-on-light'),
         },
         positive: {
           DEFAULT: withOpacity('--positive'),

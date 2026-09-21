@@ -131,7 +131,7 @@ export function PersonalDetails() {
                 className={clsx(
                   'flex items-center gap-1 rounded-full border px-2.5 py-1 text-helper font-medium',
                   zodiacSign === z.sign
-                    ? 'border-accent bg-accent-light text-accent-dark'
+                    ? 'border-accent bg-accent-light text-accent-on-light'
                     : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'
                 )}
               >

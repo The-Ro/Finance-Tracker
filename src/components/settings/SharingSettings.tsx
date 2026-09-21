@@ -130,7 +130,7 @@ export function SharingSettings() {
               <div className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-accent bg-accent-light px-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <Avatar avatar={selected.avatar} name={selected.label} size={22} />
-                  <span className="truncate text-sm font-medium text-accent-dark">{selected.label}</span>
+                  <span className="truncate text-sm font-medium text-accent-on-light">{selected.label}</span>
                 </div>
                 <button
                   type="button"
@@ -139,7 +139,7 @@ export function SharingSettings() {
                     setSelectedId(null)
                     setQuery('')
                   }}
-                  className="shrink-0 rounded-full p-1 text-accent-dark hover:bg-accent/20"
+                  className="shrink-0 rounded-full p-1 text-accent-on-light hover:bg-accent/20"
                 >
                   <X size={14} />
                 </button>
@@ -165,7 +165,7 @@ export function SharingSettings() {
                         setSelectedId(m.id)
                         setQuery(m.label)
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent-light hover:text-accent-dark"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent-light hover:text-accent-on-light"
                     >
                       <Avatar avatar={m.avatar} name={m.label} size={22} />
                       <span className="min-w-0 flex-1">

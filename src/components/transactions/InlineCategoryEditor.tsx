@@ -19,7 +19,7 @@ export function InlineCategoryEditor({ transactionId, category, type, editable }
 
   if (!editable) {
     return (
-      <span className="inline-flex w-fit items-center rounded-lg bg-accent-light px-2.5 py-1 text-xs font-medium text-accent-dark">
+      <span className="inline-flex w-fit items-center rounded-lg bg-accent-light px-2.5 py-1 text-xs font-medium text-accent-on-light">
         {category}
       </span>
     )

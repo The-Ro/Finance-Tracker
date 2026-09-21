@@ -224,8 +224,8 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
                                 setMonthPickerOpen(false)
                               }}
                               className={clsx(
-                                'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-dark',
-                                i === viewDate.getMonth() ? 'bg-accent-light font-medium text-accent-dark' : 'text-slate-700'
+                                'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-on-light',
+                                i === viewDate.getMonth() ? 'bg-accent-light font-medium text-accent-on-light' : 'text-slate-700'
                               )}
                             >
                               {m}
@@ -261,8 +261,8 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
                                 setYearPickerOpen(false)
                               }}
                               className={clsx(
-                                'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-dark',
-                                y === viewDate.getFullYear() ? 'bg-accent-light font-medium text-accent-dark' : 'text-slate-700'
+                                'block w-full px-3 py-1.5 text-left text-sm hover:bg-accent-light hover:text-accent-on-light',
+                                y === viewDate.getFullYear() ? 'bg-accent-light font-medium text-accent-on-light' : 'text-slate-700'
                               )}
                             >
                               {y}

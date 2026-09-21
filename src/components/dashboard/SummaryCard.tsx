@@ -28,7 +28,7 @@ export function SummaryCard({ label, value, numericValue, format, valueClassName
       <span
         className={clsx(
           'text-helper font-medium uppercase tracking-wide',
-          highlight ? 'text-accent-dark/80' : 'text-slate-500'
+          highlight ? 'text-accent-on-light/80' : 'text-slate-500'
         )}
       >
         {label}
@@ -39,7 +39,7 @@ export function SummaryCard({ label, value, numericValue, format, valueClassName
       <div
         className={clsx(
           'border-t pt-2 text-helper',
-          highlight ? 'border-accent/20 text-accent-dark/70' : 'border-app-border text-slate-500'
+          highlight ? 'border-accent/20 text-accent-on-light/70' : 'border-app-border text-slate-500'
         )}
       >
         {footer}

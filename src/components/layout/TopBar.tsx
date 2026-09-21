@@ -157,7 +157,7 @@ export function TopBar() {
                 className={({ isActive }) =>
                   clsx(
                     'flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium',
-                    isActive ? 'bg-accent-light text-accent-dark' : 'text-slate-700 hover:bg-slate-50'
+                    isActive ? 'bg-accent-light text-accent-on-light' : 'text-slate-700 hover:bg-slate-50'
                   )
                 }
               >

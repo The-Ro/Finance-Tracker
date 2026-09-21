@@ -30,7 +30,7 @@ function ReplyComposer({ item }: { item: FeedbackRow }) {
   if (item.admin_reply) {
     return (
       <div className="mt-2 rounded-lg bg-accent-light px-2.5 py-2">
-        <p className="text-helper font-medium text-accent-dark">Your reply</p>
+        <p className="text-helper font-medium text-accent-on-light">Your reply</p>
         <p className="text-helper text-slate-600">{item.admin_reply}</p>
       </div>
     )
