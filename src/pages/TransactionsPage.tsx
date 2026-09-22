@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
-import { useMyTransactions, useEveryoneTransactions, TRANSACTIONS_QUERY_LIMIT } from '@/hooks/useTransactions'
+import {
+  useMyTransactions,
+  useEveryoneTransactions,
+  useMyTransactionsPaginated,
+  useEveryoneTransactionsPaginated,
+  TRANSACTIONS_QUERY_LIMIT,
+} from '@/hooks/useTransactions'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
@@ -36,8 +42,16 @@ export function TransactionsPage() {
   const settings = useUserSettings()
   const [scope, setScope] = useState<TransactionScope>('mine')
 
+  // Two independent data sources on purpose: myTransactions/everyoneTransactions
+  // (full fetch, capped at TRANSACTIONS_QUERY_LIMIT) feeds the header
+  // credit/debit capsule below, which needs a correct period-wide sum, not
+  // just what's currently loaded into the browsable list. The *Paginated
+  // hooks feed the actual table -- incrementally loaded via "Load more"
+  // instead of capped -- see useMyTransactionsPaginated's doc comment.
   const myTransactions = useMyTransactions(userId)
   const everyoneTransactions = useEveryoneTransactions()
+  const myTransactionsPaginated = useMyTransactionsPaginated(userId)
+  const everyoneTransactionsPaginated = useEveryoneTransactionsPaginated()
   const profiles = useProfiles()
   const { data: categories = [] } = useCategories()
   const { data: accounts = [] } = useAccounts()
@@ -48,8 +62,16 @@ export function TransactionsPage() {
   const source = scope === 'mine' ? myTransactions.data ?? [] : everyoneTransactions.data ?? []
   const inPeriod = source.filter((t) => isWithinRange(t.date, range))
   // A list that comes back exactly at the query cap is the one observable
-  // sign older rows got silently cut off -- there's no pagination yet.
+  // sign older rows got silently cut off -- affects the header totals above,
+  // not the table below (which pages past this cap via "Load more").
   const isCapped = source.length === TRANSACTIONS_QUERY_LIMIT
+
+  const paginated = scope === 'mine' ? myTransactionsPaginated : everyoneTransactionsPaginated
+  const paginatedSource = useMemo(() => paginated.data?.pages.flat() ?? [], [paginated.data])
+  const paginatedInPeriod = useMemo(
+    () => paginatedSource.filter((t) => isWithinRange(t.date, range)),
+    [paginatedSource, range]
+  )
 
   const { formatSigned, formatCompact } = useFormatCurrency()
   // Page-level, so this reflects scope + period like the heading it sits
@@ -101,22 +123,26 @@ export function TransactionsPage() {
         <div className="flex items-center gap-2 rounded-lg bg-caution-light px-3 py-2 text-helper text-caution">
           <AlertTriangle size={14} className="shrink-0" />
           <span>
-            Showing the most recent {TRANSACTIONS_QUERY_LIMIT.toLocaleString()} transactions -- older ones aren't
-            included yet.
+            The totals above are based on your most recent {TRANSACTIONS_QUERY_LIMIT.toLocaleString()} transactions
+            -- older ones aren't included in that sum yet. The list below can still be paged through in full via
+            "Load more".
           </span>
         </div>
       )}
 
-      {(scope === 'mine' ? myTransactions : everyoneTransactions).isLoading ? (
+      {paginated.isLoading ? (
         <TransactionTableSkeleton />
       ) : (
         <TransactionTable
-          transactions={inPeriod}
+          transactions={paginatedInPeriod}
           scope={scope}
           currentUserId={userId ?? ''}
           profiles={profiles.data ?? {}}
           categories={categories}
           accounts={accounts}
+          hasMore={paginated.hasNextPage}
+          onLoadMore={() => paginated.fetchNextPage()}
+          loadingMore={paginated.isFetchingNextPage}
         />
       )}
     </div>

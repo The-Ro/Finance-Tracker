@@ -21,6 +21,13 @@ interface TransactionTableProps {
   profiles: ProfileMap
   categories: string[]
   accounts: string[]
+  /** More rows exist beyond what's currently loaded -- shows a "Load more"
+   *  footer below the list. Search/filters above only ever apply to what's
+   *  already loaded, so a search that should match an older, not-yet-loaded
+   *  row won't find it until more is loaded -- documented tradeoff, not a bug. */
+  hasMore?: boolean
+  onLoadMore?: () => void
+  loadingMore?: boolean
 }
 
 export function TransactionTable({
@@ -30,6 +37,9 @@ export function TransactionTable({
   profiles,
   categories,
   accounts,
+  hasMore,
+  onLoadMore,
+  loadingMore,
 }: TransactionTableProps) {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All categories')
@@ -125,7 +135,21 @@ export function TransactionTable({
           description={
             transactions.length === 0
               ? 'Add an entry or import a statement to get started.'
-              : 'Try a different search or filter.'
+              : hasMore
+                ? "Try a different search or filter, or load more -- what you're searching for might be further back."
+                : 'Try a different search or filter.'
+          }
+          action={
+            hasMore && (
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="min-h-[44px] rounded-lg border border-app-border px-4 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            )
           }
         />
       ) : (
@@ -321,6 +345,18 @@ export function TransactionTable({
               )
             })}
           </ul>
+          {hasMore && (
+            <div className="flex justify-center border-t border-app-border p-3">
+              <button
+                type="button"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="min-h-[44px] rounded-lg border border-app-border px-4 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

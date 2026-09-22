@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { buildFingerprint } from '@/lib/fingerprint'
@@ -90,6 +90,61 @@ export function useEveryoneTransactions() {
       if (error) throw error
       return data
     },
+  })
+}
+
+export const TRANSACTIONS_PAGE_SIZE = 100
+
+/**
+ * Incrementally-loaded ("Load more") alternative to useMyTransactions, for
+ * TransactionsPage's browsable list specifically -- fetches
+ * TRANSACTIONS_PAGE_SIZE rows at a time via .range() instead of one flat
+ * TRANSACTIONS_QUERY_LIMIT-row fetch, so browsing isn't capped at 5,000.
+ * Deliberately a SEPARATE query from useMyTransactions rather than a
+ * replacement for it: budgets, the dashboard, and account-balance math all
+ * need the full (still-capped) transaction set for correct sums, and
+ * changing what those depend on is out of scope here -- see the
+ * TRANSACTIONS_QUERY_LIMIT cap-hit banner on TransactionsPage, which still
+ * applies to that full-fetch path exactly as before.
+ */
+export function useMyTransactionsPaginated(userId: string | null) {
+  return useInfiniteQuery({
+    queryKey: ['transactions', 'mine-paginated', userId],
+    enabled: !!userId,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }): Promise<Transaction[]> => {
+      const from = pageParam * TRANSACTIONS_PAGE_SIZE
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('owner_user_id', userId!)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, from + TRANSACTIONS_PAGE_SIZE - 1)
+      if (error) throw error
+      return data
+    },
+    getNextPageParam: (lastPage, allPages) => (lastPage.length === TRANSACTIONS_PAGE_SIZE ? allPages.length : undefined),
+  })
+}
+
+/** Same as useMyTransactionsPaginated, for the "Everyone" (shared) scope. */
+export function useEveryoneTransactionsPaginated() {
+  return useInfiniteQuery({
+    queryKey: ['transactions', 'everyone-paginated'],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }): Promise<Transaction[]> => {
+      const from = pageParam * TRANSACTIONS_PAGE_SIZE
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, from + TRANSACTIONS_PAGE_SIZE - 1)
+      if (error) throw error
+      return data
+    },
+    getNextPageParam: (lastPage, allPages) => (lastPage.length === TRANSACTIONS_PAGE_SIZE ? allPages.length : undefined),
   })
 }
 
