@@ -58,6 +58,40 @@ describe('transactionsToCsvRows', () => {
     ])
     expect(rows[0]).toMatchObject({ Type: 'transfer', Category: '', 'To account': 'Savings' })
   })
+
+  it('neutralizes formula-injection payloads in every user-controlled field', () => {
+    const rows = transactionsToCsvRows(
+      [
+        makeTransaction({
+          merchant: '=HYPERLINK("http://evil.example","click")',
+          remarks: '+1+1',
+          category: '-2+3',
+          account: '@SUM(1,1)',
+          tags: ['\tSHELL("rm -rf /")'],
+        }),
+      ],
+      () => '=cmd|\'/c calc\'!A1'
+    )
+    expect(rows[0]).toEqual({
+      Date: '2026-09-13',
+      Merchant: '\'=HYPERLINK("http://evil.example","click")',
+      Type: 'expense',
+      Category: '\'-2+3',
+      Account: '\'@SUM(1,1)',
+      'To account': '',
+      Amount: 42.5,
+      'Payment method': '',
+      Remarks: "'+1+1",
+      Tags: '\'\tSHELL("rm -rf /")',
+      Owner: '\'=cmd|\'/c calc\'!A1',
+    })
+  })
+
+  it('leaves ordinary values that happen to contain (but not start with) a trigger character untouched', () => {
+    const rows = transactionsToCsvRows([makeTransaction({ merchant: 'A+B Groceries', remarks: 'cost = a lot' })])
+    expect(rows[0].Merchant).toBe('A+B Groceries')
+    expect(rows[0].Remarks).toBe('cost = a lot')
+  })
 })
 
 describe('transactionsToCsv', () => {

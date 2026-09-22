@@ -1,6 +1,20 @@
 import Papa from 'papaparse'
 import type { Transaction } from '@/hooks/useTransactions'
 
+// CSV formula injection: a merchant/category/account/remarks/tag/owner-name
+// value is arbitrary user-controlled text (including from another user's
+// transactions, if this is a shared "Everyone" export) -- if it starts with
+// =, +, -, @, or a tab/CR, Excel/Sheets/LibreOffice can interpret the whole
+// cell as a formula when the exported file is opened, up to running a
+// DDE/shell command via =cmd|'/c ...'!A1-style payloads. Prefixing such a
+// value with a plain single quote forces every spreadsheet app to treat it
+// as literal text instead, without changing how it displays in the app
+// itself (this only ever touches the exported CSV, not the stored value).
+const FORMULA_TRIGGER_CHARS = new Set(['=', '+', '-', '@', '\t', '\r'])
+function sanitizeCsvField(value: string): string {
+  return value.length > 0 && FORMULA_TRIGGER_CHARS.has(value[0]) ? `'${value}` : value
+}
+
 export interface CsvExportRow {
   Date: string
   Merchant: string
@@ -32,17 +46,17 @@ export function transactionsToCsvRows(
   return transactions.map((t) => {
     const row: CsvExportRow = {
       Date: t.date,
-      Merchant: t.merchant,
+      Merchant: sanitizeCsvField(t.merchant),
       Type: t.type,
-      Category: t.category ?? '',
-      Account: t.account,
-      'To account': t.to_account ?? '',
+      Category: sanitizeCsvField(t.category ?? ''),
+      Account: sanitizeCsvField(t.account),
+      'To account': sanitizeCsvField(t.to_account ?? ''),
       Amount: t.amount,
-      'Payment method': t.payment_method ?? '',
-      Remarks: t.remarks ?? '',
-      Tags: t.tags.join('; '),
+      'Payment method': sanitizeCsvField(t.payment_method ?? ''),
+      Remarks: sanitizeCsvField(t.remarks ?? ''),
+      Tags: sanitizeCsvField(t.tags.join('; ')),
     }
-    if (ownerName) row.Owner = ownerName(t.owner_user_id)
+    if (ownerName) row.Owner = sanitizeCsvField(ownerName(t.owner_user_id))
     return row
   })
 }
