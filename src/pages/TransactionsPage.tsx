@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, AlertTriangle, Download } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import {
@@ -14,11 +14,14 @@ import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Button } from '@/components/ui/Button'
 import { ScopeToggle, type TransactionScope } from '@/components/transactions/ScopeToggle'
 import { TransactionTable } from '@/components/transactions/TransactionTable'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, isWithinRange } from '@/lib/period'
+import { transactionsToCsv, downloadCsv } from '@/lib/csvExport'
+import { todayISO } from '@/lib/format'
 
 function TransactionTableSkeleton() {
   return (
@@ -87,6 +90,18 @@ export function TransactionsPage() {
     return { totalCredit: credit, totalDebit: debit }
   }, [inPeriod])
 
+  // Exports the same scope+period-filtered set the header totals above are
+  // computed from -- not the table's own search/type/category/account/person
+  // filters, which are for narrowing what's browsed, not for scoping export.
+  const handleExport = () => {
+    const ownerName =
+      scope === 'everyone'
+        ? (ownerUserId: string) => profiles.data?.[ownerUserId]?.displayName ?? profiles.data?.[ownerUserId]?.email ?? ownerUserId
+        : undefined
+    const csv = transactionsToCsv(inPeriod, ownerName)
+    downloadCsv(`ledgeeaze-transactions-${scope}-${period}-${todayISO()}.csv`, csv)
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -115,6 +130,10 @@ export function TransactionsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <ScopeToggle value={scope} onChange={setScope} />
             <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+            <Button variant="secondary" onClick={handleExport} disabled={inPeriod.length === 0} className="px-3 sm:px-4">
+              <Download size={16} />
+              <span className="hidden sm:inline">Export</span>
+            </Button>
           </div>
         }
       />
