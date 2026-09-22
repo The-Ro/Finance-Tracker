@@ -12,6 +12,7 @@ import {
   useUpdateTransaction,
   useRecentAccounts,
   useAccountBalances,
+  DuplicateTransactionError,
   type Transaction,
 } from '@/hooks/useTransactions'
 import { useDocuments } from '@/hooks/useDocuments'
@@ -50,6 +51,12 @@ const EMPTY_STATE = {
 export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
   const [error, setError] = useState<string | null>(null)
+  // Set when the last save attempt was rejected as a duplicate -- offers a
+  // "Save anyway" retry instead of just leaving the user stuck, since the
+  // fingerprint check can't tell a real duplicate from two distinct
+  // transactions that happen to share date/merchant/amount/account (see
+  // DuplicateTransactionError in useTransactions.ts).
+  const [duplicatePending, setDuplicatePending] = useState(false)
   const [shakeField, setShakeField] = useState<string | null>(null)
   const [shakeToken, setShakeToken] = useState(0)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -160,12 +167,14 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
       setForm({ ...EMPTY_STATE, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
     }
     setError(null)
+    setDuplicatePending(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, transaction])
 
   const reset = () => {
     setForm({ ...EMPTY_STATE, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
     setError(null)
+    setDuplicatePending(false)
   }
 
   const handleClose = () => {
@@ -199,8 +208,9 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   const shakeKey = (field: string) => (shakeField === field ? `${field}-${shakeToken}` : field)
   const shakeClass = (field: string) => (shakeField === field ? 'animate-shake' : undefined)
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (opts?: { allowDuplicate?: boolean }) => {
     setError(null)
+    if (!opts?.allowDuplicate) setDuplicatePending(false)
 
     if (!form.merchant.trim()) return fail('Enter a merchant or source.', 'merchant')
     if (!form.date) return fail('Choose a date.', 'date')
@@ -228,6 +238,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           remarks: form.remarks,
           paymentMethod,
           tags: form.tags,
+          allowDuplicate: opts?.allowDuplicate,
         })
       } else {
         let receiptDocumentId: string | null = null
@@ -250,13 +261,19 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           receipt: form.hasReceipt,
           receiptDocumentId,
           rules: rules.map((r) => ({ whenText: r.when_text, thenText: r.then_text, enabled: r.enabled })),
+          allowDuplicate: opts?.allowDuplicate,
         })
       }
 
       reset()
       onClose()
     } catch (e) {
-      fail(e instanceof Error ? e.message : 'Something went wrong saving this entry.')
+      if (e instanceof DuplicateTransactionError) {
+        setDuplicatePending(true)
+        fail(e.message)
+      } else {
+        fail(e instanceof Error ? e.message : 'Something went wrong saving this entry.')
+      }
     }
   }
 
@@ -273,7 +290,12 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           <Button variant="secondary" onClick={handleClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          {duplicatePending && (
+            <Button variant="secondary" onClick={() => handleSubmit({ allowDuplicate: true })} disabled={saving}>
+              Save anyway
+            </Button>
+          )}
+          <Button onClick={() => handleSubmit()} disabled={saving}>
             {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Save entry'}
           </Button>
         </div>

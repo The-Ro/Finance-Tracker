@@ -26,6 +26,29 @@ export interface NewTransactionInput {
 
 const DUPLICATE_CODE = '23505'
 
+/** Thrown instead of a plain Error on a fingerprint collision, so callers
+ *  (AddEntryModal) can offer a "Save anyway" retry instead of just failing --
+ *  the fingerprint is date+merchant+amount+account only (no category, see
+ *  fingerprint.ts), so two genuinely different transactions that happen to
+ *  share all four (e.g. two same-day, same-amount purchases at the same
+ *  merchant, logged under different categories) collide here even though
+ *  neither is actually a duplicate. */
+export class DuplicateTransactionError extends Error {
+  constructor() {
+    super('This looks like a duplicate of a transaction you already logged.')
+    this.name = 'DuplicateTransactionError'
+  }
+}
+
+/** Appended to the canonical fingerprint when the caller has explicitly
+ *  confirmed "save anyway" on a reported duplicate -- guarantees a fresh
+ *  unique constraint match without changing buildFingerprint's own contract
+ *  (CSV import's upsert/ignoreDuplicates dedup still matches against the
+ *  canonical, un-suffixed fingerprint). */
+function withDuplicateOverride(fingerprint: string, allowDuplicate: boolean | undefined): string {
+  return allowDuplicate ? `${fingerprint}|dup-${crypto.randomUUID().slice(0, 8)}` : fingerprint
+}
+
 /** Both transaction queries below cap out at this many rows -- there's no
  *  pagination yet, so a list that hits the cap is silently missing older
  *  rows. Exported so a page rendering the list can warn when its data hit
@@ -75,7 +98,7 @@ export function useAddTransaction() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: NewTransactionInput & { rules?: SimpleRule[] }) => {
+    mutationFn: async (input: NewTransactionInput & { rules?: SimpleRule[]; allowDuplicate?: boolean }) => {
       if (!userId) throw new Error('Not signed in')
 
       let category = input.category
@@ -86,12 +109,15 @@ export function useAddTransaction() {
         tags = applied.tags
       }
 
-      const fingerprint = buildFingerprint({
-        date: input.date,
-        merchant: input.merchant,
-        amount: input.amount,
-        account: input.account,
-      })
+      const fingerprint = withDuplicateOverride(
+        buildFingerprint({
+          date: input.date,
+          merchant: input.merchant,
+          amount: input.amount,
+          account: input.account,
+        }),
+        input.allowDuplicate
+      )
 
       const { error } = await supabase.from('transactions').insert({
         owner_user_id: userId,
@@ -113,7 +139,7 @@ export function useAddTransaction() {
 
       if (error) {
         if (error.code === DUPLICATE_CODE) {
-          throw new Error('This looks like a duplicate of a transaction you already logged.')
+          throw new DuplicateTransactionError()
         }
         throw error
       }
@@ -139,13 +165,16 @@ export interface UpdateTransactionInput {
 export function useUpdateTransaction() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: UpdateTransactionInput) => {
-      const fingerprint = buildFingerprint({
-        date: input.date,
-        merchant: input.merchant,
-        amount: input.amount,
-        account: input.account,
-      })
+    mutationFn: async (input: UpdateTransactionInput & { allowDuplicate?: boolean }) => {
+      const fingerprint = withDuplicateOverride(
+        buildFingerprint({
+          date: input.date,
+          merchant: input.merchant,
+          amount: input.amount,
+          account: input.account,
+        }),
+        input.allowDuplicate
+      )
 
       const { error } = await supabase
         .from('transactions')
@@ -166,7 +195,7 @@ export function useUpdateTransaction() {
 
       if (error) {
         if (error.code === DUPLICATE_CODE) {
-          throw new Error('This looks like a duplicate of a transaction you already logged.')
+          throw new DuplicateTransactionError()
         }
         throw error
       }
