@@ -292,6 +292,32 @@ export function useDeleteTransaction() {
   })
 }
 
+/** Bulk delete/category-change below both use `.in('id', ids)` -- a single
+ *  request each, still scoped correctly by transactions_delete_own/
+ *  transactions_update_own RLS per-row regardless of how many ids are
+ *  passed, so there's no separate ownership check needed client-side. */
+export function useBulkDeleteTransactions() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('transactions').delete().in('id', ids)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateTransactionQueries(queryClient),
+  })
+}
+
+export function useBulkUpdateTransactionCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids, category }: { ids: string[]; category: string }) => {
+      const { error } = await supabase.from('transactions').update({ category }).in('id', ids)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateTransactionQueries(queryClient),
+  })
+}
+
 export interface BulkImportRow {
   date: string
   merchant: string
