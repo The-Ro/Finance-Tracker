@@ -662,3 +662,14 @@ as $$
 $$;
 revoke execute on function public.find_profile_by_email(text) from public, anon;
 grant execute on function public.find_profile_by_email(text) to authenticated;
+
+-- Supabase grants EXECUTE on new public functions to anon/authenticated
+-- explicitly, so "revoke ... from public" alone never removed those grants.
+-- Real RPC endpoints: signed-in users only.
+revoke execute on function public.delete_own_account() from public, anon;
+revoke execute on function public.mark_feedback_reply_seen(uuid) from public, anon;
+-- Trigger / event-trigger functions are never RPCs; Postgres only checks
+-- EXECUTE on a trigger function at CREATE TRIGGER time, not when it fires.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+revoke execute on function public.handle_user_email_update() from public, anon, authenticated;
+revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
