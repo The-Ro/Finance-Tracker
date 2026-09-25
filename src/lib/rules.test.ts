@@ -10,6 +10,12 @@ describe('applyRules', () => {
     ).toEqual({ category: 'Subscriptions', tags: ['monthly', 'entertainment'] })
   })
 
+  it('matches an imported merchant string with punctuation and a reference number', () => {
+    expect(
+      applyRules('UBER *TRIP 88123456', 'Needs review', [], [{ whenText: 'uber trip', thenText: 'Transportation', enabled: true }])
+    ).toEqual({ category: 'Transportation', tags: [] })
+  })
+
   it('leaves an unmatched transaction unchanged', () => {
     expect(applyRules('Corner Store', 'Needs review', [], [])).toEqual({ category: 'Needs review', tags: [] })
   })

@@ -1,3 +1,4 @@
+import { normalizeMerchant } from '@/lib/merchant'
 import type { Cadence, RecurringKind } from '@/types/database.types'
 
 export interface DetectableTransaction {
@@ -47,16 +48,8 @@ const CADENCE_WINDOWS: { cadence: Cadence; min: number; max: number }[] = [
   { cadence: 'annual', min: 330, max: 400 },
 ]
 
-export function normalizeMerchant(raw: string): string {
-  return raw
-    .toLowerCase()
-    .trim()
-    .replace(/#\s*\d+\s*$/g, '') // trailing "#1234"
-    .replace(/[^a-z0-9\s]/g, ' ') // strip punctuation
-    .replace(/\b\d{6,}\b/g, ' ') // long reference-number sequences
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+// Re-exported so existing imports keep working; the helper itself is shared.
+export { normalizeMerchant }
 
 function median(nums: number[]): number {
   const sorted = [...nums].sort((a, b) => a - b)

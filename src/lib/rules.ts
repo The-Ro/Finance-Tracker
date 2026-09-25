@@ -1,3 +1,5 @@
+import { merchantContains } from '@/lib/merchant'
+
 export interface SimpleRule {
   whenText: string
   thenText: string
@@ -44,7 +46,8 @@ function parseThenText(thenText: string): RuleAction {
 }
 
 /**
- * Applies the first matching enabled rule (merchant contains whenText, case-insensitive)
+ * Applies the first matching enabled rule (merchant contains whenText -- plain
+ * case-insensitive, or after normalizing both sides via merchantContains)
  * to a merchant/category/tags triple. Only called for rows still at the default
  * category ("Needs review") so it never silently overrides a user's explicit choice.
  */
@@ -54,10 +57,7 @@ export function applyRules(
   currentTags: string[],
   rules: SimpleRule[]
 ): { category: string; tags: string[] } {
-  const lowerMerchant = merchant.toLowerCase()
-  const match = rules.find(
-    (r) => r.enabled && r.whenText.trim() && lowerMerchant.includes(r.whenText.trim().toLowerCase())
-  )
+  const match = rules.find((r) => r.enabled && merchantContains(merchant, r.whenText))
 
   if (!match) return { category: currentCategory, tags: currentTags }
 

@@ -1,4 +1,4 @@
-import { normalizeMerchant } from '@/lib/recurringDetection'
+import { merchantsSimilar } from '@/lib/merchant'
 import type { Transaction } from '@/hooks/useTransactions'
 
 /** How many days apart two otherwise-matching transactions can be and still
@@ -9,20 +9,6 @@ export const DUPLICATE_WINDOW_DAYS = 3
 function dayNumber(iso: string): number {
   const [y, m, d] = iso.split('-').map(Number)
   return Math.round(Date.UTC(y, m - 1, d) / 86_400_000)
-}
-
-const MIN_CONTAINED_LENGTH = 4
-
-/** Same merchant after normalization, or one normalized name containing the
- *  other ("amazon" vs "amazon prime") -- the tolerant notion used for
- *  recurring detection, not the strict one behind the unique fingerprint. */
-function similarMerchant(a: string, b: string): boolean {
-  const na = normalizeMerchant(a)
-  const nb = normalizeMerchant(b)
-  if (!na || !nb) return false
-  if (na === nb) return true
-  const [shorter, longer] = na.length <= nb.length ? [na, nb] : [nb, na]
-  return shorter.length >= MIN_CONTAINED_LENGTH && longer.includes(shorter)
 }
 
 /**
@@ -59,7 +45,7 @@ export function findDuplicateGroups(transactions: Transaction[], windowDays = DU
       for (let j = i + 1; j < bucket.length; j++) {
         if (
           Math.abs(dayNumber(bucket[i].date) - dayNumber(bucket[j].date)) <= windowDays &&
-          similarMerchant(bucket[i].merchant, bucket[j].merchant)
+          merchantsSimilar(bucket[i].merchant, bucket[j].merchant)
         ) {
           parent[find(i)] = find(j)
         }
