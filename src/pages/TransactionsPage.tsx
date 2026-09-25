@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, AlertTriangle, Download } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, AlertTriangle, Copy, Download } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import {
@@ -18,10 +18,12 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { ScopeToggle, type TransactionScope } from '@/components/transactions/ScopeToggle'
 import { TransactionTable } from '@/components/transactions/TransactionTable'
+import { DuplicatesModal } from '@/components/transactions/DuplicatesModal'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, isWithinRange } from '@/lib/period'
 import { transactionsToCsv, downloadCsv } from '@/lib/csvExport'
+import { findDuplicateGroups } from '@/lib/duplicates'
 import { todayISO } from '@/lib/format'
 import { EMPTY_TRANSACTION_FILTERS, type TransactionFilters } from '@/lib/transactionSearch'
 
@@ -47,6 +49,7 @@ export function TransactionsPage() {
   const settings = useUserSettings()
   const [scope, setScope] = useState<TransactionScope>('mine')
   const [filters, setFilters] = useState<TransactionFilters>(EMPTY_TRANSACTION_FILTERS)
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false)
   // The search box updates `filters` on every keystroke; only the debounced
   // text reaches the server queries below.
   const debouncedSearch = useDebouncedValue(filters.search)
@@ -99,6 +102,10 @@ export function TransactionsPage() {
       .sort((a, b) => a[1].localeCompare(b[1]))
       .map(([id, name]) => ({ id, name }))
   }, [scope, everyoneTransactions.data, profiles.data])
+
+  // Always the signed-in user's own transactions (regardless of scope) -- you
+  // can only delete your own, so that's all a duplicate review can act on.
+  const duplicateGroups = useMemo(() => findDuplicateGroups(myTransactions.data ?? []), [myTransactions.data])
 
   const { formatSigned, formatCompact } = useFormatCurrency()
   // Page-level, so this reflects scope + period like the heading it sits
@@ -158,6 +165,15 @@ export function TransactionsPage() {
               <Download size={16} />
               <span className="hidden sm:inline">Export</span>
             </Button>
+            <Button variant="secondary" onClick={() => setDuplicatesOpen(true)} className="px-3 sm:px-4">
+              <Copy size={16} />
+              <span className="hidden sm:inline">Duplicates</span>
+              {duplicateGroups.length > 0 && (
+                <span className="rounded-full bg-caution-light px-1.5 text-helper font-semibold text-caution">
+                  {duplicateGroups.length}
+                </span>
+              )}
+            </Button>
           </div>
         }
       />
@@ -191,6 +207,7 @@ export function TransactionsPage() {
           loadingMore={paginated.isFetchingNextPage}
         />
       )}
+      <DuplicatesModal open={duplicatesOpen} onClose={() => setDuplicatesOpen(false)} groups={duplicateGroups} />
     </div>
   )
 }
