@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { buildFingerprint } from '@/lib/fingerprint'
 import { applyRules, type SimpleRule } from '@/lib/rules'
 import { calculateAccountBalances } from '@/lib/accountBalances'
+import { buildSearchOrFilter, type TransactionFilters } from '@/lib/transactionSearch'
+import type { DateRange } from '@/lib/period'
 import type { Database, PaymentMethod, TransactionType } from '@/types/database.types'
 
 export type Transaction = Database['public']['Tables']['transactions']['Row']
@@ -95,11 +97,43 @@ export function useEveryoneTransactions() {
 
 export const TRANSACTIONS_PAGE_SIZE = 100
 
+async function fetchTransactionsPage(params: {
+  pageIndex: number
+  /** Restricts to one owner; omitted for the "Everyone" scope (RLS still limits what's visible). */
+  ownerUserId?: string
+  filters: TransactionFilters
+  range: DateRange
+}): Promise<Transaction[]> {
+  const { pageIndex, ownerUserId, filters, range } = params
+  const from = pageIndex * TRANSACTIONS_PAGE_SIZE
+
+  let query = supabase.from('transactions').select('*')
+  if (ownerUserId) query = query.eq('owner_user_id', ownerUserId)
+  if (filters.ownerId) query = query.eq('owner_user_id', filters.ownerId)
+  if (range.start) query = query.gte('date', range.start)
+  query = query.lte('date', range.end)
+  if (filters.type) query = query.eq('type', filters.type)
+  if (filters.category) query = query.eq('category', filters.category)
+  if (filters.account) query = query.eq('account', filters.account)
+  const searchFilter = buildSearchOrFilter(filters.search)
+  if (searchFilter) query = query.or(searchFilter)
+
+  const { data, error } = await query
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(from, from + TRANSACTIONS_PAGE_SIZE - 1)
+  if (error) throw error
+  return data
+}
+
 /**
  * Incrementally-loaded ("Load more") alternative to useMyTransactions, for
  * TransactionsPage's browsable list specifically -- fetches
  * TRANSACTIONS_PAGE_SIZE rows at a time via .range() instead of one flat
  * TRANSACTIONS_QUERY_LIMIT-row fetch, so browsing isn't capped at 5,000.
+ * Search, type/category/account/person filters, and the selected period are
+ * all applied server-side (see fetchTransactionsPage), so a search reaches
+ * the whole history rather than just whatever has been paged in.
  * Deliberately a SEPARATE query from useMyTransactions rather than a
  * replacement for it: budgets, the dashboard, and account-balance math all
  * need the full (still-capped) transaction set for correct sums, and
@@ -107,43 +141,26 @@ export const TRANSACTIONS_PAGE_SIZE = 100
  * TRANSACTIONS_QUERY_LIMIT cap-hit banner on TransactionsPage, which still
  * applies to that full-fetch path exactly as before.
  */
-export function useMyTransactionsPaginated(userId: string | null) {
+export function useMyTransactionsPaginated(userId: string | null, filters: TransactionFilters, range: DateRange) {
   return useInfiniteQuery({
-    queryKey: ['transactions', 'mine-paginated', userId],
+    queryKey: ['transactions', 'mine-paginated', userId, filters, range],
     enabled: !!userId,
     initialPageParam: 0,
-    queryFn: async ({ pageParam }): Promise<Transaction[]> => {
-      const from = pageParam * TRANSACTIONS_PAGE_SIZE
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('owner_user_id', userId!)
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .range(from, from + TRANSACTIONS_PAGE_SIZE - 1)
-      if (error) throw error
-      return data
-    },
+    // Keep the previous results on screen while a new search/filter loads,
+    // instead of flashing the skeleton on every change.
+    placeholderData: keepPreviousData,
+    queryFn: ({ pageParam }) => fetchTransactionsPage({ pageIndex: pageParam, ownerUserId: userId!, filters, range }),
     getNextPageParam: (lastPage, allPages) => (lastPage.length === TRANSACTIONS_PAGE_SIZE ? allPages.length : undefined),
   })
 }
 
 /** Same as useMyTransactionsPaginated, for the "Everyone" (shared) scope. */
-export function useEveryoneTransactionsPaginated() {
+export function useEveryoneTransactionsPaginated(filters: TransactionFilters, range: DateRange) {
   return useInfiniteQuery({
-    queryKey: ['transactions', 'everyone-paginated'],
+    queryKey: ['transactions', 'everyone-paginated', filters, range],
     initialPageParam: 0,
-    queryFn: async ({ pageParam }): Promise<Transaction[]> => {
-      const from = pageParam * TRANSACTIONS_PAGE_SIZE
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .range(from, from + TRANSACTIONS_PAGE_SIZE - 1)
-      if (error) throw error
-      return data
-    },
+    placeholderData: keepPreviousData,
+    queryFn: ({ pageParam }) => fetchTransactionsPage({ pageIndex: pageParam, filters, range }),
     getNextPageParam: (lastPage, allPages) => (lastPage.length === TRANSACTIONS_PAGE_SIZE ? allPages.length : undefined),
   })
 }

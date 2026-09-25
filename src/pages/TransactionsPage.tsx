@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, AlertTriangle, Download } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
@@ -12,6 +12,7 @@ import {
 import { useProfiles } from '@/hooks/useProfiles'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -22,6 +23,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, isWithinRange } from '@/lib/period'
 import { transactionsToCsv, downloadCsv } from '@/lib/csvExport'
 import { todayISO } from '@/lib/format'
+import { EMPTY_TRANSACTION_FILTERS, type TransactionFilters } from '@/lib/transactionSearch'
 
 function TransactionTableSkeleton() {
   return (
@@ -44,6 +46,16 @@ export function TransactionsPage() {
   const { userId } = useAuth()
   const settings = useUserSettings()
   const [scope, setScope] = useState<TransactionScope>('mine')
+  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_TRANSACTION_FILTERS)
+  // The search box updates `filters` on every keystroke; only the debounced
+  // text reaches the server queries below.
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const serverFilters = useMemo(() => ({ ...filters, search: debouncedSearch }), [filters, debouncedSearch])
+
+  // A person filter only exists in the "Everyone" scope -- drop it on the way out.
+  useEffect(() => {
+    if (scope === 'mine') setFilters((f) => (f.ownerId ? { ...f, ownerId: null } : f))
+  }, [scope])
 
   // Two independent data sources on purpose: myTransactions/everyoneTransactions
   // (full fetch, capped at TRANSACTIONS_QUERY_LIMIT) feeds the header
@@ -53,8 +65,6 @@ export function TransactionsPage() {
   // instead of capped -- see useMyTransactionsPaginated's doc comment.
   const myTransactions = useMyTransactions(userId)
   const everyoneTransactions = useEveryoneTransactions()
-  const myTransactionsPaginated = useMyTransactionsPaginated(userId)
-  const everyoneTransactionsPaginated = useEveryoneTransactionsPaginated()
   const profiles = useProfiles()
   const { data: categories = [] } = useCategories()
   const { data: accounts = [] } = useAccounts()
@@ -69,12 +79,26 @@ export function TransactionsPage() {
   // not the table below (which pages past this cap via "Load more").
   const isCapped = source.length === TRANSACTIONS_QUERY_LIMIT
 
+  // Hooks can't be conditional, so both scopes' queries run and the active
+  // one is picked below -- same as the two full-fetch queries above.
+  const myTransactionsPaginated = useMyTransactionsPaginated(userId, serverFilters, range)
+  const everyoneTransactionsPaginated = useEveryoneTransactionsPaginated(serverFilters, range)
   const paginated = scope === 'mine' ? myTransactionsPaginated : everyoneTransactionsPaginated
   const paginatedSource = useMemo(() => paginated.data?.pages.flat() ?? [], [paginated.data])
-  const paginatedInPeriod = useMemo(
-    () => paginatedSource.filter((t) => isWithinRange(t.date, range)),
-    [paginatedSource, range]
-  )
+
+  // Person-filter options come from the (unfiltered) full fetch, so picking
+  // one person doesn't shrink the list of people you can pick from.
+  const peopleOptions = useMemo(() => {
+    if (scope !== 'everyone') return []
+    const names = new Map<string, string>()
+    for (const t of everyoneTransactions.data ?? []) {
+      const name = profiles.data?.[t.owner_user_id]?.displayName ?? profiles.data?.[t.owner_user_id]?.email
+      if (name) names.set(t.owner_user_id, name)
+    }
+    return Array.from(names.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => ({ id, name }))
+  }, [scope, everyoneTransactions.data, profiles.data])
 
   const { formatSigned, formatCompact } = useFormatCurrency()
   // Page-level, so this reflects scope + period like the heading it sits
@@ -153,12 +177,15 @@ export function TransactionsPage() {
         <TransactionTableSkeleton />
       ) : (
         <TransactionTable
-          transactions={paginatedInPeriod}
+          transactions={paginatedSource}
           scope={scope}
           currentUserId={userId ?? ''}
           profiles={profiles.data ?? {}}
           categories={categories}
           accounts={accounts}
+          filters={filters}
+          onFiltersChange={setFilters}
+          peopleOptions={peopleOptions}
           hasMore={paginated.hasNextPage}
           onLoadMore={() => paginated.fetchNextPage()}
           loadingMore={paginated.isFetchingNextPage}

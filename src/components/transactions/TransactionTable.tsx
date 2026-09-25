@@ -15,8 +15,17 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { formatDate } from '@/lib/format'
 import type { TransactionScope } from './ScopeToggle'
+import { hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
+import type { TransactionType } from '@/types/database.types'
 
 const BULK_CATEGORY_PLACEHOLDER = 'Change category…'
+
+const TYPE_LABELS: Record<TransactionType, string> = { income: 'Income', expense: 'Expense', transfer: 'Transfer' }
+const TYPE_FROM_LABEL: Record<string, TransactionType | undefined> = {
+  Income: 'income',
+  Expense: 'expense',
+  Transfer: 'transfer',
+}
 
 interface TransactionTableProps {
   transactions: Transaction[]
@@ -25,10 +34,14 @@ interface TransactionTableProps {
   profiles: ProfileMap
   categories: string[]
   accounts: string[]
-  /** More rows exist beyond what's currently loaded -- shows a "Load more"
-   *  footer below the list. Search/filters above only ever apply to what's
-   *  already loaded, so a search that should match an older, not-yet-loaded
-   *  row won't find it until more is loaded -- documented tradeoff, not a bug. */
+  /** Search + dropdown filters are owned by the page and applied server-side
+   *  (so they reach the whole history, not just what's paged in); this table
+   *  only renders the controls and whatever rows come back. */
+  filters: TransactionFilters
+  onFiltersChange: (filters: TransactionFilters) => void
+  /** Everyone-scope person filter options (id + display name). */
+  peopleOptions: { id: string; name: string }[]
+  /** More pages exist for the current search/filters -- shows a "Load more" footer. */
   hasMore?: boolean
   onLoadMore?: () => void
   loadingMore?: boolean
@@ -41,15 +54,13 @@ export function TransactionTable({
   profiles,
   categories,
   accounts,
+  filters,
+  onFiltersChange,
+  peopleOptions,
   hasMore,
   onLoadMore,
   loadingMore,
 }: TransactionTableProps) {
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('All categories')
-  const [accountFilter, setAccountFilter] = useState('All accounts')
-  const [typeFilter, setTypeFilter] = useState('All types')
-  const [personFilter, setPersonFilter] = useState('Everyone')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const deleteTransaction = useDeleteTransaction()
@@ -66,42 +77,13 @@ export function TransactionTable({
   }
 
   const ALL_PEOPLE = 'Everyone'
-  const peopleOptions = useMemo(() => {
-    if (scope !== 'everyone') return []
-    const names = new Map<string, string>()
-    for (const t of transactions) {
-      const name = profiles[t.owner_user_id]?.displayName ?? profiles[t.owner_user_id]?.email
-      if (name) names.set(t.owner_user_id, name)
-    }
-    return Array.from(names.entries())
-      .sort((a, b) => a[1].localeCompare(b[1]))
-      .map(([id, name]) => ({ id, name }))
-  }, [scope, transactions, profiles])
-  const nameToOwnerId = new Map(peopleOptions.map((p) => [p.name, p.id]))
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const personId = nameToOwnerId.get(personFilter)
-    return transactions.filter((t) => {
-      if (scope === 'everyone' && personFilter !== ALL_PEOPLE && t.owner_user_id !== personId) return false
-      if (typeFilter === 'Income' && t.type !== 'income') return false
-      if (typeFilter === 'Expense' && t.type !== 'expense') return false
-      if (typeFilter === 'Transfer' && t.type !== 'transfer') return false
-      if (categoryFilter !== 'All categories' && t.category !== categoryFilter) return false
-      if (accountFilter !== 'All accounts' && t.account !== accountFilter) return false
-      if (!q) return true
-      return (
-        t.merchant.toLowerCase().includes(q) ||
-        (t.category ?? '').toLowerCase().includes(q) ||
-        t.tags.some((tag) => tag.toLowerCase().includes(q))
-      )
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions, search, categoryFilter, accountFilter, typeFilter, personFilter, scope])
+  const ownerName = peopleOptions.find((p) => p.id === filters.ownerId)?.name
+  const filtersActive = hasActiveFilters(filters)
+  const setFilter = (patch: Partial<TransactionFilters>) => onFiltersChange({ ...filters, ...patch })
 
   // Only the signed-in user's own rows can be bulk-selected -- a shared
   // "Everyone" row from someone else has no edit/delete affordance either.
-  const editableFiltered = useMemo(() => filtered.filter((t) => t.owner_user_id === currentUserId), [filtered, currentUserId])
+  const editableFiltered = useMemo(() => transactions.filter((t) => t.owner_user_id === currentUserId), [transactions, currentUserId])
 
   // Drop any selected id that no longer appears in what's loaded -- e.g.
   // after a bulk action succeeds and those rows are gone, or a delete
@@ -156,36 +138,38 @@ export function TransactionTable({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={filters.search}
+          onChange={(e) => setFilter({ search: e.target.value })}
           placeholder="Search merchant, category, or tag"
           className="min-h-[44px] flex-1 rounded-lg border border-app-border bg-white px-3 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         {scope === 'everyone' && peopleOptions.length > 0 && (
           <Dropdown
             options={[ALL_PEOPLE, ...peopleOptions.map((p) => p.name)]}
-            value={personFilter}
+            value={ownerName ?? ALL_PEOPLE}
             aria-label="Filter by person"
-            onChange={(e) => setPersonFilter(e.target.value)}
+            onChange={(e) =>
+              setFilter({ ownerId: peopleOptions.find((p) => p.name === e.target.value)?.id ?? null })
+            }
           />
         )}
         <Dropdown
           options={['All types', 'Income', 'Expense', 'Transfer']}
-          value={typeFilter}
+          value={filters.type ? TYPE_LABELS[filters.type] : 'All types'}
           aria-label="Filter by type"
-          onChange={(e) => setTypeFilter(e.target.value)}
+          onChange={(e) => setFilter({ type: TYPE_FROM_LABEL[e.target.value] ?? null })}
         />
         <Dropdown
           options={['All categories', ...categories]}
-          value={categoryFilter}
+          value={filters.category ?? 'All categories'}
           aria-label="Filter by category"
-          onChange={(e) => setCategoryFilter(e.target.value)}
+          onChange={(e) => setFilter({ category: e.target.value === 'All categories' ? null : e.target.value })}
         />
         <Dropdown
           options={['All accounts', ...accounts]}
-          value={accountFilter}
+          value={filters.account ?? 'All accounts'}
           aria-label="Filter by account"
-          onChange={(e) => setAccountFilter(e.target.value)}
+          onChange={(e) => setFilter({ account: e.target.value === 'All accounts' ? null : e.target.value })}
         />
       </div>
 
@@ -221,28 +205,14 @@ export function TransactionTable({
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {transactions.length === 0 ? (
         <EmptyState
           icon={Receipt}
           title="No transactions to show"
           description={
-            transactions.length === 0
-              ? 'Add an entry or import a statement to get started.'
-              : hasMore
-                ? "Try a different search or filter, or load more -- what you're searching for might be further back."
-                : 'Try a different search or filter.'
-          }
-          action={
-            hasMore && (
-              <button
-                type="button"
-                onClick={onLoadMore}
-                disabled={loadingMore}
-                className="min-h-[44px] rounded-lg border border-app-border px-4 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-              >
-                {loadingMore ? 'Loading…' : 'Load more'}
-              </button>
-            )
+            filtersActive
+              ? 'Nothing matches that search or filter. Try a different one.'
+              : 'Add an entry or import a statement to get started.'
           }
         />
       ) : (
@@ -294,7 +264,7 @@ export function TransactionTable({
             </div>
           )}
           <ul className={scope === 'everyone' ? 'md:min-w-[972px]' : 'md:min-w-[928px]'}>
-            {filtered.map((t) => {
+            {transactions.map((t) => {
               const owner = profiles[t.owner_user_id]
               const editable = t.owner_user_id === currentUserId
               const amountClassName =
