@@ -642,3 +642,23 @@ alter table public.user_settings alter column theme_accent set default 'oxblood'
 alter table public.user_settings drop constraint if exists user_settings_theme_accent_check;
 alter table public.user_settings add constraint user_settings_theme_accent_check
   check (theme_accent in ('violet','ocean','sunset','pink','green','sage','mauve','plum','crimson','charcoal','oxblood','custom'));
+
+-- Exact (case-insensitive) email lookup, used by Settings -> Sharing now that
+-- profiles are no longer readable as a directory (see profiles_select_own_or_connected
+-- in policies.sql). Exact match only, so it can't be used to enumerate users.
+create or replace function public.find_profile_by_email(p_email text)
+returns table (id uuid, display_name text, email text, avatar text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id, p.display_name, p.email, p.avatar
+  from public.profiles p
+  where auth.uid() is not null
+    and lower(p.email) = lower(trim(p_email))
+    and p.id <> auth.uid()
+  limit 1;
+$$;
+revoke execute on function public.find_profile_by_email(text) from public, anon;
+grant execute on function public.find_profile_by_email(text) to authenticated;

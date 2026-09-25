@@ -385,6 +385,10 @@ export interface Database {
         Args: { recurring_item_id: string; paid_on: string }
         Returns: undefined
       }
+      find_profile_by_email: {
+        Args: { p_email: string }
+        Returns: { id: string; display_name: string; email: string; avatar: string | null }[]
+      }
     }
   }
 }

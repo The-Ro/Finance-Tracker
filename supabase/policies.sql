@@ -15,12 +15,25 @@ alter table public.rules enable row level security;
 alter table public.user_settings enable row level security;
 alter table public.viewer_access enable row level security;
 
--- ---- profiles: everyone (any signed-in user) can read every profile so
--- ---- "owner" display names can be shown on shared transactions; only the
--- ---- owner can create/update their own row.
+-- ---- profiles: readable only for your own row, anyone you share a
+-- ---- viewer_access row with (either direction, any status -- so shared
+-- ---- transactions and incoming/outgoing requests can show names), and the
+-- ---- admin. This used to be readable by every signed-in user (a full user
+-- ---- directory); finding someone new now goes through find_profile_by_email
+-- ---- (schema.sql), an exact-email lookup. Only the owner can create/update
+-- ---- their own row.
 drop policy if exists profiles_select_all on public.profiles;
-create policy profiles_select_all on public.profiles for select
-  using (auth.role() = 'authenticated');
+drop policy if exists profiles_select_own_or_connected on public.profiles;
+create policy profiles_select_own_or_connected on public.profiles for select
+  using (
+    auth.uid() = id
+    or (auth.jwt() ->> 'email') = 'rohith24112@gmail.com'
+    or exists (
+      select 1 from public.viewer_access va
+      where (va.requester_user_id = auth.uid() and va.owner_user_id = profiles.id)
+         or (va.owner_user_id = auth.uid() and va.requester_user_id = profiles.id)
+    )
+  );
 
 drop policy if exists profiles_insert_self on public.profiles;
 create policy profiles_insert_self on public.profiles for insert

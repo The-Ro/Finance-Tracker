@@ -51,6 +51,29 @@ export function useRequestedAccessRows() {
 
 const DUPLICATE_CODE = '23505'
 
+export interface FoundProfile {
+  id: string
+  label: string
+  email: string
+  avatar: string | null
+}
+
+/**
+ * Exact-email lookup (find_profile_by_email RPC) -- the only way to find
+ * someone you're not already connected to, since profiles are no longer
+ * readable as a directory. Resolves to null when nobody has that exact email.
+ */
+export function useFindProfileByEmail() {
+  return useMutation({
+    mutationFn: async (email: string): Promise<FoundProfile | null> => {
+      const { data, error } = await supabase.rpc('find_profile_by_email', { p_email: email })
+      if (error) throw error
+      const row = data?.[0]
+      return row ? { id: row.id, label: row.display_name || row.email, email: row.email, avatar: row.avatar } : null
+    },
+  })
+}
+
 export function useSendAccessRequest() {
   const { userId } = useAuth()
   const queryClient = useQueryClient()

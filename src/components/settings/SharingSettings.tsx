@@ -1,21 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Eye, EyeOff, Search, Send, UserMinus, X } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Avatar } from '@/components/ui/Avatar'
-import { useAuth } from '@/context/AuthContext'
 import { useProfiles } from '@/hooks/useProfiles'
 import {
   useOwnedAccessRows,
   useRequestedAccessRows,
   useSendAccessRequest,
+  useFindProfileByEmail,
   useRemoveAccessRow,
   useToggleAccessPause,
+  type FoundProfile,
 } from '@/hooks/useSharing'
 
 export function SharingSettings() {
-  const { userId } = useAuth()
   const profiles = useProfiles()
   const owned = useOwnedAccessRows()
   const requested = useRequestedAccessRows()
@@ -23,8 +23,11 @@ export function SharingSettings() {
   const remove = useRemoveAccessRow()
   const togglePause = useToggleAccessPause()
 
-  const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const findProfile = useFindProfileByEmail()
+
+  const [email, setEmail] = useState('')
+  const [found, setFound] = useState<FoundProfile | null>(null)
+  const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const profileMap = profiles.data ?? {}
@@ -38,28 +41,37 @@ export function SharingSettings() {
   const outgoing = requested.data ?? []
   const requestedIds = new Set(outgoing.map((r) => r.owner_user_id))
 
-  const requestableEntries = Object.entries(profileMap)
-    .filter(([id]) => id !== userId && !requestedIds.has(id))
-    .map(([id, p]) => ({ id, label: p.displayName || p.email, email: p.email, avatar: p.avatar }))
-    .sort((a, b) => a.label.localeCompare(b.label))
+  const clearFound = () => {
+    setFound(null)
+    setNotFound(false)
+    setEmail('')
+  }
 
-  const matches = useMemo(() => {
-    const trimmed = query.trim().toLowerCase()
-    if (!trimmed || selectedId) return []
-    return requestableEntries
-      .filter((e) => e.label.toLowerCase().includes(trimmed) || e.email.toLowerCase().includes(trimmed))
-      .slice(0, 8)
-  }, [query, selectedId, requestableEntries])
-
-  const selected = selectedId ? requestableEntries.find((e) => e.id === selectedId) : undefined
+  // Profiles aren't a readable directory anymore, so a new person can only be
+  // found by typing their exact email (find_profile_by_email RPC).
+  const handleFind = async () => {
+    setError(null)
+    setNotFound(false)
+    const trimmed = email.trim()
+    if (!trimmed) return
+    try {
+      const result = await findProfile.mutateAsync(trimmed)
+      if (!result) return setNotFound(true)
+      if (requestedIds.has(result.id)) {
+        return setError("You've already requested (or have) access to this person's transactions.")
+      }
+      setFound(result)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not look that person up.')
+    }
+  }
 
   const handleSend = async () => {
     setError(null)
-    if (!selectedId) return setError('Search for a person by name or email, then select them.')
+    if (!found) return setError("Enter the person's email address and find them first.")
     try {
-      await sendRequest.mutateAsync(selectedId)
-      setSelectedId(null)
-      setQuery('')
+      await sendRequest.mutateAsync(found.id)
+      clearFound()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send the request.')
     }
@@ -121,24 +133,21 @@ export function SharingSettings() {
         <div>
           <h3 className="text-sm font-semibold text-slate-800">Request to view someone's transactions</h3>
           <p className="mt-1 text-helper text-slate-500">
-            Search by name or email. They'll need to approve it before you can see anything.
+            Enter their email address. They'll need to approve it before you can see anything.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-          <div className="relative flex-1">
-            {selected ? (
+          <div className="flex-1">
+            {found ? (
               <div className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-accent bg-accent-light px-3">
                 <div className="flex min-w-0 items-center gap-2">
-                  <Avatar avatar={selected.avatar} name={selected.label} size={22} />
-                  <span className="truncate text-sm font-medium text-accent-on-light">{selected.label}</span>
+                  <Avatar avatar={found.avatar} name={found.label} size={22} />
+                  <span className="truncate text-sm font-medium text-accent-on-light">{found.label}</span>
                 </div>
                 <button
                   type="button"
                   aria-label="Clear selection"
-                  onClick={() => {
-                    setSelectedId(null)
-                    setQuery('')
-                  }}
+                  onClick={clearFound}
                   className="shrink-0 rounded-full p-1 text-accent-on-light hover:bg-accent/20"
                 >
                   <X size={14} />
@@ -148,42 +157,41 @@ export function SharingSettings() {
               <div className="relative">
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search by name or email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setNotFound(false)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleFind()
+                    }
+                  }}
+                  placeholder="their.email@example.com"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="min-h-[44px] w-full rounded-lg border border-app-border bg-white pl-9 pr-3 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </div>
             )}
-            {matches.length > 0 && (
-              <ul className="animate-scale-in absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-auto rounded-lg border border-app-border bg-white py-1 shadow-card">
-                {matches.map((m) => (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedId(m.id)
-                        setQuery(m.label)
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent-light hover:text-accent-on-light"
-                    >
-                      <Avatar avatar={m.avatar} name={m.label} size={22} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-slate-800">{m.label}</span>
-                        {m.email !== m.label && <span className="block truncate text-helper text-slate-400">{m.email}</span>}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {query.trim() && !selected && matches.length === 0 && (
-              <p className="mt-1 text-helper text-slate-400">No matching users.</p>
+            {notFound && !found && (
+              <p className="mt-1 text-helper text-slate-400">
+                No LedgeEaze account with that exact email. Check the spelling, or ask them to sign up first.
+              </p>
             )}
           </div>
-          <Button onClick={handleSend} disabled={sendRequest.isPending || !selectedId}>
-            <Send size={14} /> {sendRequest.isPending ? 'Sending…' : 'Send request'}
-          </Button>
+          {found ? (
+            <Button onClick={handleSend} disabled={sendRequest.isPending}>
+              <Send size={14} /> {sendRequest.isPending ? 'Sending…' : 'Send request'}
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={handleFind} disabled={findProfile.isPending || !email.trim()}>
+              <Search size={14} /> {findProfile.isPending ? 'Finding…' : 'Find'}
+            </Button>
+          )}
         </div>
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
 
