@@ -145,6 +145,7 @@ export interface Database {
           category: string
           monthly_limit: number
           active: boolean
+          rollover: boolean
           created_at: string
         }
         Insert: {
@@ -153,8 +154,9 @@ export interface Database {
           category: string
           monthly_limit: number
           active?: boolean
+          rollover?: boolean
         }
-        Update: Partial<{ category: string; monthly_limit: number; active: boolean }>
+        Update: Partial<{ category: string; monthly_limit: number; active: boolean; rollover: boolean }>
       }
       goals: {
         Row: {

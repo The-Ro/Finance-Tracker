@@ -139,6 +139,8 @@ begin
   if found then raise exception 'FAIL: QA15 updated another user''s transaction'; end if;
   delete from public.transactions where owner_user_id <> me;
   if found then raise exception 'FAIL: QA15 deleted another user''s transaction'; end if;
+  update public.budgets set rollover = true where owner_user_id <> me;
+  if found then raise exception 'FAIL: QA15 changed another user''s budget rollover'; end if;
 
   -- Integrity constraints.
   begin

@@ -18,6 +18,12 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
+        // Long-press the installed icon for these.
+        shortcuts: [
+          { name: 'Add entry', short_name: 'Add', url: '/?add=entry', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+          { name: 'Bills', url: '/bills', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+          { name: 'Monthly review', short_name: 'Review', url: '/review', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+        ],
         scope: '/',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

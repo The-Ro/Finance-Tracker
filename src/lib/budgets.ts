@@ -40,3 +40,14 @@ export function priorMonthResult(
   if (budgetCreatedAt.slice(0, 10) > lastMonth.end) return null
   return { difference: monthlyLimit - spentLastMonth }
 }
+
+/**
+ * This month's limit for a budget, optionally including last month's unspent
+ * amount (opt-in per budget via `rollover`). Only a positive leftover carries
+ * over -- overspending never shrinks next month. Last month is measured
+ * against the budget's current limit, since limit edit history isn't stored.
+ */
+export function effectiveLimit(monthlyLimit: number, rollover: boolean, lastMonth: PriorMonthResult | null): number {
+  if (!rollover || !lastMonth || lastMonth.difference <= 0) return monthlyLimit
+  return monthlyLimit + lastMonth.difference
+}

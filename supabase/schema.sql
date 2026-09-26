@@ -759,3 +759,6 @@ alter table public.transactions add constraint transactions_original_currency_ch
 alter table public.transactions drop constraint if exists transactions_transfer_distinct_accounts;
 alter table public.transactions add constraint transactions_transfer_distinct_accounts
   check (type <> 'transfer' or (to_account is not null and account <> to_account));
+
+-- Budget rollover (opt-in): carry last month's unspent amount into this month.
+alter table public.budgets add column if not exists rollover boolean not null default false;

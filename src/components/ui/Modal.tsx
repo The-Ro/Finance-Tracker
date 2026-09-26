@@ -129,7 +129,7 @@ export function Modal({
   // subtree entirely, so it's never nested inside that (or any future)
   // transformed ancestor again.
   return createPortal(
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4">
       <div
         ref={dialogRef}
         role="dialog"
@@ -137,10 +137,13 @@ export function Modal({
         aria-labelledby="modal-title"
         tabIndex={-1}
         className={clsx(
-          'animate-scale-in flex max-h-[90vh] w-full flex-col rounded-card bg-white shadow-card outline-none',
+          // Phones: a bottom sheet that slides up (easier to reach one-handed);
+          // sm and up: the centered card it always was.
+          'animate-sheet-up flex max-h-[92vh] w-full flex-col rounded-t-3xl bg-white pb-[env(safe-area-inset-bottom)] shadow-card outline-none sm:animate-scale-in sm:max-h-[90vh] sm:rounded-card sm:pb-0',
           maxWidthClassName
         )}
       >
+        <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />
         <div className="flex items-center justify-between border-b border-app-border px-5 py-4">
           <h2 id="modal-title" className="text-base font-semibold text-slate-900">
             {title}

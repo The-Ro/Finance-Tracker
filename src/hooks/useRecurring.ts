@@ -10,7 +10,7 @@ import type { Database, RecurringKind } from '@/types/database.types'
 
 export type RecurringItem = Database['public']['Tables']['recurring_items']['Row']
 
-function useRecurringItemsRaw() {
+export function useRecurringItemsRaw() {
   const { userId } = useAuth()
   return useQuery({
     queryKey: ['recurring_items', userId],

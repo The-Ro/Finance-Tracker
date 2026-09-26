@@ -9,6 +9,11 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // Self-hosted via @fontsource (imported in main.tsx), so they work offline in the PWA.
+      fontFamily: {
+        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+      },
       colors: {
         app: {
           bg: withOpacity('--app-bg'),

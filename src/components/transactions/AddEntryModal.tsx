@@ -487,12 +487,36 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
-              <label className="text-helper font-medium text-slate-600">Category</label>
-              <Dropdown
-                options={categoryOptions}
-                value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              />
+              <span id="entry-category-label" className="text-helper font-medium text-slate-600">
+                Category
+              </span>
+              {/* Chips rather than a dropdown: one tap, and every option (custom ones
+                  included -- categoryOptions is the full list) is visible at once. */}
+              <div
+                role="group"
+                aria-labelledby="entry-category-label"
+                className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto"
+              >
+                {categoryOptions.map((option) => {
+                  const selected = form.category === option
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setForm((f) => ({ ...f, category: option }))}
+                      className={
+                        'min-h-[36px] rounded-full border px-3 text-helper font-medium transition-colors active:scale-95 ' +
+                        (selected
+                          ? 'border-accent bg-accent-light text-accent-on-light'
+                          : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark')
+                      }
+                    >
+                      {option}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { PiggyBank } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useBudgets, type Budget } from '@/hooks/useBudgets'
+import { applyRollover, useBudgets, type Budget } from '@/hooks/useBudgets'
 import { useMyTransactions } from '@/hooks/useTransactions'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -47,7 +47,7 @@ function BudgetsSkeleton() {
 export function BudgetsPage() {
   const { userId } = useAuth()
   const { format } = useFormatCurrency()
-  const { data: budgets = [], remove, isLoading } = useBudgets()
+  const { data: rawBudgets = [], remove, isLoading } = useBudgets()
   const myTransactions = useMyTransactions(userId)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Budget | null>(null)
@@ -61,6 +61,8 @@ export function BudgetsPage() {
     () => spendByCategory(myTransactions.data ?? [], lastMonthRange),
     [myTransactions.data, lastMonthRange]
   )
+
+  const budgets = useMemo(() => applyRollover(rawBudgets, myTransactions.data ?? []), [rawBudgets, myTransactions.data])
 
   const totalLimit = budgets.reduce((sum, b) => sum + b.monthly_limit, 0)
   const totalSpent = budgets.reduce((sum, b) => sum + (spentByCategory.get(b.category) ?? 0), 0)
@@ -109,13 +111,13 @@ export function BudgetsPage() {
                 budget={b}
                 spent={spentByCategory.get(b.category) ?? 0}
                 lastMonth={priorMonthResult(
-                  b.monthly_limit,
+                  b.baseLimit,
                   b.created_at,
                   spentLastMonthByCategory.get(b.category) ?? 0,
                   lastMonthRange
                 )}
                 onEdit={() => {
-                  setEditing(b)
+                  setEditing({ ...b, monthly_limit: b.baseLimit })
                   setModalOpen(true)
                 }}
                 onDelete={() => remove.mutate(b.id)}

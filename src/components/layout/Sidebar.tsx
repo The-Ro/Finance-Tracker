@@ -3,13 +3,13 @@ import { NavLink, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { NAV_ITEMS } from './navItems'
-import { WalletMark } from '@/components/ui/BrandHeader'
+import { BrandMark } from '@/components/ui/BrandHeader'
 
 /**
  * Floating brand/nav toggle, shown at every viewport size (not just desktop)
  * -- fixed positioning means it never scrolls away with page content, and it
  * stays reachable even when the window is narrow/short, alongside BottomNav
- * on small screens. Resting (closed) it's the same WalletMark used on the
+ * on small screens. Resting (closed) it's the same BrandMark used on the
  * auth pages (plus the wordmark at sm+) sitting directly on the page, at
  * the same size as on login -- no colored bubble or pulsing animation
  * behind it. Open, it becomes a plain close (X) button.
@@ -58,7 +58,7 @@ export function Sidebar() {
           <X size={18} />
         ) : (
           <>
-            <WalletMark />
+            <BrandMark />
             <span className="hidden whitespace-nowrap font-serif text-sm font-semibold text-slate-900 sm:inline">
               Ledge<span className="text-accent-dark">Eaze</span>
             </span>

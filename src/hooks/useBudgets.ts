@@ -4,10 +4,28 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { useMyTransactions } from '@/hooks/useTransactions'
 import { resolvePeriod } from '@/lib/period'
-import { spendByCategory } from '@/lib/budgets'
+import { effectiveLimit, priorMonthResult, spendByCategory } from '@/lib/budgets'
 import type { Database } from '@/types/database.types'
 
 export type Budget = Database['public']['Tables']['budgets']['Row']
+
+/** A budget with this month's effective limit in monthly_limit (base limit
+ *  plus any rolled-over leftover), and what that base limit and carry were. */
+export type EffectiveBudget = Budget & { baseLimit: number; carried: number }
+
+/** Applies opt-in rollover to every budget -- see effectiveLimit in lib/budgets. */
+export function applyRollover(
+  budgets: Budget[],
+  transactions: { type: string; category: string | null; date: string; amount: number }[]
+): EffectiveBudget[] {
+  const lastMonth = resolvePeriod('last-month')
+  const spentLastMonth = spendByCategory(transactions, lastMonth)
+  return budgets.map((b) => {
+    const prior = priorMonthResult(b.monthly_limit, b.created_at, spentLastMonth.get(b.category) ?? 0, lastMonth)
+    const limit = effectiveLimit(b.monthly_limit, b.rollover, prior)
+    return { ...b, monthly_limit: limit, baseLimit: b.monthly_limit, carried: limit - b.monthly_limit }
+  })
+}
 
 export function useBudgets() {
   const { userId } = useAuth()
@@ -30,11 +48,12 @@ export function useBudgets() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['budgets', userId] })
 
   const create = useMutation({
-    mutationFn: async (input: { category: string; monthlyLimit: number }) => {
+    mutationFn: async (input: { category: string; monthlyLimit: number; rollover: boolean }) => {
       const { error } = await supabase.from('budgets').insert({
         owner_user_id: userId!,
         category: input.category,
         monthly_limit: input.monthlyLimit,
+        rollover: input.rollover,
       })
       if (error) throw error
     },
@@ -42,7 +61,13 @@ export function useBudgets() {
   })
 
   const update = useMutation({
-    mutationFn: async (input: { id: string; category?: string; monthlyLimit?: number; active?: boolean }) => {
+    mutationFn: async (input: {
+      id: string
+      category?: string
+      monthlyLimit?: number
+      active?: boolean
+      rollover?: boolean
+    }) => {
       const { id, monthlyLimit, ...rest } = input
       const { error } = await supabase
         .from('budgets')
@@ -65,7 +90,7 @@ export function useBudgets() {
 }
 
 export interface BudgetAlert {
-  budget: Budget
+  budget: EffectiveBudget
   spent: number
   percent: number
   status: 'approaching' | 'over'
@@ -81,7 +106,7 @@ export function useBudgetAlerts() {
     const spentByCategory = spendByCategory(myTransactions.data ?? [], resolvePeriod('this-month'))
 
     const alerts: BudgetAlert[] = []
-    for (const budget of budgets) {
+    for (const budget of applyRollover(budgets, myTransactions.data ?? [])) {
       if (!budget.active || budget.monthly_limit <= 0) continue
       const spent = spentByCategory.get(budget.category) ?? 0
       const percent = (spent / budget.monthly_limit) * 100

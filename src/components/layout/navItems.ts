@@ -7,6 +7,8 @@ import {
   Target,
   FileText,
   SlidersHorizontal,
+  CalendarDays,
+  ChartPie,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -24,13 +26,15 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/recurring', label: 'Recurring', icon: Repeat },
   { to: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { to: '/budgets', label: 'Budgets', icon: PiggyBank },
+  { to: '/bills', label: 'Bills', icon: CalendarDays },
+  { to: '/review', label: 'Monthly review', icon: ChartPie },
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/rules', label: 'Rules', icon: SlidersHorizontal },
 ]
 
-// Trimmed to 5 for the mobile bottom nav -- Goals, Documents, and Rules stay
+// Trimmed to 5 for the mobile bottom nav -- Goals, Documents, Rules, Bills and Review stay
 // one tap away in the Sidebar menu instead.
 export const BOTTOM_NAV_ITEMS: NavItem[] = NAV_ITEMS.filter(
-  (item) => !['/goals', '/documents', '/rules'].includes(item.to)
+  (item) => !['/goals', '/documents', '/rules', '/bills', '/review'].includes(item.to)
 )

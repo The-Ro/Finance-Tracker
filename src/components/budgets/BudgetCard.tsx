@@ -1,16 +1,16 @@
 import { Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import type { Budget } from '@/hooks/useBudgets'
+import type { EffectiveBudget } from '@/hooks/useBudgets'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import type { PriorMonthResult } from '@/lib/budgets'
 
 interface BudgetCardProps {
-  budget: Budget
+  budget: EffectiveBudget
   spent: number
-  /** Informational only -- never changes this month's limit. Null when the
-   *  budget didn't exist last month. */
+  /** Last month against the base limit. Null when the budget didn't exist
+   *  last month. Only changes this month's limit when rollover is on. */
   lastMonth: PriorMonthResult | null
   onEdit: () => void
   onDelete: () => void
@@ -56,6 +56,9 @@ export function BudgetCard({ budget, spent, lastMonth, onEdit, onDelete }: Budge
           ? `${format(Math.abs(animatedRemaining))} over budget`
           : `${format(animatedRemaining)} remaining`}
       </p>
+      {budget.carried > 0 && (
+        <p className="text-helper tabular-nums text-positive">Includes {format(budget.carried)} rolled over from last month</p>
+      )}
       {lastMonth && (
         <p className="border-t border-app-border pt-2 text-helper tabular-nums text-slate-400">
           Last month:{' '}

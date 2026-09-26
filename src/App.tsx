@@ -22,6 +22,8 @@ const TransactionsPage = lazy(() => import('@/pages/TransactionsPage').then((m) 
 const RecurringPage = lazy(() => import('@/pages/RecurringPage').then((m) => ({ default: m.RecurringPage })))
 const SubscriptionsPage = lazy(() => import('@/pages/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
 const BudgetsPage = lazy(() => import('@/pages/BudgetsPage').then((m) => ({ default: m.BudgetsPage })))
+const BillsPage = lazy(() => import('@/pages/BillsPage').then((m) => ({ default: m.BillsPage })))
+const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
 const GoalsPage = lazy(() => import('@/pages/GoalsPage').then((m) => ({ default: m.GoalsPage })))
 const DocumentsPage = lazy(() => import('@/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 const RulesPage = lazy(() => import('@/pages/RulesPage').then((m) => ({ default: m.RulesPage })))
@@ -77,6 +79,8 @@ export default function App() {
                       <Route path="/recurring" element={<RecurringPage />} />
                       <Route path="/subscriptions" element={<SubscriptionsPage />} />
                       <Route path="/budgets" element={<BudgetsPage />} />
+                      <Route path="/bills" element={<BillsPage />} />
+                      <Route path="/review" element={<ReviewPage />} />
                       <Route path="/goals" element={<GoalsPage />} />
                       <Route path="/documents" element={<DocumentsPage />} />
                       <Route path="/rules" element={<RulesPage />} />

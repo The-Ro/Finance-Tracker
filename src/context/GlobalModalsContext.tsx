@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { AddEntryModal } from '@/components/transactions/AddEntryModal'
 import { CsvImportModal } from '@/components/transactions/CsvImportModal'
 import type { Transaction } from '@/hooks/useTransactions'
@@ -15,6 +15,16 @@ export function GlobalModalsProvider({ children }: { children: ReactNode }) {
   const [addEntryOpen, setAddEntryOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+
+  // Home-screen shortcut (vite.config.ts manifest.shortcuts): /?add=entry opens
+  // Add entry straight away, then drops the param so a reload doesn't reopen it.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('add') !== 'entry') return
+    setAddEntryOpen(true)
+    url.searchParams.delete('add')
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+  }, [])
 
   const closeEntryModal = () => {
     setAddEntryOpen(false)

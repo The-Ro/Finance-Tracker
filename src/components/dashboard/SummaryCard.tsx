@@ -33,7 +33,7 @@ export function SummaryCard({ label, value, numericValue, format, valueClassName
       >
         {label}
       </span>
-      <span className={clsx('font-mono text-2xl font-semibold tabular-nums text-slate-900', valueClassName)}>
+      <span className={clsx('font-serif text-2xl font-semibold tabular-nums text-slate-900', valueClassName)}>
         {displayValue}
       </span>
       <div

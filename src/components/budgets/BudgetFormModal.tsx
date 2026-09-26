@@ -20,6 +20,7 @@ export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps
   const { create, update } = useBudgets()
   const [category, setCategory] = useState(editing?.category ?? '')
   const [limit, setLimit] = useState(editing ? String(editing.monthly_limit) : '')
+  const [rollover, setRollover] = useState(editing?.rollover ?? false)
   const [error, setError] = useState<string | null>(null)
 
   // BudgetFormModal stays mounted across opens (BudgetsPage just toggles
@@ -31,6 +32,7 @@ export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps
     if (!open) return
     setCategory(editing?.category ?? '')
     setLimit(editing ? String(editing.monthly_limit) : '')
+    setRollover(editing?.rollover ?? false)
     setError(null)
   }, [open, editing])
 
@@ -46,9 +48,9 @@ export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps
 
     try {
       if (editing) {
-        await update.mutateAsync({ id: editing.id, category, monthlyLimit: limitNum })
+        await update.mutateAsync({ id: editing.id, category, monthlyLimit: limitNum, rollover })
       } else {
-        await create.mutateAsync({ category, monthlyLimit: limitNum })
+        await create.mutateAsync({ category, monthlyLimit: limitNum, rollover })
       }
       onClose()
     } catch (e) {
@@ -80,6 +82,20 @@ export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps
           <Dropdown options={categories} value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
         <TextField label="Monthly limit" type="number" step="0.01" min="0" value={limit} onChange={(e) => setLimit(e.target.value)} />
+        <label className="flex items-start gap-3 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={rollover}
+            onChange={(e) => setRollover(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[rgb(var(--accent))]"
+          />
+          <span>
+            Roll over what's left
+            <span className="block text-helper text-slate-500">
+              Unspent money from last month is added to this month's limit. Overspending is never carried.
+            </span>
+          </span>
+        </label>
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
