@@ -753,3 +753,9 @@ alter table public.transactions add constraint transactions_original_currency_ch
     and fx_rate > 0
   )
 );
+
+-- A transfer must also have a destination: the earlier distinct-accounts check
+-- passed for a NULL to_account (a CHECK treats NULL as passing).
+alter table public.transactions drop constraint if exists transactions_transfer_distinct_accounts;
+alter table public.transactions add constraint transactions_transfer_distinct_accounts
+  check (type <> 'transfer' or (to_account is not null and account <> to_account));
