@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
-import { ADMIN_EMAIL } from '@/lib/admin'
+import { useIsAdmin } from '@/lib/admin'
 import type { Database } from '@/types/database.types'
 
 export type FeedbackRow = Database['public']['Tables']['feedback']['Row']
@@ -19,13 +19,12 @@ export function useSendFeedback() {
   })
 }
 
-/** Every submission, for the admin inbox -- feedback_select_admin (RLS)
- *  is what actually restricts this to the one hardcoded admin; the email
- *  check here just avoids firing the query for everyone else, who'd get
- *  their own feedback back (via feedback_select_own) rather than an error. */
+/** Every submission, for the admin inbox -- feedback_select_admin (RLS, via
+ *  is_admin()) is what actually restricts this to admins; the check here just
+ *  avoids firing the query for everyone else, who'd get their own feedback
+ *  back (via feedback_select_own) rather than an error. */
 export function useAdminFeedbackInbox() {
-  const { email } = useAuth()
-  const isAdmin = email === ADMIN_EMAIL
+  const isAdmin = useIsAdmin()
 
   return useQuery({
     queryKey: ['feedback', 'admin-inbox'],

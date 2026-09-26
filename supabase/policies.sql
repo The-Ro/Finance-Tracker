@@ -27,7 +27,7 @@ drop policy if exists profiles_select_own_or_connected on public.profiles;
 create policy profiles_select_own_or_connected on public.profiles for select
   using (
     auth.uid() = id
-    or (auth.jwt() ->> 'email') = 'rohith24112@gmail.com'
+    or public.is_admin()
     or exists (
       select 1 from public.viewer_access va
       where (va.requester_user_id = auth.uid() and va.owner_user_id = profiles.id)
@@ -213,11 +213,11 @@ create policy feedback_insert_own on public.feedback for insert
 -- mark_feedback_reply_seen() RPC (schema.sql) instead.
 drop policy if exists feedback_select_admin on public.feedback;
 create policy feedback_select_admin on public.feedback for select
-  using (auth.jwt() ->> 'email' = 'rohith24112@gmail.com');
+  using (public.is_admin());
 drop policy if exists feedback_update_admin_reply on public.feedback;
 create policy feedback_update_admin_reply on public.feedback for update
-  using (auth.jwt() ->> 'email' = 'rohith24112@gmail.com')
-  with check (auth.jwt() ->> 'email' = 'rohith24112@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- client_errors: insert-only, no select policy for anyone -- diagnostic data
 -- for whoever runs the project (read via the Supabase dashboard/service

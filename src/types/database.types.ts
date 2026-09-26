@@ -385,6 +385,10 @@ export interface Database {
         Args: { recurring_item_id: string; paid_on: string }
         Returns: undefined
       }
+      is_admin: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
       set_account_opening_balance: {
         Args: { p_account: string; p_amount: number }
         Returns: undefined

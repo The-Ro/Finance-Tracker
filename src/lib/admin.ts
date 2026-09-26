@@ -1,7 +1,25 @@
-// Single hardcoded admin -- this app has exactly one operator, so an email
-// check is simpler and safer than introducing a role/permissions system for
-// one person. Mirrored server-side in supabase/policies.sql's
-// feedback_select_admin / feedback_update_admin_reply policies -- this
-// constant controls what the UI shows, RLS controls what's actually
-// enforced, and the two must be kept in sync by hand.
-export const ADMIN_EMAIL = 'rohith24112@gmail.com'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/context/AuthContext'
+
+/**
+ * Whether the signed-in user is an admin, from the is_admin() RPC (backed by
+ * the admin_users table). This only decides what the UI shows -- the RLS
+ * policies call the same is_admin() and are what actually enforce access.
+ * Admins are granted/revoked only from the SQL editor (see schema.sql);
+ * there's intentionally no UI for it.
+ */
+export function useIsAdmin(): boolean {
+  const { userId } = useAuth()
+  const { data } = useQuery({
+    queryKey: ['is-admin', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase.rpc('is_admin')
+      if (error) throw error
+      return data === true
+    },
+  })
+  return data === true
+}

@@ -77,7 +77,7 @@ function ReplyComposer({ item }: { item: FeedbackRow }) {
   )
 }
 
-/** Admin-only (gated by the caller checking email against ADMIN_EMAIL) --
+/** Admin-only (gated by the caller via useIsAdmin) --
  *  every user's feedback submission, newest first, with an inline reply
  *  composer. Lives in the notification bell dropdown alongside everyone
  *  else's own notifications. */

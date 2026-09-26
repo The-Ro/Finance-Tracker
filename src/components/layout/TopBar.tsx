@@ -8,7 +8,7 @@ import { useOwnedAccessRows } from '@/hooks/useSharing'
 import { useBudgetAlerts } from '@/hooks/useBudgets'
 import { useAdminFeedbackInbox, useMyFeedbackReplies } from '@/hooks/useFeedback'
 import { useOverdueRecurringItems } from '@/hooks/useRecurring'
-import { ADMIN_EMAIL } from '@/lib/admin'
+import { useIsAdmin } from '@/lib/admin'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { IncomingAccessRequests } from '@/components/settings/IncomingAccessRequests'
@@ -27,7 +27,7 @@ export function TopBar() {
   const pendingCount = (owned.data ?? []).filter((r) => r.status === 'pending').length
   const budgetAlerts = useBudgetAlerts()
   const overBudgetCount = budgetAlerts.filter((a) => a.status === 'over').length
-  const isAdmin = email === ADMIN_EMAIL
+  const isAdmin = useIsAdmin()
   const adminInbox = useAdminFeedbackInbox()
   const unrepliedCount = isAdmin ? (adminInbox.data ?? []).filter((f) => !f.admin_reply).length : 0
   const myReplies = useMyFeedbackReplies()
