@@ -1,17 +1,19 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.1.0'
+export const APP_VERSION = '1.2.0'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-09-10'
+export const CURRENT_WHATS_NEW_VERSION = '2026-09-26'
 
 export const WHATS_NEW_ITEMS: string[] = [
-  'Overdue recurring bills and subscriptions now show up in the notification bell, with one-tap "mark as paid".',
-  'Marking something paid logs a real expense transaction and updates your account balance, instead of just moving the due date.',
-  "A heads-up when an account can't currently cover an upcoming bill, right on the item.",
-  'Recurring/subscription category pickers now show only relevant categories — plus any category you added yourself.',
-  'Fixed account deletion failing for anyone who had added their own custom account, category, or tag.',
-  "Fixed a timezone bug that could log a transaction, or flag something overdue, a day off from your actual local date.",
-  'Credit/debit totals now shown next to the Transactions page title.',
-  'Cash flow chart: click Income or Spending in the legend to isolate it.',
-  'New app icon.',
+  'Log expenses and income in another currency: it's converted to yours using that day's exchange rate, which you can adjust.',
+  'Set a starting balance for each account (Settings → Financial setup) so balances match your real accounts.',
+  'Transactions search and filters now cover your whole history, with "Load more" instead of a 5,000-row limit.',
+  'Select several transactions at once to change their category or delete them.',
+  'Export your transactions to CSV.',
+  'New "Duplicates" check finds entries that look like the same purchase logged twice.',
+  'Budgets now show how you did last month.',
+  'Works offline: you'll see your last-saved data when there's no connection.',
+  'Rules match messy bank merchant names (like "UBER *TRIP 8812345") more reliably.',
+  'Sharing now finds people by their exact email address, so your name and email aren't visible to everyone.',
+  '"Save anyway" for two genuinely different purchases that look identical.',
 ]
