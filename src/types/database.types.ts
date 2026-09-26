@@ -68,7 +68,7 @@ export interface Database {
         Update: never
       }
       accounts: {
-        Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string }
+        Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string; opening_balance: number }
         Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
       }
@@ -383,6 +383,10 @@ export interface Database {
     Functions: {
       mark_recurring_item_paid: {
         Args: { recurring_item_id: string; paid_on: string }
+        Returns: undefined
+      }
+      set_account_opening_balance: {
+        Args: { p_account: string; p_amount: number }
         Returns: undefined
       }
       find_profile_by_email: {

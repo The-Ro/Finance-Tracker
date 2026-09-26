@@ -673,3 +673,33 @@ revoke execute on function public.mark_feedback_reply_seen(uuid) from public, an
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.handle_user_email_update() from public, anon, authenticated;
 revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+
+-- Per-account starting balance, added to the transaction-derived balance
+-- (calculateAccountBalances). accounts deliberately has no UPDATE policy --
+-- a broad one would allow renames that orphan transactions' account
+-- references -- so this narrow RPC is the only way to change it.
+alter table public.accounts add column if not exists opening_balance numeric(12,2) not null default 0;
+
+create or replace function public.set_account_opening_balance(p_account text, p_amount numeric)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if p_amount is null or abs(p_amount) >= 10000000000 then
+    raise exception 'Invalid amount';
+  end if;
+  update public.accounts
+     set opening_balance = round(p_amount, 2)
+   where owner_user_id = auth.uid() and name = p_account;
+  if not found then
+    raise exception 'Account not found';
+  end if;
+end;
+$$;
+revoke execute on function public.set_account_opening_balance(text, numeric) from public, anon;
+grant execute on function public.set_account_opening_balance(text, numeric) to authenticated;

@@ -11,4 +11,16 @@ describe('calculateAccountBalances', () => {
 
     expect(Object.fromEntries(balances)).toEqual({ Salary: 1_200, Savings: 500 })
   })
+
+  it('starts from opening balances, including accounts with no transactions', () => {
+    const balances = calculateAccountBalances(
+      [{ type: 'expense', account: 'Cash', to_account: null, amount: 30 }],
+      new Map([
+        ['Cash', 100],
+        ['Wallet', 50],
+        ['Unused', 0],
+      ])
+    )
+    expect(Object.fromEntries(balances)).toEqual({ Cash: 70, Wallet: 50 })
+  })
 })

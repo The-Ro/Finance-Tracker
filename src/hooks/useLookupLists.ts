@@ -52,6 +52,41 @@ function useLookupList(table: 'accounts' | 'tags') {
 }
 
 export const useAccounts = () => useLookupList('accounts')
+
+/**
+ * Each account's opening balance (accounts.opening_balance). Keyed under
+ * ['accounts', userId] so the existing add/remove invalidation refreshes it too.
+ */
+export function useAccountOpeningBalances() {
+  const { userId } = useAuth()
+  return useQuery({
+    queryKey: ['accounts', userId, 'opening-balances'],
+    enabled: !!userId,
+    queryFn: async (): Promise<Map<string, number>> => {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('name, opening_balance')
+        .eq('owner_user_id', userId!)
+      if (error) throw error
+      return new Map(data.map((r) => [r.name, Number(r.opening_balance)]))
+    },
+    staleTime: 30_000,
+  })
+}
+
+/** Sets one of the caller's own accounts' opening balance (narrow RPC -- there's
+ *  no UPDATE policy on accounts, so names can't be changed from the client). */
+export function useSetAccountOpeningBalance() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ account, amount }: { account: string; amount: number }) => {
+      const { error } = await supabase.rpc('set_account_opening_balance', { p_account: account, p_amount: amount })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
+  })
+}
 export const useTags = () => useLookupList('tags')
 
 interface CategoryRow {

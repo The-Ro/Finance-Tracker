@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { NetWorthForm } from '@/components/settings/NetWorthForm'
+import { StartingBalances } from '@/components/settings/StartingBalances'
 import { ManagedListEditor } from '@/components/settings/ManagedListEditor'
 import { DetectionSettings } from '@/components/settings/DetectionSettings'
 import { DangerZone } from '@/components/settings/DangerZone'
@@ -71,9 +72,12 @@ export function SettingsPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <SectionHeading title="Financial setup" description="Net worth, plus your personal categories and accounts." />
+        <SectionHeading title="Financial setup" description="Net worth, starting balances, and your personal categories and accounts." />
         <div id="net-worth" className="scroll-mt-24">
           <NetWorthForm />
+        </div>
+        <div id="starting-balances" className="scroll-mt-24">
+          <StartingBalances />
         </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ManagedListEditor

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { buildFingerprint } from '@/lib/fingerprint'
 import { applyRules, type SimpleRule } from '@/lib/rules'
 import { calculateAccountBalances } from '@/lib/accountBalances'
+import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
 import { buildSearchOrFilter, type TransactionFilters } from '@/lib/transactionSearch'
 import type { DateRange } from '@/lib/period'
 import type { Database, PaymentMethod, TransactionType } from '@/types/database.types'
@@ -408,16 +409,18 @@ export function useBulkImportTransactions() {
 }
 
 /**
- * Each account's balance purely as derived from the owner's own transaction
- * history (income adds, expense subtracts, a transfer moves it from `account`
- * to `to_account`). There's no separate "opening balance" concept in this
- * app, so this is only as accurate as the transactions actually logged --
- * good enough for a live "does this transfer overdraw the account" hint,
- * not a ground-truth statement about the real-world account.
+ * Each account's balance: its opening balance (Settings -> Starting balances)
+ * plus the owner's own transaction history (income adds, expense subtracts, a
+ * transfer moves it from `account` to `to_account`). Only as accurate as
+ * what's been entered -- not a ground-truth statement about the real account.
  */
 export function useAccountBalances(userId: string | null): Map<string, number> {
   const { data: transactions } = useMyTransactions(userId)
-  return useMemo(() => calculateAccountBalances(transactions ?? []), [transactions])
+  const { data: openingBalances } = useAccountOpeningBalances()
+  return useMemo(
+    () => calculateAccountBalances(transactions ?? [], openingBalances),
+    [transactions, openingBalances]
+  )
 }
 
 const RECENT_ACCOUNTS_LIMIT = 4

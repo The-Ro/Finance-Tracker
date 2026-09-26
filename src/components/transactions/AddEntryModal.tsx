@@ -84,11 +84,11 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
 
   const amountNum = Number(form.amount)
 
-  // Live "does this overdraw the account" hint for transfers. Derived purely
-  // from logged transaction history (there's no opening-balance concept in
-  // this app), so if we're editing an existing transfer out of this same
-  // account, its own old amount has to be added back first -- otherwise the
-  // balance already reflects this transfer having happened, double-counting it.
+  // Live "does this overdraw the account" hint for transfers. Derived from the
+  // account's opening balance plus logged transaction history, so if we're
+  // editing an existing transfer out of this same account, its own old amount
+  // has to be added back first -- otherwise the balance already reflects this
+  // transfer having happened, double-counting it.
   const fromAccountBalance = useMemo(() => {
     let balance = accountBalances.get(form.account) ?? 0
     if (transaction?.type === 'transfer' && transaction.account === form.account) {
