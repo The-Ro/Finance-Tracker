@@ -21,6 +21,8 @@ npm run deploy   # check, then wrangler deploy — deploy dist/ to Cloudflare Wo
 
 Standard workflow after a batch of changes: `npm run check` (or at minimum `npx tsc -b`) → commit → push → `npm run deploy`. `.github/workflows/ci.yml` runs `npm run check` on every push/PR to `main` as a validation gate — but it only checks, it doesn't deploy; deployment is still a manual `npm run deploy` from someone's machine.
 
+**Security regression tests:** `supabase/tests/security_regression.sql` re-asserts every access rule (no anon EXECUTE on SECURITY DEFINER functions, RLS on every public table, `admin_users` unreachable, profiles/transactions/feedback/private tables scoped correctly for QA15, admin sees all via `is_admin()`, a spoofed admin-email claim grants nothing, anon reads nothing, the transfer/FX CHECK constraints). It impersonates roles inside one transaction and **rolls back**, raising on the first failure — run the whole file via the SQL editor or `execute_sql` after any migration touching RLS, grants or functions; expect a single `ALL SECURITY CHECKS PASSED` row. It isn't in CI (CI has no database credentials).
+
 ## Database
 
 - `supabase/schema.sql` — hand-maintained, **append-only** DDL. Represents what a fresh install would run top to bottom. When schema drifts from a migration (see Postgres gotcha below), append a correcting `alter table` block rather than editing the original `create table` in place.
