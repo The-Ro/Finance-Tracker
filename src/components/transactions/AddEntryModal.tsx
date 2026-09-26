@@ -422,11 +422,20 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
               )}
             </div>
             {isForeign && (
-              <p className={clsx('text-helper', rateStatus.state === 'error' ? 'text-caution' : 'text-slate-500')}>
-                {rateStatus.state === 'error'
-                  ? "Couldn't look up a rate. Type the one you were charged."
-                  : Number.isFinite(homeAmount) && homeAmount > 0
-                    ? `Saved as ${format(homeAmount)}${rateStatus.asOf ? ` (ECB rate for ${formatDate(rateStatus.asOf)}, editable)` : ''}`
+              <p
+                className={clsx(
+                  'text-helper',
+                  rateStatus.state === 'error' && !(homeAmount > 0) ? 'text-caution' : 'text-slate-500'
+                )}
+              >
+                {Number.isFinite(homeAmount) && homeAmount > 0
+                  ? `Saved as ${format(homeAmount)}${
+                      rateStatus.state !== 'error' && rateStatus.asOf
+                        ? ` (ECB rate for ${formatDate(rateStatus.asOf)}, editable)`
+                        : ''
+                    }`
+                  : rateStatus.state === 'error'
+                    ? "Couldn't look up a rate. Type the one you were charged."
                     : rateStatus.state === 'loading'
                       ? 'Looking up the exchange rate…'
                       : 'Enter the amount and rate to see the converted value.'}

@@ -26,8 +26,8 @@ export function AccountBalances() {
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-slate-800">Account balances</h3>
         <p className="text-helper text-slate-500">
-          Derived from your logged transactions -- not a live bank balance, and doesn't know
-          about money already in an account before you started tracking it here.
+          Each account's starting balance (set in Settings) plus your logged transactions -- not a
+          live bank balance.
         </p>
       </div>
       {rows.length === 0 ? (
