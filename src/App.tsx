@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/context/ThemeContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { Toaster } from '@/components/ui/Toaster'
 import { UpdateBanner } from '@/components/layout/UpdateBanner'
+import { QueryPersistence } from '@/components/layout/QueryPersistence'
 import { ProtectedRoute, PublicOnlyRoute } from '@/routes/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 
@@ -39,6 +40,9 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: true,
       retry: 1,
+      // Kept for a day (not the 5-minute default) so pages visited earlier in
+      // the session are still in the cache QueryPersistence saves for offline.
+      gcTime: 24 * 60 * 60 * 1000,
     },
   },
 })
@@ -47,6 +51,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <QueryPersistence />
         <ThemeProvider>
           <ToastProvider>
             <Toaster />
