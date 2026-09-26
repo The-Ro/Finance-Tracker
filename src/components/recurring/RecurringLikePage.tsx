@@ -67,7 +67,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
       />
 
       <Card className="flex items-center gap-3 border-accent/20 bg-accent-light p-4">
-        <Repeat size={18} className="shrink-0 text-accent" />
+        <Repeat size={18} className="shrink-0 text-accent-on-light" />
         <p className="text-sm text-slate-700">
           Active detection is scanning your own expense transactions for {kind === 'subscription' ? 'subscriptions' : 'recurring payments'}. Estimated commitment:{' '}
           <span className="font-semibold text-accent-on-light">{format(totals.monthly)}/mo</span> ({format(totals.annual)}/yr)

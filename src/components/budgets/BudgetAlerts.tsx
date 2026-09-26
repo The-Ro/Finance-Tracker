@@ -37,7 +37,7 @@ export function BudgetAlerts() {
           </li>
         ))}
       </ul>
-      <Link to="/budgets" className="text-helper font-medium text-accent hover:underline">
+      <Link to="/budgets" className="text-helper font-medium text-accent-dark hover:underline">
         View budgets
       </Link>
     </Card>

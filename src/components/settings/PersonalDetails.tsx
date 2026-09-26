@@ -115,7 +115,7 @@ export function PersonalDetails() {
 
         <div className="col-span-2 flex flex-col gap-1.5">
           <label className="flex items-center gap-1.5 text-helper font-medium text-slate-600">
-            <Sparkles size={13} className="text-accent" /> Horoscope
+            <Sparkles size={13} className="text-accent-dark" /> Horoscope
           </label>
           <div className="flex flex-wrap gap-1.5">
             {ZODIAC_SIGNS.map((z) => (

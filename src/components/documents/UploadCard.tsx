@@ -25,7 +25,7 @@ export function UploadCard() {
 
   return (
     <Card className="flex flex-col items-center gap-3 border-dashed p-8 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-light text-accent">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-light text-accent-on-light">
         <Upload size={22} />
       </div>
       <div>

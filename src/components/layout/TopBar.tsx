@@ -56,7 +56,7 @@ export function TopBar() {
   }, [notifOpen])
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-end border-b border-app-border bg-white/95 px-4 pt-[var(--safe-top)] backdrop-blur md:px-8">
+    <header className="sticky top-0 z-20 flex min-h-[calc(76px+var(--safe-top))] items-center justify-end border-b border-app-border bg-white/95 px-4 pt-[var(--safe-top)] backdrop-blur md:px-8">
 
       <div className="flex items-center gap-2">
         <Button variant="secondary" onClick={openImport} className="px-3 sm:px-4">
@@ -91,7 +91,7 @@ export function TopBar() {
               // Fixed + viewport-relative insets on mobile so a 320px-wide panel anchored
               // to this small button doesn't blow past the left edge of a narrow screen;
               // sm+ has room to anchor it normally under the bell instead.
-              className="animate-scale-in fixed inset-x-4 top-[76px] z-30 flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[80vh] sm:w-96"
+              className="animate-scale-in fixed inset-x-4 top-[calc(76px+var(--safe-top))] z-30 flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[80vh] sm:w-96"
             >
               <div className="flex items-center justify-between border-b border-app-border pb-2">
                 <h2 className="text-sm font-semibold text-slate-800">Notifications</h2>
@@ -122,7 +122,7 @@ export function TopBar() {
               <NavLink
                 to="/settings"
                 onClick={() => setNotifOpen(false)}
-                className="block text-center text-helper font-medium text-accent hover:underline"
+                className="block text-center text-helper font-medium text-accent-dark hover:underline"
               >
                 Manage sharing in Settings
               </NavLink>

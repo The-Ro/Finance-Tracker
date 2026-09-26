@@ -17,7 +17,7 @@ export function BottomNav() {
           className={({ isActive }) =>
             clsx(
               'flex min-w-[76px] flex-1 flex-col items-center gap-1 px-2 py-2.5 text-[11px] font-medium',
-              isActive ? 'text-accent' : 'text-slate-500'
+              isActive ? 'text-accent-dark' : 'text-slate-500'
             )
           }
         >

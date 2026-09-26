@@ -30,7 +30,7 @@ export function TagManager() {
   return (
     <Card className="flex flex-col gap-4 p-5">
       <div className="flex items-center gap-2">
-        <Tags size={16} className="text-accent" />
+        <Tags size={16} className="text-accent-dark" />
         <h3 className="text-sm font-semibold text-slate-800">Tags</h3>
       </div>
 

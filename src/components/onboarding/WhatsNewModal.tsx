@@ -40,7 +40,7 @@ export function WhatsNewModal({ open: openProp, onClose: onCloseProp }: WhatsNew
         <ul className="flex flex-col gap-2.5">
           {WHATS_NEW_ITEMS.map((item) => (
             <li key={item} className="flex items-start gap-2 text-sm text-slate-700">
-              <Sparkles size={15} className="mt-0.5 shrink-0 text-accent" />
+              <Sparkles size={15} className="mt-0.5 shrink-0 text-accent-dark" />
               <span>{item}</span>
             </li>
           ))}

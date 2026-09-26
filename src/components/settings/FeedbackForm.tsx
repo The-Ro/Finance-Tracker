@@ -26,7 +26,7 @@ export function FeedbackForm() {
   return (
     <Card className="flex flex-col gap-3 p-5">
       <div className="flex items-center gap-2">
-        <MessageSquare size={16} className="text-accent" />
+        <MessageSquare size={16} className="text-accent-dark" />
         <h3 className="text-sm font-semibold text-slate-800">Feedback</h3>
       </div>
       <p className="text-helper text-slate-500">Found a bug, or want something added? Tell us here.</p>

@@ -133,7 +133,7 @@ export function AvatarPicker() {
           disabled={busy}
           aria-label="Upload your own photo"
           title="Upload your own photo"
-          className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-app-border text-slate-500 transition-transform hover:scale-110 hover:border-accent hover:text-accent active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+          className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-app-border text-slate-500 transition-transform hover:scale-110 hover:border-accent hover:text-accent-dark active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
         >
           {upload.isPending ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />

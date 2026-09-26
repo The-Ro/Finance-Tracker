@@ -72,7 +72,7 @@ export function OverdueRecurringAlerts() {
                 <Link
                   to={item.kind === 'subscription' ? '/subscriptions' : '/recurring'}
                   title="Add an account to this item (Edit) before marking it paid"
-                  className="text-helper font-medium text-accent hover:underline"
+                  className="text-helper font-medium text-accent-dark hover:underline"
                 >
                   Add account
                 </Link>

@@ -41,7 +41,7 @@ function ReplyComposer({ item }: { item: FeedbackRow }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-1.5 text-helper font-medium text-accent hover:underline"
+        className="mt-1.5 text-helper font-medium text-accent-dark hover:underline"
       >
         Reply
       </button>
@@ -68,7 +68,7 @@ function ReplyComposer({ item }: { item: FeedbackRow }) {
           type="button"
           onClick={handleSend}
           disabled={sendReply.isPending || !draft.trim()}
-          className="text-helper font-medium text-accent hover:underline disabled:opacity-50 disabled:hover:no-underline"
+          className="text-helper font-medium text-accent-dark hover:underline disabled:opacity-50 disabled:hover:no-underline"
         >
           {sendReply.isPending ? 'Sending…' : 'Send'}
         </button>

@@ -167,14 +167,14 @@ export function DashboardPage() {
           settings.data?.netWorthConfigured ? (
             <>
               Assets minus liabilities ·{' '}
-              <Link to="/settings#net-worth" className="font-medium text-accent hover:underline">
+              <Link to="/settings#net-worth" className="font-medium text-accent-dark hover:underline">
                 Edit
               </Link>
             </>
           ) : (
             <>
               Add your assets and liabilities in{' '}
-              <Link to="/settings#net-worth" className="font-medium text-accent hover:underline">
+              <Link to="/settings#net-worth" className="font-medium text-accent-dark hover:underline">
                 Settings
               </Link>
               .
@@ -263,7 +263,7 @@ export function DashboardPage() {
     ),
     review: (
       <Card className="flex items-center gap-3 p-4">
-        <AlertCircle size={18} className="shrink-0 text-accent" />
+        <AlertCircle size={18} className="shrink-0 text-accent-dark" />
         <p className="text-sm text-slate-600">
           {needsReviewCount === 0
             ? 'Nothing needs review right now.'

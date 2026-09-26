@@ -337,7 +337,7 @@ export function TransactionTable({
                               title="View receipt"
                               onClick={() => handleViewReceipt(t.receipt_document_id!)}
                               disabled={viewReceipt.isPending}
-                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent disabled:opacity-50"
+                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
                             >
                               <Receipt size={13} />
                             </button>
@@ -406,7 +406,7 @@ export function TransactionTable({
                               title="View receipt"
                               onClick={() => handleViewReceipt(t.receipt_document_id!)}
                               disabled={viewReceipt.isPending}
-                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent disabled:opacity-50"
+                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
                             >
                               <Receipt size={13} />
                             </button>

@@ -26,7 +26,7 @@ export function ComingUpCard({ items }: ComingUpCardProps) {
           title="Nothing confirmed yet"
           description="Recurring payments and subscriptions you confirm will show up here."
           action={
-            <Link to="/recurring" className="text-helper font-medium text-accent hover:underline">
+            <Link to="/recurring" className="text-helper font-medium text-accent-dark hover:underline">
               Go to Recurring
             </Link>
           }
