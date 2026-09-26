@@ -23,6 +23,9 @@ function txn(overrides: Partial<Transaction> = {}): Transaction {
     source: 'manual',
     fingerprint: `fp-${n}`,
     created_at: `2026-09-10T00:00:0${n % 10}Z`,
+    original_currency: null,
+    original_amount: null,
+    fx_rate: null,
     ...overrides,
   }
 }

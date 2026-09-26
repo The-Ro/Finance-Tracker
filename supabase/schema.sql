@@ -733,3 +733,23 @@ as $$
 $$;
 revoke execute on function public.is_admin() from public, anon;
 grant execute on function public.is_admin() to authenticated;
+
+-- Multi-currency entry. `amount` stays in the owner's home currency, so every
+-- sum/budget/balance is unchanged; a foreign-currency entry also records what
+-- was actually paid and the rate used, fixed at entry time (no background
+-- re-conversion -- there's no cron). All three set, or all three null: the
+-- explicit IS NOT NULLs matter, because a CHECK treats NULL as passing and
+-- the first version of this constraint accepted a currency with no amount.
+alter table public.transactions add column if not exists original_currency text;
+alter table public.transactions add column if not exists original_amount numeric(14,2);
+alter table public.transactions add column if not exists fx_rate numeric(18,8);
+alter table public.transactions drop constraint if exists transactions_original_currency_check;
+alter table public.transactions add constraint transactions_original_currency_check check (
+  (original_currency is null and original_amount is null and fx_rate is null)
+  or (
+    original_currency is not null and original_amount is not null and fx_rate is not null
+    and original_currency ~ '^[A-Z]{3}$'
+    and original_amount > 0
+    and fx_rate > 0
+  )
+);

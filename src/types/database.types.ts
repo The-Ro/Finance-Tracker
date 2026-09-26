@@ -96,6 +96,9 @@ export interface Database {
           source: TransactionSource
           fingerprint: string
           created_at: string
+          original_currency: string | null
+          original_amount: number | null
+          fx_rate: number | null
         }
         Insert: {
           id?: string
@@ -114,6 +117,9 @@ export interface Database {
           receipt_document_id?: string | null
           source?: TransactionSource
           fingerprint: string
+          original_currency?: string | null
+          original_amount?: number | null
+          fx_rate?: number | null
         }
         Update: Partial<{
           category: string | null
@@ -127,6 +133,9 @@ export interface Database {
           merchant: string
           tags: string[]
           fingerprint: string
+          original_currency: string | null
+          original_amount: number | null
+          fx_rate: number | null
         }>
       }
       budgets: {

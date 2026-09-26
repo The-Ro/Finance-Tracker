@@ -25,6 +25,21 @@ export interface NewTransactionInput {
   tags: string[]
   receipt: boolean
   receiptDocumentId?: string | null
+  /** Set together for a foreign-currency entry (see src/lib/fx.ts); `amount`
+   *  is then the home-currency conversion. Omit/null for home currency. */
+  foreign?: ForeignAmount | null
+}
+
+export interface ForeignAmount {
+  currency: string
+  amount: number
+  rate: number
+}
+
+function foreignColumns(foreign: ForeignAmount | null | undefined) {
+  return foreign
+    ? { original_currency: foreign.currency, original_amount: foreign.amount, fx_rate: foreign.rate }
+    : { original_currency: null, original_amount: null, fx_rate: null }
 }
 
 const DUPLICATE_CODE = '23505'
@@ -208,6 +223,7 @@ export function useAddTransaction() {
         receipt_document_id: input.receiptDocumentId ?? null,
         source: 'manual',
         fingerprint,
+        ...foreignColumns(input.foreign),
       })
 
       if (error) {
@@ -233,6 +249,7 @@ export interface UpdateTransactionInput {
   remarks?: string | null
   paymentMethod?: PaymentMethod | null
   tags: string[]
+  foreign?: ForeignAmount | null
 }
 
 export function useUpdateTransaction() {
@@ -263,6 +280,7 @@ export function useUpdateTransaction() {
           payment_method: input.paymentMethod ?? null,
           tags: input.tags,
           fingerprint,
+          ...foreignColumns(input.foreign),
         })
         .eq('id', input.id)
 

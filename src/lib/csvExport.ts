@@ -26,6 +26,10 @@ export interface CsvExportRow {
   'Payment method': string
   Remarks: string
   Tags: string
+  /** Blank unless the transaction was entered in a foreign currency. */
+  'Original amount': number | ''
+  'Original currency': string
+  'Exchange rate': number | ''
   Owner?: string
 }
 
@@ -55,6 +59,9 @@ export function transactionsToCsvRows(
       'Payment method': sanitizeCsvField(t.payment_method ?? ''),
       Remarks: sanitizeCsvField(t.remarks ?? ''),
       Tags: sanitizeCsvField(t.tags.join('; ')),
+      'Original amount': t.original_amount ?? '',
+      'Original currency': t.original_currency ?? '',
+      'Exchange rate': t.fx_rate ?? '',
     }
     if (ownerName) row.Owner = sanitizeCsvField(ownerName(t.owner_user_id))
     return row

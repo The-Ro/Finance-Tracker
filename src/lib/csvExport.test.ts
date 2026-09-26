@@ -21,6 +21,9 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     source: 'manual',
     fingerprint: '2026-09-13|trader joe\'s|42.50|cash',
     created_at: '2026-09-13T00:00:00Z',
+    original_currency: null,
+    original_amount: null,
+    fx_rate: null,
     ...overrides,
   }
 }
@@ -40,6 +43,9 @@ describe('transactionsToCsvRows', () => {
         'Payment method': '',
         Remarks: '',
         Tags: 'weekly; staples',
+        'Original amount': '',
+        'Original currency': '',
+        'Exchange rate': '',
       },
     ])
   })
@@ -83,6 +89,9 @@ describe('transactionsToCsvRows', () => {
       'Payment method': '',
       Remarks: "'+1+1",
       Tags: '\'\tSHELL("rm -rf /")',
+      'Original amount': '',
+      'Original currency': '',
+      'Exchange rate': '',
       Owner: '\'=cmd|\'/c calc\'!A1',
     })
   })
@@ -94,11 +103,22 @@ describe('transactionsToCsvRows', () => {
   })
 })
 
+describe('foreign-currency columns', () => {
+  it('fills original amount, currency and rate for a foreign entry', () => {
+    const [row] = transactionsToCsvRows([
+      makeTransaction({ amount: 2197.51, original_amount: 20, original_currency: 'EUR', fx_rate: 109.8755 }),
+    ])
+    expect(row).toMatchObject({ Amount: 2197.51, 'Original amount': 20, 'Original currency': 'EUR', 'Exchange rate': 109.8755 })
+  })
+})
+
 describe('transactionsToCsv', () => {
   it('produces a header row plus one data row per transaction', () => {
     const csv = transactionsToCsv([makeTransaction(), makeTransaction({ id: 't2', merchant: 'Cafe' })])
     const lines = csv.trim().split('\r\n')
     expect(lines).toHaveLength(3)
-    expect(lines[0]).toBe('Date,Merchant,Type,Category,Account,To account,Amount,Payment method,Remarks,Tags')
+    expect(lines[0]).toBe(
+      'Date,Merchant,Type,Category,Account,To account,Amount,Payment method,Remarks,Tags,Original amount,Original currency,Exchange rate'
+    )
   })
 })

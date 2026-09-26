@@ -19,7 +19,9 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { useRules } from '@/hooks/useRules'
 import { useAuth } from '@/context/AuthContext'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
-import { todayISO } from '@/lib/format'
+import { formatDate, todayISO } from '@/lib/format'
+import { SUPPORTED_CURRENCIES } from '@/lib/currency'
+import { convertToHome, fetchFxRate } from '@/lib/fx'
 import type { PaymentMethod, TransactionType } from '@/types/database.types'
 
 const PAYMENT_METHODS: PaymentMethod[] = [
@@ -46,7 +48,12 @@ const EMPTY_STATE = {
   tags: [] as string[],
   hasReceipt: false,
   file: null as File | null,
+  /** '' = the user's home currency. */
+  currency: '',
+  fxRate: '',
 }
+
+const CURRENCY_CODES = SUPPORTED_CURRENCIES.map((c) => c.code)
 
 export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
@@ -69,7 +76,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   const { data: accounts = [] } = useAccounts()
   const recentAccounts = useRecentAccounts(userId)
   const accountBalances = useAccountBalances(userId)
-  const { format } = useFormatCurrency()
+  const { format, currency: homeCurrency } = useFormatCurrency()
   const { data: rules = [] } = useRules()
   const addTransaction = useAddTransaction()
   const updateTransaction = useUpdateTransaction()
@@ -83,6 +90,37 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   const fromAccountOptions = isTransfer ? accounts.filter((a) => a !== form.toAccount) : accounts
 
   const amountNum = Number(form.amount)
+
+  // Foreign-currency entry (expense/income only): the typed amount is in
+  // form.currency and gets converted to the home currency at the rate below,
+  // fixed at entry time -- see src/lib/fx.ts.
+  const isForeign = !isTransfer && !!form.currency && form.currency !== homeCurrency
+  const rateNum = Number(form.fxRate)
+  const homeAmount = isForeign ? convertToHome(amountNum, rateNum) : amountNum
+  const [rateStatus, setRateStatus] = useState<{ state: 'idle' | 'loading' | 'error'; asOf?: string }>({ state: 'idle' })
+  // Set when prefilling an existing foreign entry, so opening it for edit keeps
+  // its stored rate instead of silently re-fetching one.
+  const keepStoredRate = useRef(false)
+
+  useEffect(() => {
+    if (!open || !isForeign || !form.date) return
+    if (keepStoredRate.current) {
+      keepStoredRate.current = false
+      return
+    }
+    const controller = new AbortController()
+    setRateStatus({ state: 'loading' })
+    fetchFxRate(form.currency, homeCurrency, form.date, controller.signal)
+      .then(({ rate, date }) => {
+        setForm((f) => ({ ...f, fxRate: String(rate) }))
+        setRateStatus({ state: 'idle', asOf: date })
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return
+        setRateStatus({ state: 'error' })
+      })
+    return () => controller.abort()
+  }, [open, isForeign, form.currency, form.date, homeCurrency])
 
   // Live "does this overdraw the account" hint for transfers. Derived from the
   // account's opening balance plus logged transaction history, so if we're
@@ -162,12 +200,17 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         tags: transaction.tags,
         hasReceipt: transaction.receipt,
         file: null,
+        currency: transaction.original_currency ?? '',
+        fxRate: transaction.fx_rate != null ? String(transaction.fx_rate) : '',
+        ...(transaction.original_amount != null ? { amount: String(transaction.original_amount) } : {}),
       })
+      keepStoredRate.current = transaction.original_currency != null
     } else {
       setForm({ ...EMPTY_STATE, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
     }
     setError(null)
     setDuplicatePending(false)
+    setRateStatus({ state: 'idle' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, transaction])
 
@@ -219,6 +262,12 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
     if (isTransfer && !form.toAccount) return fail('Choose an account to transfer to.', 'toAccount')
     if (isTransfer && form.toAccount === form.account) return fail('Choose a different account to transfer to.', 'toAccount')
     if (!isEditing && form.hasReceipt && !form.file) return fail('Choose a receipt file, or uncheck the receipt box.', 'file')
+    if (isForeign && (!Number.isFinite(rateNum) || rateNum <= 0)) {
+      return fail(`Enter the exchange rate from ${form.currency} to ${homeCurrency}.`, 'fxRate')
+    }
+    if (isForeign && homeAmount <= 0) return fail('That converts to less than 0.01. Check the amount and rate.', 'amount')
+
+    const foreign = isForeign ? { currency: form.currency, amount: amountNum, rate: rateNum } : null
 
     const category = isTransfer ? null : form.category
     const toAccount = isTransfer ? form.toAccount : null
@@ -229,7 +278,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         await updateTransaction.mutateAsync({
           id: transaction.id,
           type: form.type,
-          amount: amountNum,
+          amount: homeAmount,
           merchant: form.merchant,
           date: form.date,
           category,
@@ -238,6 +287,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           remarks: form.remarks,
           paymentMethod,
           tags: form.tags,
+          foreign,
           allowDuplicate: opts?.allowDuplicate,
         })
       } else {
@@ -249,7 +299,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
 
         await addTransaction.mutateAsync({
           type: form.type,
-          amount: amountNum,
+          amount: homeAmount,
           merchant: form.merchant,
           date: form.date,
           category,
@@ -261,6 +311,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
           receipt: form.hasReceipt,
           receiptDocumentId,
           rules: rules.map((r) => ({ whenText: r.when_text, thenText: r.then_text, enabled: r.enabled })),
+          foreign,
           allowDuplicate: opts?.allowDuplicate,
         })
       }
@@ -309,7 +360,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
             <button
               key={t}
               type="button"
-              onClick={() => setForm((f) => ({ ...f, type: t }))}
+              onClick={() => setForm((f) => ({ ...f, type: t, ...(t === 'transfer' ? { currency: '', fxRate: '' } : {}) }))}
               className={clsx(
                 'flex-1 rounded-md py-2 text-sm font-medium capitalize transition-colors',
                 form.type === t ? 'bg-accent text-white' : 'text-slate-500 hover:bg-slate-50'
@@ -323,7 +374,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
         <div className="grid grid-cols-2 gap-3">
           <div key={shakeKey('amount')} className={shakeClass('amount')}>
             <TextField
-              label="Amount"
+              label={isForeign ? `Amount (${form.currency})` : 'Amount'}
               type="number"
               min="0.01"
               step="0.01"
@@ -341,6 +392,48 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
             />
           </div>
         </div>
+
+        {!isTransfer && (
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-helper font-medium text-slate-600">Currency</label>
+                <Dropdown
+                  options={CURRENCY_CODES}
+                  value={form.currency || homeCurrency}
+                  aria-label="Currency"
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, currency: e.target.value === homeCurrency ? '' : e.target.value, fxRate: '' }))
+                  }
+                />
+              </div>
+              {isForeign && (
+                <div key={shakeKey('fxRate')} className={shakeClass('fxRate')}>
+                  <TextField
+                    label={`1 ${form.currency} = ? ${homeCurrency}`}
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder={rateStatus.state === 'loading' ? 'Looking up…' : 'Rate'}
+                    value={form.fxRate}
+                    onChange={(e) => setForm((f) => ({ ...f, fxRate: e.target.value }))}
+                  />
+                </div>
+              )}
+            </div>
+            {isForeign && (
+              <p className={clsx('text-helper', rateStatus.state === 'error' ? 'text-caution' : 'text-slate-500')}>
+                {rateStatus.state === 'error'
+                  ? "Couldn't look up a rate. Type the one you were charged."
+                  : Number.isFinite(homeAmount) && homeAmount > 0
+                    ? `Saved as ${format(homeAmount)}${rateStatus.asOf ? ` (ECB rate for ${formatDate(rateStatus.asOf)}, editable)` : ''}`
+                    : rateStatus.state === 'loading'
+                      ? 'Looking up the exchange rate…'
+                      : 'Enter the amount and rate to see the converted value.'}
+              </p>
+            )}
+          </div>
+        )}
 
         <div key={shakeKey('merchant')} className={shakeClass('merchant')}>
           <TextField

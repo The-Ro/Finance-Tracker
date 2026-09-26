@@ -14,6 +14,7 @@ import type { ProfileMap } from '@/hooks/useProfiles'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { formatDate } from '@/lib/format'
+import { formatCurrencyAs } from '@/lib/currency'
 import type { TransactionScope } from './ScopeToggle'
 import { hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import type { TransactionType } from '@/types/database.types'
@@ -316,7 +317,11 @@ export function TransactionTable({
                       </div>
                       <div className="text-right">
                         <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
-                        <div className="text-helper text-slate-400">{amountLabel}</div>
+                        <div className="text-helper text-slate-400">
+                          {t.original_currency && t.original_amount != null
+                            ? `${formatCurrencyAs(t.original_amount, t.original_currency)} · ${amountLabel}`
+                            : amountLabel}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -435,7 +440,11 @@ export function TransactionTable({
                     </div>
                     <div className="text-right">
                       <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
-                      <div className="text-helper text-slate-400">{amountLabel}</div>
+                      <div className="text-helper text-slate-400">
+                          {t.original_currency && t.original_amount != null
+                            ? `${formatCurrencyAs(t.original_amount, t.original_currency)} · ${amountLabel}`
+                            : amountLabel}
+                        </div>
                     </div>
                     <div className="flex justify-end">{editButton}</div>
                     <div className="flex justify-end">{deleteButton}</div>
