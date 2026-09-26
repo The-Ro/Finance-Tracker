@@ -11,7 +11,8 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { BudgetCard } from '@/components/budgets/BudgetCard'
 import { BudgetFormModal } from '@/components/budgets/BudgetFormModal'
-import { resolvePeriod, isWithinRange } from '@/lib/period'
+import { resolvePeriod } from '@/lib/period'
+import { priorMonthResult, spendByCategory } from '@/lib/budgets'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 
 function BudgetsSkeleton() {
@@ -51,15 +52,15 @@ export function BudgetsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Budget | null>(null)
 
-  const thisMonthRange = resolvePeriod('this-month')
-  const spentByCategory = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const t of myTransactions.data ?? []) {
-      if (t.type !== 'expense' || !isWithinRange(t.date, thisMonthRange)) continue
-      map.set(t.category!, (map.get(t.category!) ?? 0) + t.amount)
-    }
-    return map
-  }, [myTransactions.data, thisMonthRange])
+  const lastMonthRange = useMemo(() => resolvePeriod('last-month'), [])
+  const spentByCategory = useMemo(
+    () => spendByCategory(myTransactions.data ?? [], resolvePeriod('this-month')),
+    [myTransactions.data]
+  )
+  const spentLastMonthByCategory = useMemo(
+    () => spendByCategory(myTransactions.data ?? [], lastMonthRange),
+    [myTransactions.data, lastMonthRange]
+  )
 
   const totalLimit = budgets.reduce((sum, b) => sum + b.monthly_limit, 0)
   const totalSpent = budgets.reduce((sum, b) => sum + (spentByCategory.get(b.category) ?? 0), 0)
@@ -107,6 +108,12 @@ export function BudgetsPage() {
                 key={b.id}
                 budget={b}
                 spent={spentByCategory.get(b.category) ?? 0}
+                lastMonth={priorMonthResult(
+                  b.monthly_limit,
+                  b.created_at,
+                  spentLastMonthByCategory.get(b.category) ?? 0,
+                  lastMonthRange
+                )}
                 onEdit={() => {
                   setEditing(b)
                   setModalOpen(true)

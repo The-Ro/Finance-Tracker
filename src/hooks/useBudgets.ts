@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { useMyTransactions } from '@/hooks/useTransactions'
-import { resolvePeriod, isWithinRange } from '@/lib/period'
+import { resolvePeriod } from '@/lib/period'
+import { spendByCategory } from '@/lib/budgets'
 import type { Database } from '@/types/database.types'
 
 export type Budget = Database['public']['Tables']['budgets']['Row']
@@ -77,12 +78,7 @@ export function useBudgetAlerts() {
   const myTransactions = useMyTransactions(userId)
 
   return useMemo<BudgetAlert[]>(() => {
-    const thisMonth = resolvePeriod('this-month')
-    const spentByCategory = new Map<string, number>()
-    for (const t of myTransactions.data ?? []) {
-      if (t.type !== 'expense' || !isWithinRange(t.date, thisMonth)) continue
-      spentByCategory.set(t.category!, (spentByCategory.get(t.category!) ?? 0) + t.amount)
-    }
+    const spentByCategory = spendByCategory(myTransactions.data ?? [], resolvePeriod('this-month'))
 
     const alerts: BudgetAlert[] = []
     for (const budget of budgets) {

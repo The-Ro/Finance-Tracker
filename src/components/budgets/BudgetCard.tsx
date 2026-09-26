@@ -4,15 +4,19 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Budget } from '@/hooks/useBudgets'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
+import type { PriorMonthResult } from '@/lib/budgets'
 
 interface BudgetCardProps {
   budget: Budget
   spent: number
+  /** Informational only -- never changes this month's limit. Null when the
+   *  budget didn't exist last month. */
+  lastMonth: PriorMonthResult | null
   onEdit: () => void
   onDelete: () => void
 }
 
-export function BudgetCard({ budget, spent, onEdit, onDelete }: BudgetCardProps) {
+export function BudgetCard({ budget, spent, lastMonth, onEdit, onDelete }: BudgetCardProps) {
   const { format } = useFormatCurrency()
   const remaining = budget.monthly_limit - spent
   const percent = useAnimatedNumber(budget.monthly_limit > 0 ? (spent / budget.monthly_limit) * 100 : 0)
@@ -40,7 +44,7 @@ export function BudgetCard({ budget, spent, onEdit, onDelete }: BudgetCardProps)
           <button
             aria-label="Delete budget"
             onClick={onDelete}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
           >
             <Trash2 size={14} />
           </button>
@@ -52,6 +56,14 @@ export function BudgetCard({ budget, spent, onEdit, onDelete }: BudgetCardProps)
           ? `${format(Math.abs(animatedRemaining))} over budget`
           : `${format(animatedRemaining)} remaining`}
       </p>
+      {lastMonth && (
+        <p className="border-t border-app-border pt-2 text-helper tabular-nums text-slate-400">
+          Last month:{' '}
+          {lastMonth.difference >= 0
+            ? `${format(lastMonth.difference)} left over`
+            : `${format(-lastMonth.difference)} over`}
+        </p>
+      )}
     </Card>
   )
 }
