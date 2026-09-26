@@ -12,6 +12,8 @@ import { useAuth } from '@/context/AuthContext'
 import { buildMonthlyReview } from '@/lib/monthlyReview'
 import { dueDatesInRange, monthGrid } from '@/lib/billCalendar'
 import { todayISO } from '@/lib/format'
+import { monthEndBalances } from '@/lib/balanceHistory'
+import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
 
 function monthRange(year: number, index: number) {
   const { days } = monthGrid(year, index)
@@ -25,10 +27,17 @@ function monthRange(year: number, index: number) {
  */
 export function ReviewPage() {
   const { userId } = useAuth()
-  const { format } = useFormatCurrency()
+  const { format, formatCompact } = useFormatCurrency()
   const { data: transactions = [] } = useMyTransactions(userId)
   const { data: budgets = [] } = useBudgets()
   const { data: recurring = [] } = useRecurringItemsRaw()
+  const { data: openings } = useAccountOpeningBalances()
+  // Balance trend: starting balances + logged income/expenses, month by month.
+  const history = useMemo(() => {
+    const openingTotal = [...(openings?.values() ?? [])].reduce((sum, v) => sum + v, 0)
+    return monthEndBalances(transactions, openingTotal, 6, todayISO())
+  }, [transactions, openings])
+  const historyMax = Math.max(1, ...history.map((h) => Math.abs(h.total)))
   const [month, setMonth] = useState(() => {
     const [y, m] = todayISO().split('-').map(Number)
     return { year: y, index: m - 1 }
@@ -95,6 +104,27 @@ export function ReviewPage() {
           {review.keptPercent !== null ? ` and kept ${Math.round(review.keptPercent)}% of what came in.` : '.'}
         </h2>
       </div>
+
+      <Card className="animate-fade-in-up p-5">
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <h3 className="text-sm font-semibold text-slate-800">Balance over time</h3>
+          <span className="text-helper text-slate-500">All accounts, month end</span>
+        </div>
+        <div className="flex h-36 items-end gap-3">
+          {history.map((h, i) => (
+            <div key={h.month} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+              <span className="text-[11px] tabular-nums text-slate-500">{formatCompact(h.total)}</span>
+              <div
+                className={'animate-bar-rise w-full max-w-[44px] rounded-t-lg ' + (h.total < 0 ? 'bg-danger/70' : i === history.length - 1 ? 'bg-accent' : 'bg-accent/40')}
+                style={{ height: `${Math.max(4, (Math.abs(h.total) / historyMax) * 100)}%`, animationDelay: `${i * 70}ms` }}
+              />
+              <span className="text-[11px] font-medium text-slate-500">
+                {new Date(h.month + '-01T00:00:00').toLocaleDateString(undefined, { month: 'short' })}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="animate-fade-in-up p-5">

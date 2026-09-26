@@ -12,11 +12,13 @@ import {
   useUpdateTransaction,
   useRecentAccounts,
   useAccountBalances,
+  useMyTransactions,
   DuplicateTransactionError,
   type Transaction,
 } from '@/hooks/useTransactions'
 import { useDocuments } from '@/hooks/useDocuments'
 import { useRules } from '@/hooks/useRules'
+import { suggestCategory } from '@/lib/smartCategory'
 import { useAuth } from '@/context/AuthContext'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatDate, todayISO } from '@/lib/format'
@@ -76,6 +78,14 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   const { data: accounts = [] } = useAccounts()
   const recentAccounts = useRecentAccounts(userId)
   const accountBalances = useAccountBalances(userId)
+  const { data: myTransactions } = useMyTransactions(userId)
+  // Smart category: offered (never auto-applied) from the user's own past
+  // entries at a similar merchant, for new entries only.
+  const suggestedCategory = useMemo(() => {
+    if (isEditing || isTransfer || !myTransactions) return null
+    const s = suggestCategory(form.merchant, form.type, myTransactions)
+    return s && s !== form.category && categoryOptions.includes(s) ? s : null
+  }, [isEditing, isTransfer, myTransactions, form.merchant, form.type, form.category, categoryOptions])
   const { format, currency: homeCurrency } = useFormatCurrency()
   const { data: rules = [] } = useRules()
   const addTransaction = useAddTransaction()
@@ -452,6 +462,15 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
             value={form.merchant}
             onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
           />
+          {suggestedCategory && (
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, category: suggestedCategory }))}
+              className="animate-fade-in mt-1.5 inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-accent-light px-3 text-helper font-medium text-accent-on-light"
+            >
+              Use {suggestedCategory}, like last time
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">

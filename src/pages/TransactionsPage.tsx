@@ -26,6 +26,7 @@ import { transactionsToCsv, downloadCsv } from '@/lib/csvExport'
 import { findDuplicateGroups } from '@/lib/duplicates'
 import { todayISO } from '@/lib/format'
 import { EMPTY_TRANSACTION_FILTERS, type TransactionFilters } from '@/lib/transactionSearch'
+import { SavedFilters } from '@/components/transactions/SavedFilters'
 
 function TransactionTableSkeleton() {
   return (
@@ -188,6 +189,8 @@ export function TransactionsPage() {
           </span>
         </div>
       )}
+
+      <SavedFilters filters={filters} onApply={setFilters} />
 
       {paginated.isLoading ? (
         <TransactionTableSkeleton />

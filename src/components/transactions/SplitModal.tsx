@@ -1,0 +1,154 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
+import { Dropdown } from '@/components/ui/Dropdown'
+import { TextField } from '@/components/ui/TextField'
+import { InlineMessage } from '@/components/ui/InlineMessage'
+import { useApprovedConnections, useSplitMutations, useSplits } from '@/hooks/useSplits'
+import { useProfiles } from '@/hooks/useProfiles'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { evenShare } from '@/lib/splits'
+import type { Transaction } from '@/hooks/useTransactions'
+
+interface SplitModalProps {
+  transaction: Transaction | null
+  onClose: () => void
+}
+
+/** Split one of your own expenses with a connected person: records what they owe you. */
+export function SplitModal({ transaction, onClose }: SplitModalProps) {
+  const { format } = useFormatCurrency()
+  const connections = useApprovedConnections()
+  const { data: profiles = {} } = useProfiles()
+  const { data: splits = [] } = useSplits()
+  const { create, remove } = useSplitMutations()
+  const [personLabel, setPersonLabel] = useState('')
+  const [amount, setAmount] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  // Label -> user id; the email disambiguates two people with the same name.
+  const people = useMemo(
+    () =>
+      connections.map((id) => {
+        const p = profiles[id]
+        return { id, label: p ? `${p.displayName || p.email} (${p.email})` : 'Unknown user' }
+      }),
+    [connections, profiles]
+  )
+  const existing = transaction ? splits.filter((s) => s.transaction_id === transaction.id) : []
+
+  useEffect(() => {
+    if (!transaction) return
+    setPersonLabel(people[0]?.label ?? '')
+    setAmount(String(evenShare(transaction.amount)))
+    setError(null)
+  }, [transaction]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!transaction) return null
+
+  const handleSave = async () => {
+    setError(null)
+    const person = people.find((p) => p.label === personLabel)
+    const value = Number(amount)
+    if (!person) return setError('Choose who to split with.')
+    if (!Number.isFinite(value) || value <= 0) return setError('Enter the amount they owe.')
+    if (value > transaction.amount) return setError(`Their share can't be more than ${format(transaction.amount)}.`)
+    try {
+      await create.mutateAsync({ transaction, withUserId: person.id, amount: value })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save this split.')
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Split expense"
+      footer={
+        people.length > 0 && (
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={create.isPending}>
+              {create.isPending ? 'Saving…' : 'Split'}
+            </Button>
+          </div>
+        )
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-slate-600">
+          {transaction.merchant} · {format(transaction.amount)}. You paid; the other person sees what they owe you on
+          their Shared page.
+        </p>
+
+        {existing.length > 0 && (
+          <ul className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3 text-sm">
+            {existing.map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-2">
+                <span className="text-slate-700">
+                  {profiles[s.with_user_id]?.displayName ?? 'Someone'} owes {format(s.amount)}
+                  {s.settled_at ? ' · settled' : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => remove.mutate(s.id)}
+                  className="min-h-[32px] text-helper font-medium text-danger hover:underline"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {people.length === 0 ? (
+          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
+            You can split with people you share with. Connect with someone in{' '}
+            <Link to="/settings#sharing" onClick={onClose} className="font-medium text-accent-dark underline">
+              Settings, Sharing
+            </Link>{' '}
+            first.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-helper font-medium text-slate-600">Split with</label>
+              <Dropdown
+                options={people.map((p) => p.label)}
+                value={personLabel}
+                onChange={(e) => setPersonLabel(e.target.value)}
+                aria-label="Split with"
+              />
+            </div>
+            <TextField
+              label="They owe you"
+              type="number"
+              step="0.01"
+              min="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <div className="flex gap-2">
+              {[2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setAmount(String(evenShare(transaction.amount, n)))}
+                  className="min-h-[36px] rounded-full border border-app-border px-3 text-helper font-medium text-slate-600 hover:border-accent hover:text-accent-dark"
+                >
+                  1/{n}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      </div>
+    </Modal>
+  )
+}

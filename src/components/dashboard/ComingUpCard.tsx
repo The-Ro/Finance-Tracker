@@ -32,7 +32,7 @@ export function ComingUpCard({ items }: ComingUpCardProps) {
           }
         />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="stagger-rows flex flex-col gap-3">
           {upcoming.map((item) => {
             const isOverdue = item.next_date < todayISO()
             return (

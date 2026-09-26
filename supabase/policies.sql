@@ -294,3 +294,47 @@ create policy avatars_storage_delete_own on storage.objects for delete
 -- defined in schema.sql. It validates auth.uid() and ownership itself before
 -- atomically inserting the expense and advancing recurring_items.next_date;
 -- no broad RLS write policy is added for this workflow.
+
+-- ---- transaction_splits ----
+-- Both people in a split can read it; only the payer can create, change or
+-- remove it, only on their own expense, for no more than its amount, and only
+-- with someone they have an *approved* viewer_access connection with (either
+-- direction). The same connection check sits on UPDATE so a split can't be
+-- re-pointed at an unconnected user (that would leak its description/date).
+alter table public.transaction_splits enable row level security;
+
+create policy transaction_splits_select_participants on public.transaction_splits
+  for select to authenticated
+  using (owner_user_id = auth.uid() or with_user_id = auth.uid());
+
+create policy transaction_splits_insert_own on public.transaction_splits
+  for insert to authenticated
+  with check (
+    owner_user_id = auth.uid()
+    and exists (select 1 from public.transactions t
+                where t.id = transaction_id and t.owner_user_id = auth.uid()
+                  and t.type = 'expense' and amount <= t.amount)
+    and exists (select 1 from public.viewer_access va where va.status = 'approved'
+                and ((va.owner_user_id = auth.uid() and va.requester_user_id = with_user_id)
+                  or (va.requester_user_id = auth.uid() and va.owner_user_id = with_user_id)))
+  );
+
+create policy transaction_splits_update_own on public.transaction_splits
+  for update to authenticated
+  using (owner_user_id = auth.uid())
+  with check (
+    owner_user_id = auth.uid()
+    and exists (select 1 from public.transactions t
+                where t.id = transaction_id and t.owner_user_id = auth.uid()
+                  and t.type = 'expense' and amount <= t.amount)
+    and exists (select 1 from public.viewer_access va where va.status = 'approved'
+                and ((va.owner_user_id = auth.uid() and va.requester_user_id = with_user_id)
+                  or (va.requester_user_id = auth.uid() and va.owner_user_id = with_user_id)))
+  );
+
+create policy transaction_splits_delete_own on public.transaction_splits
+  for delete to authenticated
+  using (owner_user_id = auth.uid());
+
+grant select, insert, update, delete on public.transaction_splits to authenticated;
+revoke all on public.transaction_splits from anon;

@@ -16,7 +16,7 @@ export function ProgressBar({ percent, tone = 'accent' }: ProgressBarProps) {
   const clamped = Math.min(100, Math.max(0, percent))
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={clamped} aria-valuemin={0} aria-valuemax={100}>
-      <div className={clsx('h-full rounded-full transition-all', TONE_CLASSES[tone])} style={{ width: `${clamped}%` }} />
+      <div className={clsx('animate-bar-grow h-full rounded-full transition-all', TONE_CLASSES[tone])} style={{ width: `${clamped}%` }} />
     </div>
   )
 }

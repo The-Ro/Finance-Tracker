@@ -762,3 +762,22 @@ alter table public.transactions add constraint transactions_transfer_distinct_ac
 
 -- Budget rollover (opt-in): carry last month's unspent amount into this month.
 alter table public.budgets add column if not exists rollover boolean not null default false;
+
+-- Split and settle up: the payer (owner of an expense) records a share owed by
+-- a connected person. description/date are copied from the transaction so the
+-- other person has context even when they can't read the payer's transactions.
+create table if not exists public.transaction_splits (
+  id uuid primary key default gen_random_uuid(),
+  transaction_id uuid not null references public.transactions(id) on delete cascade,
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  with_user_id uuid not null references auth.users(id) on delete cascade,
+  description text not null check (char_length(description) between 1 and 120),
+  date date not null,
+  amount numeric(12,2) not null check (amount > 0),
+  settled_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (transaction_id, with_user_id),
+  check (owner_user_id <> with_user_id)
+);
+create index if not exists transaction_splits_with_user_idx on public.transaction_splits (with_user_id);
+create index if not exists transaction_splits_owner_idx on public.transaction_splits (owner_user_id);

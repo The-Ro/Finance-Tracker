@@ -611,3 +611,20 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .brand-mark .brand-mark-tile, .brand-mark .brand-mark-letters, .brand-mark .brand-mark-flourish { animation: none; }
 }
+
+/* Motion spec (design canvas): bars grow from zero on first view; list rows
+   rise in 60ms apart, capped at 8 so long lists don't wait. A row mounted
+   later (a newly saved entry, Load more) gets the same rise on its own. */
+@keyframes bar-grow { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+.animate-bar-grow { transform-origin: left center; animation: bar-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes bar-rise { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+.animate-bar-rise { transform-origin: bottom center; animation: bar-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes row-rise { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
+.stagger-rows > * { animation: row-rise 0.52s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger-rows > *:nth-child(2) { animation-delay: 60ms } .stagger-rows > *:nth-child(3) { animation-delay: 120ms }
+.stagger-rows > *:nth-child(4) { animation-delay: 180ms } .stagger-rows > *:nth-child(5) { animation-delay: 240ms }
+.stagger-rows > *:nth-child(6) { animation-delay: 300ms } .stagger-rows > *:nth-child(7) { animation-delay: 360ms }
+.stagger-rows > *:nth-child(8) { animation-delay: 420ms }
+@media (prefers-reduced-motion: reduce) {
+  .animate-bar-grow, .animate-bar-rise, .stagger-rows > * { animation: none; }
+}

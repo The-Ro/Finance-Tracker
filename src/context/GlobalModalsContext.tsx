@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { AddEntryModal } from '@/components/transactions/AddEntryModal'
 import { CsvImportModal } from '@/components/transactions/CsvImportModal'
+import { SplitModal } from '@/components/transactions/SplitModal'
 import type { Transaction } from '@/hooks/useTransactions'
 
 interface GlobalModalsContextValue {
   openAddEntry: () => void
   openEditEntry: (transaction: Transaction) => void
   openImport: () => void
+  openSplit: (transaction: Transaction) => void
 }
 
 const GlobalModalsContext = createContext<GlobalModalsContextValue | undefined>(undefined)
@@ -15,6 +17,7 @@ export function GlobalModalsProvider({ children }: { children: ReactNode }) {
   const [addEntryOpen, setAddEntryOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [splitting, setSplitting] = useState<Transaction | null>(null)
 
   // Home-screen shortcut (vite.config.ts manifest.shortcuts): /?add=entry opens
   // Add entry straight away, then drops the param so a reload doesn't reopen it.
@@ -43,10 +46,12 @@ export function GlobalModalsProvider({ children }: { children: ReactNode }) {
           setAddEntryOpen(true)
         },
         openImport: () => setImportOpen(true),
+        openSplit: (transaction) => setSplitting(transaction),
       }}
     >
       {children}
       <AddEntryModal open={addEntryOpen} onClose={closeEntryModal} transaction={editingTransaction} />
+      <SplitModal transaction={splitting} onClose={() => setSplitting(null)} />
       <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} />
     </GlobalModalsContext.Provider>
   )

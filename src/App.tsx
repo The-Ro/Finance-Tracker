@@ -23,6 +23,7 @@ const RecurringPage = lazy(() => import('@/pages/RecurringPage').then((m) => ({ 
 const SubscriptionsPage = lazy(() => import('@/pages/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
 const BudgetsPage = lazy(() => import('@/pages/BudgetsPage').then((m) => ({ default: m.BudgetsPage })))
 const BillsPage = lazy(() => import('@/pages/BillsPage').then((m) => ({ default: m.BillsPage })))
+const SharedPage = lazy(() => import('@/pages/SharedPage').then((m) => ({ default: m.SharedPage })))
 const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
 const GoalsPage = lazy(() => import('@/pages/GoalsPage').then((m) => ({ default: m.GoalsPage })))
 const DocumentsPage = lazy(() => import('@/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
@@ -81,6 +82,7 @@ export default function App() {
                       <Route path="/budgets" element={<BudgetsPage />} />
                       <Route path="/bills" element={<BillsPage />} />
                       <Route path="/review" element={<ReviewPage />} />
+                      <Route path="/shared" element={<SharedPage />} />
                       <Route path="/goals" element={<GoalsPage />} />
                       <Route path="/documents" element={<DocumentsPage />} />
                       <Route path="/rules" element={<RulesPage />} />

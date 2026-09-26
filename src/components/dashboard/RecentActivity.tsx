@@ -25,7 +25,7 @@ export function RecentActivity({ title, transactions, showOwner, profiles, empty
       {items.length === 0 ? (
         <EmptyState icon={Clock} title="Nothing here yet" description={emptyDescription} />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="stagger-rows flex flex-col gap-3">
           {items.map((t) => {
             const owner = profiles?.[t.owner_user_id]
             return (

@@ -55,7 +55,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section id="sharing" className="flex scroll-mt-24 flex-col gap-4">
         <SectionHeading
           title="Sharing"
           description="Your transactions are private by default. Approve someone here to let them see yours, or request to see someone else's."

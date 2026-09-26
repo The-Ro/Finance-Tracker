@@ -158,6 +158,30 @@ export interface Database {
         }
         Update: Partial<{ category: string; monthly_limit: number; active: boolean; rollover: boolean }>
       }
+      transaction_splits: {
+        Row: {
+          id: string
+          transaction_id: string
+          owner_user_id: string
+          with_user_id: string
+          description: string
+          date: string
+          amount: number
+          settled_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          transaction_id: string
+          owner_user_id: string
+          with_user_id: string
+          description: string
+          date: string
+          amount: number
+          settled_at?: string | null
+        }
+        Update: Partial<{ amount: number; settled_at: string | null }>
+      }
       goals: {
         Row: {
           id: string
