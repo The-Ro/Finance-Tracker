@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react'
 import clsx from 'clsx'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -10,6 +10,8 @@ import { useRecurringItemsRaw, useRecurringMutations, type RecurringItem } from 
 import { useAccountBalances } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAuth } from '@/context/AuthContext'
+import { useGlobalModals } from '@/context/GlobalModalsContext'
+import { useAccountKinds, useCardBills } from '@/hooks/useCards'
 import { addDaysISO, dueDatesInRange, monthGrid, totalDueWithin } from '@/lib/billCalendar'
 import { formatShortDate, todayISO } from '@/lib/format'
 
@@ -27,6 +29,11 @@ export function BillsPage() {
   const { data: items = [], isLoading } = useRecurringItemsRaw()
   const { markPaid } = useRecurringMutations()
   const balances = useAccountBalances(userId)
+  const kinds = useAccountKinds()
+  // Credit-card bills (statement amount still unpaid) sit alongside recurring
+  // items: on the calendar at their due date and in Coming up with "Pay bill".
+  const cardBills = useCardBills()
+  const { openAddEntry } = useGlobalModals()
   const today = todayISO()
   const [month, setMonth] = useState(() => {
     const [y, m] = today.split('-').map(Number)
@@ -40,12 +47,17 @@ export function BillsPage() {
   const monthEnd = grid.days[grid.days.length - 1]
 
   const byDate = useMemo(() => {
-    const map = new Map<string, RecurringItem[]>()
+    const map = new Map<string, { id: string; name: string; amount: number }[]>()
     for (const item of active) {
       for (const d of dueDatesInRange(item, monthStart, monthEnd)) map.set(d, [...(map.get(d) ?? []), item])
     }
+    for (const b of cardBills) {
+      if (b.dueDate >= monthStart && b.dueDate <= monthEnd) {
+        map.set(b.dueDate, [...(map.get(b.dueDate) ?? []), { id: 'card:' + b.account, name: b.account + ' bill', amount: b.due }])
+      }
+    }
     return map
-  }, [active, monthStart, monthEnd])
+  }, [active, cardBills, monthStart, monthEnd])
 
   const weekEnd = addDaysISO(today, 6)
   const dueSoon = useMemo(() => {
@@ -56,14 +68,17 @@ export function BillsPage() {
     }
     return rows.sort((a, b) => (a.date < b.date ? -1 : 1))
   }, [active, today, weekEnd])
-  const weekTotal = totalDueWithin(active, today, 7)
+  // Card bills due within the week (or already overdue) count toward the total.
+  const cardDueSoon = cardBills.filter((b) => b.dueDate <= weekEnd)
+  const weekTotal = totalDueWithin(active, today, 7) + cardDueSoon.reduce((sum, b) => sum + b.due, 0)
 
   // Per-account: can the current balance cover everything due this week from it?
   const shortfalls = useMemo(() => {
     const need = new Map<string, number>()
-    for (const { item } of dueSoon) if (item.account) need.set(item.account, (need.get(item.account) ?? 0) + item.amount)
+    // Credit cards aren't funded accounts -- spending on one can't be "short".
+    for (const { item } of dueSoon) if (item.account && kinds.get(item.account) !== 'credit_card') need.set(item.account, (need.get(item.account) ?? 0) + item.amount)
     return [...need.entries()].filter(([account, amount]) => (balances.get(account) ?? 0) < amount).map(([a]) => a)
-  }, [dueSoon, balances])
+  }, [dueSoon, balances, kinds])
 
   const selectedItems = selected >= monthStart && selected <= monthEnd ? byDate.get(selected) ?? [] : []
   const shiftMonth = (delta: number) =>
@@ -73,7 +88,7 @@ export function BillsPage() {
     })
   const monthLabel = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
-  if (!isLoading && active.length === 0) {
+  if (!isLoading && active.length === 0 && cardBills.length === 0) {
     return (
       <div className="flex flex-col gap-5">
         <PageHeader title="Bills" />
@@ -101,7 +116,7 @@ export function BillsPage() {
           <p className="font-serif text-3xl font-semibold text-slate-900">{format(weekTotal)} due</p>
         </div>
         <p className="text-sm text-slate-700">
-          {dueSoon.length === 0
+          {dueSoon.length === 0 && cardDueSoon.length === 0
             ? 'Nothing due this week.'
             : shortfalls.length === 0
               ? 'Your accounts cover everything due.'
@@ -178,8 +193,37 @@ export function BillsPage() {
 
         <Card className="animate-fade-in-up p-4">
           <h2 className="mb-3 font-serif text-lg font-semibold text-slate-900">Coming up</h2>
+          {cardDueSoon.length > 0 && (
+            <ul className="mb-2 flex flex-col gap-2">
+              {cardDueSoon.map((b) => (
+                <li key={b.account} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+                  <div className="w-12 text-center">
+                    <p className={clsx('text-[10px] font-bold uppercase', b.dueDate < today ? 'text-danger' : 'text-slate-500')}>
+                      {b.dueDate < today ? 'Overdue' : new Date(b.dueDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })}
+                    </p>
+                    <p className="font-serif text-lg font-semibold text-slate-900">{Number(b.dueDate.slice(8))}</p>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
+                      <CreditCard size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
+                      {b.account} bill
+                    </p>
+                    <p className="text-helper text-slate-500">
+                      {format(b.due)} · statement {formatShortDate(b.statementDate)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => openAddEntry('transfer', { toAccount: b.account, amount: b.due, merchant: b.account + ' bill payment' })}
+                  >
+                    Pay bill
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
           {dueSoon.length === 0 ? (
-            <p className="text-sm text-slate-500">Nothing due in the next 7 days.</p>
+            cardDueSoon.length === 0 && <p className="text-sm text-slate-500">Nothing due in the next 7 days.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {dueSoon.map(({ item, date }) => {

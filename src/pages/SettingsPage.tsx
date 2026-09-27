@@ -4,6 +4,7 @@ import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { NetWorthForm } from '@/components/settings/NetWorthForm'
 import { StartingBalances } from '@/components/settings/StartingBalances'
+import { AccountTypes } from '@/components/settings/AccountTypes'
 import { ManagedListEditor } from '@/components/settings/ManagedListEditor'
 import { DetectionSettings } from '@/components/settings/DetectionSettings'
 import { DangerZone } from '@/components/settings/DangerZone'
@@ -78,6 +79,9 @@ export function SettingsPage() {
         </div>
         <div id="starting-balances" className="scroll-mt-24">
           <StartingBalances />
+        </div>
+        <div id="account-types" className="scroll-mt-24">
+          <AccountTypes />
         </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ManagedListEditor

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import type { CategoryKind } from '@/types/database.types'
+import type { AccountDetails } from '@/lib/creditCards'
 
 function useLookupList(table: 'accounts' | 'tags') {
   const { userId } = useAuth()
@@ -87,6 +88,53 @@ export function useSetAccountOpeningBalance() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
   })
 }
+/** Every account's type and credit-card details (kind, limit, statement/due day). */
+export function useAccountDetails() {
+  const { userId } = useAuth()
+  return useQuery({
+    queryKey: ['accounts', userId, 'details'],
+    enabled: !!userId,
+    queryFn: async (): Promise<Map<string, AccountDetails>> => {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('name, kind, credit_limit, statement_day, due_day')
+        .eq('owner_user_id', userId!)
+      if (error) throw error
+      return new Map(
+        data.map((r) => [
+          r.name,
+          {
+            kind: r.kind,
+            creditLimit: r.credit_limit != null ? Number(r.credit_limit) : null,
+            statementDay: r.statement_day,
+            dueDay: r.due_day,
+          },
+        ])
+      )
+    },
+    staleTime: 30_000,
+  })
+}
+
+/** Sets one of the caller's own accounts' type and card details (narrow RPC, like the opening balance). */
+export function useSetAccountDetails() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ account, details }: { account: string; details: AccountDetails }) => {
+      const { error } = await supabase.rpc('set_account_details', {
+        p_account: account,
+        p_kind: details.kind,
+        p_credit_limit: details.creditLimit,
+        p_statement_day: details.statementDay,
+        p_due_day: details.dueDay,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
+  })
+}
+
 export const useTags = () => useLookupList('tags')
 
 interface CategoryRow {

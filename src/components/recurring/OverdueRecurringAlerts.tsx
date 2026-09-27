@@ -5,6 +5,7 @@ import { useOverdueRecurringItems, useRecurringMutations } from '@/hooks/useRecu
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAuth } from '@/context/AuthContext'
 import { useAccountBalances } from '@/hooks/useTransactions'
+import { useAccountKinds } from '@/hooks/useCards'
 import { formatShortDate } from '@/lib/format'
 
 /** Recurring bills and subscriptions past their next_date -- surfaced in the
@@ -16,6 +17,7 @@ export function OverdueRecurringAlerts() {
   const { format } = useFormatCurrency()
   const { userId } = useAuth()
   const accountBalances = useAccountBalances(userId)
+  const kinds = useAccountKinds()
 
   // In the notification dropdown specifically, an empty section is just
   // noise once something else in the panel actually needs attention -- the
@@ -30,7 +32,7 @@ export function OverdueRecurringAlerts() {
       </div>
       <ul className="flex flex-col gap-3">
         {overdue.map((item) => {
-          const balance = item.account ? accountBalances.get(item.account) ?? 0 : null
+          const balance = item.account && kinds.get(item.account) !== 'credit_card' ? accountBalances.get(item.account) ?? 0 : null
           const insufficientBalance = balance !== null && balance < item.amount
           return (
           <li key={item.id} className="flex items-center justify-between gap-3">

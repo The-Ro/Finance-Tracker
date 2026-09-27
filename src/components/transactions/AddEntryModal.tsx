@@ -21,6 +21,7 @@ import {
 } from '@/hooks/useTransactions'
 import { useDocuments, type DocumentRow } from '@/hooks/useDocuments'
 import { useRules } from '@/hooks/useRules'
+import { useAccountKinds, useCardStatuses } from '@/hooks/useCards'
 import { useApprovedConnections, useSplitMutations } from '@/hooks/useSplits'
 import { useProfiles } from '@/hooks/useProfiles'
 import { suggestCategory } from '@/lib/smartCategory'
@@ -45,6 +46,14 @@ interface AddEntryModalProps {
   transaction?: Transaction | null
   /** Type a new entry starts on (quick actions, ?add=income etc.). Ignored when editing. */
   initialType?: TransactionType
+  /** Starting values for a new entry, e.g. a card bill payment. Ignored when editing. */
+  prefill?: EntryPrefill
+}
+
+export interface EntryPrefill {
+  merchant?: string
+  amount?: number
+  toAccount?: string
 }
 
 const EMPTY_STATE = {
@@ -67,7 +76,7 @@ const EMPTY_STATE = {
 
 const CURRENCY_CODES = SUPPORTED_CURRENCIES.map((c) => c.code)
 
-export function AddEntryModal({ open, onClose, transaction, initialType = 'expense' }: AddEntryModalProps) {
+export function AddEntryModal({ open, onClose, transaction, initialType = 'expense', prefill }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
   const [error, setError] = useState<string | null>(null)
   // Set when the last save attempt was rejected as a duplicate -- offers a
@@ -98,6 +107,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const recentAccounts = useRecentAccounts(userId)
   const accountBalances = useAccountBalances(userId)
   const { data: myTransactions } = useMyTransactions(userId)
+  const accountKinds = useAccountKinds()
+  const cardStatuses = useCardStatuses()
   const connections = useApprovedConnections()
   const { data: profiles = {} } = useProfiles()
   const { create: createSplit } = useSplitMutations()
@@ -230,7 +241,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // A cash account has no "how" -- the payment method fields (UPI/card/net
   // banking/etc.) all describe moving money through a bank, which doesn't
   // apply once the account itself already says "Cash".
-  const isCashAccount = form.account === 'Cash'
+  const isCashAccount = accountKinds.get(form.account) === 'cash' || form.account === 'Cash'
   useEffect(() => {
     if (isCashAccount && form.paymentMethod) {
       setForm((f) => ({ ...f, paymentMethod: '' }))
@@ -238,12 +249,26 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCashAccount])
 
+  // Spending on a credit-card account is, by definition, paid by credit card:
+  // fill that in when the user hasn't picked a method themselves.
+  const isCardAccount = accountKinds.get(form.account) === 'credit_card'
+  const toCard = isTransfer ? cardStatuses.get(form.toAccount) : undefined
+  useEffect(() => {
+    if (isCardAccount && !isTransfer && !form.paymentMethod) {
+      setForm((f) => ({ ...f, paymentMethod: 'Credit card' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCardAccount, isTransfer])
+
   const blankForm = () => ({
     ...EMPTY_STATE,
     date: todayISO(),
     type: initialType,
     category: expenseCategories[0] ?? 'Needs review',
     account: defaultAccount,
+    ...(prefill?.merchant ? { merchant: prefill.merchant } : {}),
+    ...(prefill?.amount ? { amount: String(prefill.amount) } : {}),
+    ...(prefill?.toAccount ? { toAccount: prefill.toAccount } : {}),
   })
 
   // Prefill from the transaction being edited (or reset to a blank form)
@@ -283,7 +308,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     setDuplicatePending(false)
     setRateStatus({ state: 'idle' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, transaction, initialType])
+  }, [open, transaction, initialType, prefill])
 
   const reset = () => {
     setForm(blankForm())
@@ -665,7 +690,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             onChange={(account) => setForm((f) => ({ ...f, account, toAccount: '' }))}
             emptyText="No accounts yet. Add one in Settings, Financial setup."
           />
-          {isTransfer && form.account && (
+          {isTransfer && form.account && !isCardAccount && (
             <p
               className={clsx(
                 'mt-1 text-helper',
@@ -690,7 +715,11 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             />
             {form.toAccount && (
               <p className="mt-1 text-helper text-slate-400">
-                {format(toAccountBalance)} available in {form.toAccount}
+                {toCard
+                  ? toCard.bill && toCard.bill.due > 0
+                    ? `${format(toCard.bill.due)} due on this card's last statement · ${format(toCard.owed)} owed in total`
+                    : `${format(toCard.owed)} owed on ${form.toAccount}`
+                  : `${format(toAccountBalance)} available in ${form.toAccount}`}
               </p>
             )}
           </div>

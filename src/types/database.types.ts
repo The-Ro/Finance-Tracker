@@ -68,7 +68,17 @@ export interface Database {
         Update: never
       }
       accounts: {
-        Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string; opening_balance: number }
+        Row: {
+          owner_user_id: string
+          name: string
+          created_by: string | null
+          created_at: string
+          opening_balance: number
+          kind: 'bank' | 'credit_card' | 'cash' | 'wallet'
+          credit_limit: number | null
+          statement_day: number | null
+          due_day: number | null
+        }
         Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
       }
@@ -426,6 +436,16 @@ export interface Database {
       }
       set_account_opening_balance: {
         Args: { p_account: string; p_amount: number }
+        Returns: undefined
+      }
+      set_account_details: {
+        Args: {
+          p_account: string
+          p_kind: string
+          p_credit_limit: number | null
+          p_statement_day: number | null
+          p_due_day: number | null
+        }
         Returns: undefined
       }
       find_profile_by_email: {

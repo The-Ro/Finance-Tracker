@@ -42,7 +42,8 @@ begin
   for r in
     select unnest(array[
       'public.delete_own_account()', 'public.mark_feedback_reply_seen(uuid)', 'public.find_profile_by_email(text)',
-      'public.mark_recurring_item_paid(uuid,date)', 'public.set_account_opening_balance(text,numeric)', 'public.is_admin()'
+      'public.mark_recurring_item_paid(uuid,date)', 'public.set_account_opening_balance(text,numeric)', 'public.is_admin()',
+      'public.set_account_details(text,text,numeric,integer,integer)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then
@@ -130,6 +131,14 @@ begin
   begin
     perform public.set_account_opening_balance('__no_such_account__', 1);
     raise exception 'FAIL: set_account_opening_balance accepted an unknown account';
+  exception when others then
+    if sqlerrm <> 'Account not found' then raise; end if;
+  end;
+
+  -- Account details RPC only touches the caller's own accounts.
+  begin
+    perform public.set_account_details('__no_such_account__', 'credit_card', 1000, 12, 2);
+    raise exception 'FAIL: set_account_details accepted an unknown account';
   exception when others then
     if sqlerrm <> 'Account not found' then raise; end if;
   end;

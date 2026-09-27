@@ -11,6 +11,7 @@ import { useRecurringData, useRecurringMutations, type RecurringItem } from '@/h
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAuth } from '@/context/AuthContext'
 import { useAccountBalances } from '@/hooks/useTransactions'
+import { useAccountKinds } from '@/hooks/useCards'
 import type { RecurringKind } from '@/types/database.types'
 
 interface RecurringLikePageProps {
@@ -26,6 +27,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
   const { format } = useFormatCurrency()
   const { userId } = useAuth()
   const accountBalances = useAccountBalances(userId)
+  const kinds = useAccountKinds()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<RecurringItem | null>(null)
 
@@ -100,7 +102,8 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
                 <ConfirmedItemRow
                   key={item.id}
                   item={item}
-                  accountBalance={item.account ? accountBalances.get(item.account) ?? 0 : null}
+                  // Credit cards aren't 'funded' -- no insufficient-balance check for them.
+                  accountBalance={item.account && kinds.get(item.account) !== 'credit_card' ? accountBalances.get(item.account) ?? 0 : null}
                   onEdit={() => {
                     setEditing(item)
                     setModalOpen(true)

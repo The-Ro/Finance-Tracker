@@ -781,3 +781,42 @@ create table if not exists public.transaction_splits (
 );
 create index if not exists transaction_splits_with_user_idx on public.transaction_splits (with_user_id);
 create index if not exists transaction_splits_owner_idx on public.transaction_splits (owner_user_id);
+
+-- Account types and credit-card details. A credit card's balance is money
+-- owed (negative); its bill = what was owed on the last statement day minus
+-- payments into it since. Debit cards are not accounts (payment_method on the
+-- bank account). Card-only fields must be null for other kinds.
+alter table public.accounts
+  add column if not exists kind text not null default 'bank',
+  add column if not exists credit_limit numeric(12,2),
+  add column if not exists statement_day smallint,
+  add column if not exists due_day smallint;
+alter table public.accounts
+  add constraint accounts_kind_check check (kind in ('bank', 'credit_card', 'cash', 'wallet')),
+  add constraint accounts_credit_limit_check check (credit_limit is null or credit_limit > 0),
+  add constraint accounts_statement_day_check check (statement_day is null or statement_day between 1 and 31),
+  add constraint accounts_due_day_check check (due_day is null or due_day between 1 and 31),
+  add constraint accounts_card_fields_only_on_cards check (
+    kind = 'credit_card' or (credit_limit is null and statement_day is null and due_day is null)
+  );
+
+-- Narrow setter: accounts has no UPDATE policy on purpose (renames would orphan transactions).
+create or replace function public.set_account_details(
+  p_account text, p_kind text, p_credit_limit numeric, p_statement_day int, p_due_day int
+) returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  update public.accounts
+     set kind = p_kind,
+         credit_limit = case when p_kind = 'credit_card' then p_credit_limit end,
+         statement_day = case when p_kind = 'credit_card' then p_statement_day end,
+         due_day = case when p_kind = 'credit_card' then p_due_day end
+   where owner_user_id = auth.uid() and name = p_account;
+  if not found then
+    raise exception 'Account not found';
+  end if;
+end;
+$$;
+revoke execute on function public.set_account_details(text, text, numeric, int, int) from public, anon;
+grant execute on function public.set_account_details(text, text, numeric, int, int) to authenticated;

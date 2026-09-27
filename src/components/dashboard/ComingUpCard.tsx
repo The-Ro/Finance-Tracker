@@ -7,6 +7,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import type { RecurringItem } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate, todayISO } from '@/lib/format'
+import { useCardBills } from '@/hooks/useCards'
+import { addDaysISO } from '@/lib/billCalendar'
 import { dueWithin } from '@/lib/home'
 
 const MAX_ROWS = 5
@@ -29,10 +31,21 @@ function weekdayOf(iso: string): string {
 export function ComingUpCard({ items, className }: ComingUpCardProps) {
   const { format } = useFormatCurrency()
   const today = todayISO()
-  const rows = useMemo(() => dueWithin(items, today, 7), [items, today])
+  const cardBills = useCardBills()
+  // Recurring items plus credit-card bills (unpaid statement amount) due within the week.
+  const rows = useMemo(() => {
+    const weekEnd = addDaysISO(today, 6)
+    const merged: { item: { id: string; name: string; amount: number }; date: string; overdue: boolean }[] = [
+      ...dueWithin(items, today, 7),
+      ...cardBills
+        .filter((b) => b.dueDate <= weekEnd)
+        .map((b) => ({ item: { id: 'card:' + b.account, name: b.account + ' bill', amount: b.due }, date: b.dueDate, overdue: b.dueDate < today })),
+    ]
+    return merged.sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0))
+  }, [items, cardBills, today])
   const total = rows.reduce((sum, r) => sum + r.item.amount, 0)
   const shown = rows.slice(0, MAX_ROWS)
-  const hasItems = items.some((i) => i.active)
+  const hasItems = items.some((i) => i.active) || cardBills.length > 0
 
   return (
     <Card className={clsx('flex flex-col gap-3 p-5', className)}>

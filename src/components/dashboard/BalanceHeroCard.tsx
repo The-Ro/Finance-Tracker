@@ -7,6 +7,8 @@ import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { monthEndBalances } from '@/lib/balanceHistory'
 import { sparklinePath } from '@/lib/home'
 import { todayISO } from '@/lib/format'
+import { cashAndCardDebt } from '@/lib/creditCards'
+import { useAccountKinds } from '@/hooks/useCards'
 
 const DEFAULT_SPARK_WIDTH = 320
 const SPARK_HEIGHT = 56
@@ -27,7 +29,10 @@ interface BalanceHeroCardProps {
  */
 export function BalanceHeroCard({ transactions, balances, openingBalances }: BalanceHeroCardProps) {
   const { format } = useFormatCurrency()
-  const total = useMemo(() => [...balances.values()].reduce((sum, v) => sum + v, 0), [balances])
+  // Net of card debt (card balances are negative when owed); the split into
+  // cash in accounts vs owed on cards is shown underneath when there's debt.
+  const kinds = useAccountKinds()
+  const { cash, cardDebt, net: total } = useMemo(() => cashAndCardDebt(balances, kinds), [balances, kinds])
 
   const history = useMemo(() => {
     const openingTotal = [...(openingBalances?.values() ?? [])].reduce((sum, v) => sum + v, 0)
@@ -82,7 +87,13 @@ export function BalanceHeroCard({ transactions, balances, openingBalances }: Bal
             · across {accountCount} account{accountCount === 1 ? '' : 's'}
           </span>
         </span>
-      ) : (
+      ) : null}
+      {hasActivity && cardDebt > 0 && (
+        <span className="text-helper tabular-nums text-accent-on-light/80">
+          {format(cash)} in accounts · {format(cardDebt)} owed on cards
+        </span>
+      )}
+      {!hasActivity && (
         <span className="text-sm text-accent-on-light/80">
           Log an entry or set{' '}
           <Link to="/settings#starting-balances" className="font-semibold underline-offset-2 hover:underline">

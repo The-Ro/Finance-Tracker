@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { AddEntryModal } from '@/components/transactions/AddEntryModal'
+import { AddEntryModal, type EntryPrefill } from '@/components/transactions/AddEntryModal'
 import { CsvImportModal } from '@/components/transactions/CsvImportModal'
 import { SplitModal } from '@/components/transactions/SplitModal'
 import type { Transaction } from '@/hooks/useTransactions'
@@ -7,7 +7,7 @@ import type { TransactionType } from '@/types/database.types'
 
 interface GlobalModalsContextValue {
   /** Opens Add entry for a new entry, optionally starting on a type. */
-  openAddEntry: (initialType?: TransactionType) => void
+  openAddEntry: (initialType?: TransactionType, prefill?: EntryPrefill) => void
   openEditEntry: (transaction: Transaction) => void
   openImport: () => void
   openSplit: (transaction: Transaction) => void
@@ -18,6 +18,7 @@ const GlobalModalsContext = createContext<GlobalModalsContextValue | undefined>(
 export function GlobalModalsProvider({ children }: { children: ReactNode }) {
   const [addEntryOpen, setAddEntryOpen] = useState(false)
   const [initialType, setInitialType] = useState<TransactionType>('expense')
+  const [prefill, setPrefill] = useState<EntryPrefill | undefined>(undefined)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [splitting, setSplitting] = useState<Transaction | null>(null)
@@ -42,8 +43,9 @@ export function GlobalModalsProvider({ children }: { children: ReactNode }) {
   return (
     <GlobalModalsContext.Provider
       value={{
-        openAddEntry: (type = 'expense') => {
+        openAddEntry: (type = 'expense', values) => {
           setInitialType(type)
+          setPrefill(values)
           setEditingTransaction(null)
           setAddEntryOpen(true)
         },
@@ -56,7 +58,7 @@ export function GlobalModalsProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <AddEntryModal open={addEntryOpen} onClose={closeEntryModal} transaction={editingTransaction} initialType={initialType} />
+      <AddEntryModal open={addEntryOpen} onClose={closeEntryModal} transaction={editingTransaction} initialType={initialType} prefill={prefill} />
       <SplitModal transaction={splitting} onClose={() => setSplitting(null)} />
       <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} />
     </GlobalModalsContext.Provider>

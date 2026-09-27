@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 import clsx from 'clsx'
+import { CreditCard } from 'lucide-react'
+import { useAccountKinds } from '@/hooks/useCards'
 
 interface AccountChipsProps {
   label: string
@@ -21,6 +23,7 @@ interface AccountChipsProps {
 export function AccountChips({ label, options, value, onChange, emptyText, className }: AccountChipsProps) {
   const labelId = useId()
   const rowRef = useRef<HTMLDivElement>(null)
+  const kinds = useAccountKinds()
 
   useEffect(() => {
     const row = rowRef.current
@@ -52,12 +55,13 @@ export function AccountChips({ label, options, value, onChange, emptyText, class
                 aria-pressed={selected}
                 onClick={() => onChange(option)}
                 className={clsx(
-                  'min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
+                  'inline-flex min-h-[36px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
                   selected
                     ? 'animate-pop-in border-accent bg-accent-light text-accent-on-light'
                     : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'
                 )}
               >
+                {kinds.get(option) === 'credit_card' && <CreditCard size={13} aria-label="Credit card" />}
                 {option}
               </button>
             )
