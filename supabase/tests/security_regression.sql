@@ -43,7 +43,7 @@ begin
     select unnest(array[
       'public.delete_own_account()', 'public.mark_feedback_reply_seen(uuid)', 'public.find_profile_by_email(text)',
       'public.mark_recurring_item_paid(uuid,date)', 'public.set_account_opening_balance(text,numeric)', 'public.is_admin()',
-      'public.set_account_details(text,text,numeric,integer,integer)'
+      'public.set_account_details(text,text,numeric,integer,integer)', 'public.set_account_closed(text,boolean)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then

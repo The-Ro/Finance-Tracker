@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 import clsx from 'clsx'
 import { CreditCard } from 'lucide-react'
-import { useAccountKinds } from '@/hooks/useCards'
+import { useAccountKinds, useClosedAccounts } from '@/hooks/useCards'
 
 interface AccountChipsProps {
   label: string
@@ -24,19 +24,21 @@ export function AccountChips({ label, options, value, onChange, emptyText, class
   const labelId = useId()
   const rowRef = useRef<HTMLDivElement>(null)
   const kinds = useAccountKinds()
+  const closed = useClosedAccounts()
+  const visible = options.filter((o) => !closed.has(o) || o === value)
 
   useEffect(() => {
     const row = rowRef.current
     const chip = row?.querySelector<HTMLElement>('[aria-pressed="true"]')
     if (row && chip) row.scrollTo({ left: chip.offsetLeft - row.clientWidth / 2 + chip.clientWidth / 2, behavior: 'smooth' })
-  }, [value, options.length])
+  }, [value, visible.length])
 
   return (
     <div className={clsx('flex min-w-0 flex-col gap-1.5', className)}>
       <span id={labelId} className="text-helper font-medium text-slate-600">
         {label}
       </span>
-      {options.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="text-helper text-slate-400">{emptyText ?? 'No accounts yet.'}</p>
       ) : (
         <div
@@ -46,7 +48,7 @@ export function AccountChips({ label, options, value, onChange, emptyText, class
           className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
           style={{ scrollbarWidth: 'none' }}
         >
-          {options.map((option) => {
+          {visible.map((option) => {
             const selected = value === option
             return (
               <button

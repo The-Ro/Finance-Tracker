@@ -97,7 +97,7 @@ export function useAccountDetails() {
     queryFn: async (): Promise<Map<string, AccountDetails>> => {
       const { data, error } = await supabase
         .from('accounts')
-        .select('name, kind, credit_limit, statement_day, due_day')
+        .select('name, kind, credit_limit, statement_day, due_day, closed_at')
         .eq('owner_user_id', userId!)
       if (error) throw error
       return new Map(
@@ -108,6 +108,7 @@ export function useAccountDetails() {
             creditLimit: r.credit_limit != null ? Number(r.credit_limit) : null,
             statementDay: r.statement_day,
             dueDay: r.due_day,
+            closed: r.closed_at != null,
           },
         ])
       )
@@ -129,6 +130,19 @@ export function useSetAccountDetails() {
         p_statement_day: details.statementDay,
         p_due_day: details.dueDay,
       })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
+  })
+}
+
+/** Close or reopen one of the caller's own accounts (narrow RPC). */
+export function useSetAccountClosed() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ account, closed }: { account: string; closed: boolean }) => {
+      const { error } = await supabase.rpc('set_account_closed', { p_account: account, p_closed: closed })
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),

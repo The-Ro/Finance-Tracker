@@ -78,6 +78,7 @@ export interface Database {
           credit_limit: number | null
           statement_day: number | null
           due_day: number | null
+          closed_at: string | null
         }
         Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
@@ -436,6 +437,10 @@ export interface Database {
       }
       set_account_opening_balance: {
         Args: { p_account: string; p_amount: number }
+        Returns: undefined
+      }
+      set_account_closed: {
+        Args: { p_account: string; p_closed: boolean }
         Returns: undefined
       }
       set_account_details: {

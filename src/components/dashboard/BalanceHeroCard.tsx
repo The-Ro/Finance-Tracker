@@ -8,7 +8,7 @@ import { monthEndBalances } from '@/lib/balanceHistory'
 import { sparklinePath } from '@/lib/home'
 import { todayISO } from '@/lib/format'
 import { cashAndCardDebt } from '@/lib/creditCards'
-import { useAccountKinds } from '@/hooks/useCards'
+import { useAccountKinds, useClosedAccounts } from '@/hooks/useCards'
 
 const DEFAULT_SPARK_WIDTH = 320
 const SPARK_HEIGHT = 56
@@ -32,7 +32,8 @@ export function BalanceHeroCard({ transactions, balances, openingBalances }: Bal
   // Net of card debt (card balances are negative when owed); the split into
   // cash in accounts vs owed on cards is shown underneath when there's debt.
   const kinds = useAccountKinds()
-  const { cash, cardDebt, net: total } = useMemo(() => cashAndCardDebt(balances, kinds), [balances, kinds])
+  const closed = useClosedAccounts()
+  const { cash, cardDebt, net: total } = useMemo(() => cashAndCardDebt(new Map([...balances].filter(([n]) => !closed.has(n))), kinds), [balances, kinds, closed])
 
   const history = useMemo(() => {
     const openingTotal = [...(openingBalances?.values() ?? [])].reduce((sum, v) => sum + v, 0)

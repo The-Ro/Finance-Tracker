@@ -14,6 +14,8 @@ export interface AccountDetails {
   creditLimit: number | null
   statementDay: number | null
   dueDay: number | null
+  /** Closed accounts keep their history but drop out of pickers, balances and bills. */
+  closed?: boolean
 }
 
 interface FlowTransaction {

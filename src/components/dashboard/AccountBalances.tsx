@@ -6,7 +6,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { useAuth } from '@/context/AuthContext'
 import { useAccounts } from '@/hooks/useLookupLists'
 import { useAccountBalances } from '@/hooks/useTransactions'
-import { useAccountKinds, useCardStatuses } from '@/hooks/useCards'
+import { useAccountKinds, useCardStatuses, useClosedAccounts } from '@/hooks/useCards'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate } from '@/lib/format'
 
@@ -16,12 +16,13 @@ export function AccountBalances() {
   const balances = useAccountBalances(userId)
   const kinds = useAccountKinds()
   const cards = useCardStatuses()
+  const closed = useClosedAccounts()
   const { format } = useFormatCurrency()
 
   // Only accounts with actual transaction history -- most users have dozens
   // of untouched default bank accounts seeded on signup, and listing all of
   // them at $0 would bury the ones that actually matter.
-  const active = accounts.filter((name) => balances.has(name))
+  const active = accounts.filter((name) => balances.has(name) && !closed.has(name))
   const rows = active
     .filter((name) => kinds.get(name) !== 'credit_card')
     .map((name) => ({ name, balance: balances.get(name)! }))

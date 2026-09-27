@@ -38,7 +38,6 @@ import type { PaymentMethod, TransactionType } from '@/types/database.types'
 const PAYMENT_METHODS: PaymentMethod[] = [
   'UPI', 'Cash', 'Debit card', 'Credit card', 'Net banking', 'Cheque', 'NEFT/RTGS/IMPS', 'Other',
 ]
-const NO_PAYMENT_METHOD = '(none)'
 
 interface AddEntryModalProps {
   open: boolean
@@ -91,6 +90,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // payment method, remarks, tags and receipt. Both open on their own when
   // editing an entry that uses them.
   const [showCurrency, setShowCurrency] = useState(false)
+  // "Mode" pill next to the currency: how it was paid (UPI, debit/credit card...).
+  const [showMode, setShowMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   // Optional even split of a new expense with an approved connection.
   const [splitOn, setSplitOn] = useState(false)
@@ -296,7 +297,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       })
       keepStoredRate.current = transaction.original_currency != null
       setShowCurrency(transaction.original_currency != null)
-      setDetailsOpen(countSecondaryFields(transaction) > 0)
+      setDetailsOpen(countSecondaryFields({ ...transaction, payment_method: null }) > 0)
     } else {
       setForm(blankForm())
       setShowCurrency(false)
@@ -469,7 +470,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   }
 
   const secondaryCount = countSecondaryFields({
-    payment_method: form.paymentMethod,
+    payment_method: null, // shown on the Mode pill, not under More details
     remarks: form.remarks,
     tags: form.tags,
     receipt: !isEditing && form.hasReceipt,
@@ -543,9 +544,10 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               style={{ width: `${Math.min(Math.max(form.amount.length, 1), 12) + 0.75}ch` }}
-              className="min-w-[2ch] max-w-full border-0 border-b-2 border-transparent bg-transparent p-0 text-center font-serif text-5xl font-semibold tabular-nums text-slate-900 transition-colors placeholder:text-slate-300 focus:border-accent focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="amount-input min-w-[2ch] max-w-full border-0 border-b-2 border-transparent bg-transparent p-0 text-center font-serif text-5xl font-semibold tabular-nums text-slate-900 transition-colors placeholder:text-slate-300 focus:border-accent focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
           </div>
+          <div className="flex flex-wrap items-center justify-center gap-2">
           {!isTransfer && (
             <button
               type="button"
@@ -561,6 +563,60 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                 className={clsx('transition-transform duration-200', showCurrency && 'rotate-180')}
               />
             </button>
+          )}
+          {!isCashAccount && (
+            <button
+              type="button"
+              aria-expanded={showMode}
+              aria-controls="entry-mode-panel"
+              onClick={() => setShowMode((v) => !v)}
+              className={clsx(
+                'inline-flex min-h-[44px] items-center gap-1 rounded-full border px-3 text-helper font-semibold transition-colors',
+                form.paymentMethod
+                  ? 'border-accent bg-accent-light text-accent-on-light'
+                  : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'
+              )}
+            >
+              {form.paymentMethod || 'Mode'}
+              <ChevronDown
+                size={14}
+                aria-hidden="true"
+                className={clsx('transition-transform duration-200', showMode && 'rotate-180')}
+              />
+            </button>
+          )}
+          </div>
+          {showMode && !isCashAccount && (
+            <div
+              id="entry-mode-panel"
+              role="group"
+              aria-label="Payment mode"
+              className="animate-fade-in-up -mx-1 flex max-w-full gap-1.5 overflow-x-auto px-1 pb-1"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              {PAYMENT_METHODS.filter((m) => m !== 'Cash').map((m) => {
+                const selected = form.paymentMethod === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setForm((f) => ({ ...f, paymentMethod: selected ? '' : m }))
+                      setShowMode(false)
+                    }}
+                    className={clsx(
+                      'min-h-[44px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
+                      selected
+                        ? 'animate-pop-in border-accent bg-accent-light text-accent-on-light'
+                        : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'
+                    )}
+                  >
+                    {m}
+                  </button>
+                )
+              })}
+            </div>
           )}
           {isForeign && (
             <p
@@ -810,22 +866,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
           {detailsOpen && (
             <div id="entry-more-details" className="animate-fade-in-up flex flex-col gap-4 border-t border-app-border p-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-helper font-medium text-slate-600">Payment method</label>
-                  <Dropdown
-                    options={[NO_PAYMENT_METHOD, ...PAYMENT_METHODS]}
-                    value={isCashAccount ? NO_PAYMENT_METHOD : form.paymentMethod || NO_PAYMENT_METHOD}
-                    disabled={isCashAccount}
-                    aria-label="Payment method"
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        paymentMethod: e.target.value === NO_PAYMENT_METHOD ? '' : (e.target.value as PaymentMethod),
-                      }))
-                    }
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-3">
                 <TextField
                   label="Remarks"
                   id="entry-remarks"

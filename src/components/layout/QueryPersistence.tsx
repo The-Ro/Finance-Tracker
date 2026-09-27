@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { dehydrate, hydrate, useQueryClient, type DehydratedState } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabaseClient'
 import { idbDelete, idbGet, idbSet } from '@/lib/idbStore'
 import { isRestorable, shouldPersistQueryKey, type PersistedCache } from '@/lib/queryPersistence'
 
@@ -42,7 +43,13 @@ export function QueryPersistence() {
     idbGet<PersistedCache<DehydratedState>>(CACHE_KEY)
       .then((saved) => {
         if (cancelled) return
-        if (isRestorable(saved, userId, Date.now())) hydrate(queryClient, saved.state)
+        if (isRestorable(saved, userId, Date.now())) {
+          hydrate(queryClient, saved.state)
+          // Restored data is only a placeholder while offline: refetch it all
+          // straight away so an old snapshot (e.g. from before an import) can
+          // never linger on screen.
+          if (navigator.onLine) queryClient.invalidateQueries()
+        }
         else if (saved) idbDelete(CACHE_KEY).catch(() => {})
       })
       .catch(() => {})
@@ -50,6 +57,24 @@ export function QueryPersistence() {
       cancelled = true
     }
   }, [userId, loading, queryClient])
+
+  // An installed PWA reopened after a while can fire its first requests with an
+  // expired token (401) before Supabase refreshes the session; those queries
+  // then sit on stale/restored data. Retry anything that errored once the
+  // token is refreshed, and everything when the device comes back online.
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+        queryClient.invalidateQueries({ predicate: (q) => q.state.status === 'error' })
+      }
+    })
+    const onOnline = () => queryClient.invalidateQueries()
+    window.addEventListener('online', onOnline)
+    return () => {
+      sub.subscription.unsubscribe()
+      window.removeEventListener('online', onOnline)
+    }
+  }, [queryClient])
 
   // Save (throttled) whenever the cache changes.
   useEffect(() => {

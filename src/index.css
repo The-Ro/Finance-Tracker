@@ -626,7 +626,7 @@ button {
    happens to carry -- !important is deliberate here since this has to beat
    arbitrary per-component text-size classes, not just the base layer. */
 @media (max-width: 767px) {
-  input,
+  input:not(.amount-input),
   select,
   textarea {
     font-size: 16px !important;

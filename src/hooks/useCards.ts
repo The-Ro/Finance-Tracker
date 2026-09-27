@@ -5,6 +5,12 @@ import { useAccountDetails, useAccountOpeningBalances } from '@/hooks/useLookupL
 import { cardStatus, type AccountKind, type CardStatus } from '@/lib/creditCards'
 import { todayISO } from '@/lib/format'
 
+/** Names of closed accounts -- hidden from pickers, balances, totals and bills (history stays). */
+export function useClosedAccounts(): Set<string> {
+  const { data } = useAccountDetails()
+  return useMemo(() => new Set([...(data ?? new Map()).entries()].filter(([, d]) => d.closed).map(([n]) => n)), [data])
+}
+
 /** account name -> kind; accounts missing from the map are treated as banks. */
 export function useAccountKinds(): Map<string, AccountKind> {
   const { data } = useAccountDetails()
@@ -22,7 +28,7 @@ export function useCardStatuses(): Map<string, CardStatus> {
     if (!transactions || !details) return map
     const today = todayISO()
     for (const [name, d] of details) {
-      if (d.kind !== 'credit_card') continue
+      if (d.kind !== 'credit_card' || d.closed) continue
       map.set(name, cardStatus(name, openings?.get(name) ?? 0, transactions, d, today))
     }
     return map

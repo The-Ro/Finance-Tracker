@@ -820,3 +820,21 @@ end;
 $$;
 revoke execute on function public.set_account_details(text, text, numeric, int, int) from public, anon;
 grant execute on function public.set_account_details(text, text, numeric, int, int) to authenticated;
+
+-- Closed accounts keep their history but leave pickers, totals and bills.
+alter table public.accounts add column if not exists closed_at date;
+create or replace function public.set_account_closed(p_account text, p_closed boolean)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  update public.accounts
+     set closed_at = case when p_closed then coalesce(closed_at, current_date) end
+   where owner_user_id = auth.uid() and name = p_account;
+  if not found then
+    raise exception 'Account not found';
+  end if;
+end;
+$$;
+revoke execute on function public.set_account_closed(text, boolean) from public, anon;
+grant execute on function public.set_account_closed(text, boolean) to authenticated;
