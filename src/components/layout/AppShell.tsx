@@ -22,10 +22,13 @@ export function AppShell() {
 
   return (
     <GlobalModalsProvider>
-      <div className="flex min-h-dvh flex-col bg-app-bg">
+      {/* lg:pl-64 clears the persistent desktop sidebar (Sidebar.tsx, w-64,
+          fixed) so the header and page content start beside it, not under it. */}
+      <div className="flex min-h-dvh flex-col bg-app-bg lg:pl-64">
         <WelcomeModal />
         <WhatsNewModal />
-        {/* Floating toggle -- fixed positioning, doesn't occupy layout space. */}
+        {/* Desktop rail (lg+) and the floating toggle below lg -- both fixed
+            positioning, so neither occupies layout space. */}
         <Sidebar />
         <TopBar />
         <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 md:px-8 md:pb-8">

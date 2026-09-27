@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { Check, Palette } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
+import { BrandMark } from '@/components/ui/BrandHeader'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useTheme } from '@/context/ThemeContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { ACCENT_HEX } from '@/lib/themeColors'
@@ -31,6 +33,7 @@ const ACCENTS: { value: ThemeAccent; label: string; swatch: string }[] = [
 export function ThemeSettings() {
   const { mode, accent, setMode, setAccent, setCustomColor } = useTheme()
   const { data } = useUserSettings()
+  const { format } = useFormatCurrency()
   const customColor = data?.themeCustomColor ?? null
   const isCustom = accent === 'custom'
 
@@ -62,6 +65,28 @@ export function ThemeSettings() {
         <p className="mt-1 text-helper text-slate-500">Choose a light/dark mode and an accent theme.</p>
       </div>
 
+      {/* Live preview: built from the same theme tokens as the rest of the
+          app (bg-accent-light + text-accent-on-light, the mark's accent-dark
+          ink), so it recolors the instant a swatch or mode is picked --
+          .theme-preview (index.css) just eases the change in. */}
+      <div>
+        <p className="mb-2 text-helper font-medium text-slate-600">Preview</p>
+        <div className="theme-preview flex items-center gap-4 rounded-2xl border border-app-border bg-accent-light p-4">
+          <BrandMark size="md" className="h-16 w-16" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-on-light opacity-80">
+              Total balance
+            </span>
+            <span className="truncate font-serif text-2xl font-semibold text-accent-on-light sm:text-3xl">
+              {format(48231)}
+            </span>
+          </div>
+        </div>
+        <p className="mt-2 text-helper text-slate-500">
+          The installed app icon keeps Oxblood; the Rs mark, buttons and highlights in the app follow your accent.
+        </p>
+      </div>
+
       <div>
         <p className="mb-2 text-helper font-medium text-slate-600">Mode</p>
         <div className="flex rounded-lg border border-app-border p-1">
@@ -69,9 +94,10 @@ export function ThemeSettings() {
             <button
               key={m.value}
               type="button"
+              aria-pressed={mode === m.value}
               onClick={() => setMode(m.value)}
               className={clsx(
-                'flex-1 rounded-md py-2 text-sm font-medium transition-colors',
+                'press min-h-[40px] flex-1 rounded-md py-2 text-sm font-medium',
                 mode === m.value ? 'bg-accent text-white' : 'text-slate-500 hover:bg-slate-50'
               )}
             >
@@ -90,7 +116,8 @@ export function ThemeSettings() {
               type="button"
               onClick={() => setAccent(a.value)}
               aria-label={`Use ${a.label} accent theme`}
-              className="flex w-14 flex-col items-center gap-1.5"
+              aria-pressed={accent === a.value}
+              className="press flex w-14 flex-col items-center gap-1.5"
             >
               <span
                 className="flex h-10 w-10 items-center justify-center rounded-full border-2 transition-transform hover:scale-105"
@@ -110,7 +137,7 @@ export function ThemeSettings() {
           <div className="flex w-14 flex-col items-center gap-1.5">
             <label
               aria-label="Pick a custom accent color"
-              className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 transition-transform hover:scale-105"
+              className="press relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 hover:scale-105"
               style={{
                 backgroundColor: isCustom && customColor ? customColor : undefined,
                 borderColor: isCustom && customColor ? customColor : 'transparent',
@@ -153,7 +180,7 @@ export function ThemeSettings() {
           />
           <span className="text-helper text-slate-400">Or type a hex code directly</span>
         </div>
-        {hexError && <p className="mt-1 text-helper text-red-600">{hexError}</p>}
+        {hexError && <p className="mt-1 text-helper text-danger">{hexError}</p>}
       </div>
     </Card>
   )

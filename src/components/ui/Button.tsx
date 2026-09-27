@@ -20,7 +20,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       disabled={disabled}
       className={clsx(
-        'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:active:scale-100',
+        // `press` (index.css): 0.95 press on the motion spec's 120ms/200ms
+        // timing, 0.98 when the button is w-full, nothing when disabled.
+        'press inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium disabled:cursor-not-allowed',
         VARIANT_CLASSES[variant],
         className
       )}

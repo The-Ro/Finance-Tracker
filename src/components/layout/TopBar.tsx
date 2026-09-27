@@ -74,7 +74,7 @@ export function TopBar() {
             aria-haspopup="dialog"
             aria-expanded={notifOpen}
             aria-label="Sharing notifications"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
+            className="press relative flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
           >
             <Bell size={17} />
             {hasNotifications && (
@@ -135,7 +135,8 @@ export function TopBar() {
             onClick={() => setMenuOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="flex h-10 items-center gap-1.5 rounded-full border border-app-border bg-white px-2 pr-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            aria-label="Account menu"
+            className="press flex h-10 items-center gap-1.5 rounded-full border border-app-border bg-white px-2 pr-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <Avatar avatar={avatar} name={displayName || email || '?'} size={28} />
             <ChevronDown size={14} />
