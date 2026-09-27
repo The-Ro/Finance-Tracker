@@ -1,52 +1,104 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarClock } from 'lucide-react'
+import clsx from 'clsx'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { RecurringItem } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate, todayISO } from '@/lib/format'
+import { dueWithin } from '@/lib/home'
+
+const MAX_ROWS = 5
 
 interface ComingUpCardProps {
   items: RecurringItem[]
+  className?: string
 }
 
-export function ComingUpCard({ items }: ComingUpCardProps) {
+function weekdayOf(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short' })
+}
+
+/**
+ * "Due this week": every active recurring item and subscription due in the
+ * next 7 days (projected by cadence, same as the Bills calendar) plus anything
+ * already overdue. Read-only -- paying happens on Bills or Recurring.
+ */
+export function ComingUpCard({ items, className }: ComingUpCardProps) {
   const { format } = useFormatCurrency()
-  const upcoming = [...items]
-    .filter((i) => i.active)
-    .sort((a, b) => (a.next_date < b.next_date ? -1 : 1))
-    .slice(0, 5)
+  const today = todayISO()
+  const rows = useMemo(() => dueWithin(items, today, 7), [items, today])
+  const total = rows.reduce((sum, r) => sum + r.item.amount, 0)
+  const shown = rows.slice(0, MAX_ROWS)
+  const hasItems = items.some((i) => i.active)
 
   return (
-    <Card className="p-5">
-      <h3 className="mb-4 text-sm font-semibold text-slate-800">Coming up</h3>
-      {upcoming.length === 0 ? (
-        <EmptyState
-          icon={CalendarClock}
-          title="Nothing confirmed yet"
-          description="Recurring payments and subscriptions you confirm will show up here."
-          action={
-            <Link to="/recurring" className="text-helper font-medium text-accent-dark hover:underline">
-              Go to Recurring
-            </Link>
-          }
-        />
+    <Card className={clsx('flex flex-col gap-3 p-5', className)}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">Due this week</h3>
+          {rows.length > 0 && <p className="text-helper tabular-nums text-slate-500">{format(total)} in total</p>}
+        </div>
+        <Link
+          to="/bills"
+          className="-mr-2 flex min-h-[44px] items-center px-2 text-helper font-semibold text-accent-dark hover:underline"
+        >
+          Calendar
+        </Link>
+      </div>
+
+      {rows.length === 0 ? (
+        hasItems ? (
+          <p className="text-sm text-slate-500">Nothing due in the next 7 days.</p>
+        ) : (
+          <EmptyState
+            icon={CalendarClock}
+            title="No bills yet"
+            description="Recurring payments and subscriptions you confirm will show up here when they're due."
+            action={
+              <Link to="/recurring" className="text-helper font-medium text-accent-dark hover:underline">
+                Go to Recurring
+              </Link>
+            }
+          />
+        )
       ) : (
-        <ul className="stagger-rows flex flex-col gap-3">
-          {upcoming.map((item) => {
-            const isOverdue = item.next_date < todayISO()
-            return (
-              <li key={item.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium text-slate-800">{item.name}</p>
-                  <p className={isOverdue ? 'text-helper font-medium text-caution' : 'text-helper text-slate-500'}>
-                    {isOverdue ? `Overdue since ${formatShortDate(item.next_date)}` : formatShortDate(item.next_date)}
-                  </p>
-                </div>
-                <span className="font-semibold text-slate-900">{format(item.amount)}</span>
-              </li>
-            )
-          })}
+        <ul className="stagger-rows flex flex-col gap-2.5">
+          {shown.map(({ item, date, overdue }) => (
+            <li key={`${item.id}-${date}`} className="flex items-center gap-3">
+              <div className="flex w-11 shrink-0 flex-col items-center leading-tight">
+                <span
+                  className={clsx(
+                    'text-[11px] font-bold uppercase',
+                    overdue ? 'text-danger' : date === today ? 'text-caution' : 'text-slate-500'
+                  )}
+                >
+                  {overdue ? 'Late' : date === today ? 'Today' : weekdayOf(date)}
+                </span>
+                <span className="font-serif text-xl font-semibold tabular-nums text-slate-900">
+                  {Number(date.slice(8, 10))}
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-800">{item.name}</p>
+                {overdue && (
+                  <p className="text-helper font-medium text-danger">Overdue since {formatShortDate(date)}</p>
+                )}
+              </div>
+              <span className="shrink-0 font-serif text-base font-semibold tabular-nums text-slate-900">
+                {format(item.amount)}
+              </span>
+            </li>
+          ))}
+          {rows.length > MAX_ROWS && (
+            <li>
+              <Link to="/bills" className="text-helper font-medium text-accent-dark hover:underline">
+                +{rows.length - MAX_ROWS} more on the calendar
+              </Link>
+            </li>
+          )}
         </ul>
       )}
     </Card>

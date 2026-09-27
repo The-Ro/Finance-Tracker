@@ -13,10 +13,11 @@ import {
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
-import { useMyTransactions, useEveryoneTransactions } from '@/hooks/useTransactions'
+import { useMyTransactions, useEveryoneTransactions, useAccountBalances } from '@/hooks/useTransactions'
 import { useProfiles } from '@/hooks/useProfiles'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabaseClient'
+import { useRecurringItemsRaw } from '@/hooks/useRecurring'
+import { useBudgets } from '@/hooks/useBudgets'
+import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
@@ -27,11 +28,15 @@ import { AccountBarChart } from '@/components/dashboard/AccountBarChart'
 import { AccountBalances } from '@/components/dashboard/AccountBalances'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { ComingUpCard } from '@/components/dashboard/ComingUpCard'
+import { BalanceHeroCard } from '@/components/dashboard/BalanceHeroCard'
+import { QuickActions } from '@/components/dashboard/QuickActions'
+import { MonthSpendingCard } from '@/components/dashboard/MonthSpendingCard'
 import { CustomizeDashboardModal } from '@/components/dashboard/CustomizeDashboardModal'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, resolvePriorPeriod, isWithinRange } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { firstName, greetingFor } from '@/lib/home'
 import {
   DEFAULT_DASHBOARD_ORDER,
   DEFAULT_SUMMARY_CARD_ORDER,
@@ -40,13 +45,29 @@ import {
   type SummaryCardId,
 } from '@/lib/dashboardSections'
 import { Link } from 'react-router-dom'
+import clsx from 'clsx'
 
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-7 w-24" />
+      <div className="flex items-end justify-between">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-7 w-56" />
+        </div>
         <Skeleton className="h-10 w-36 rounded-lg" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="flex flex-col gap-3 p-6 lg:col-span-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-14 w-full" />
+        </Card>
+        <div className="grid grid-cols-4 gap-2.5 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[72px] rounded-2xl lg:h-full" />
+          ))}
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -73,13 +94,17 @@ function DashboardSkeleton() {
 }
 
 export function DashboardPage() {
-  const { userId } = useAuth()
+  const { userId, displayName } = useAuth()
   const settings = useUserSettings()
   const { format } = useFormatCurrency()
   const [customizeOpen, setCustomizeOpen] = useState(false)
   const myTransactions = useMyTransactions(userId)
   const everyoneTransactions = useEveryoneTransactions()
   const profiles = useProfiles()
+  const balances = useAccountBalances(userId)
+  const openingBalances = useAccountOpeningBalances()
+  const budgets = useBudgets()
+  const recurringItems = useRecurringItemsRaw()
 
   // Lets the 4 summary cards be reordered by dragging them right here on
   // Home, not just via the nested list in the Customize modal. Hooks, so
@@ -96,16 +121,6 @@ export function DashboardPage() {
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
-
-  const recurringItemsQuery = useQuery({
-    queryKey: ['recurring_items', userId],
-    enabled: !!userId,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('recurring_items').select('*').eq('owner_user_id', userId!)
-      if (error) throw error
-      return data
-    },
-  })
 
   const period = settings.data?.selectedPeriod ?? 'all-time'
   const range = useMemo(() => resolvePeriod(period), [period])
@@ -141,6 +156,26 @@ export function DashboardPage() {
   const summaryCardOrder = settings.data?.summaryCardOrder ?? DEFAULT_SUMMARY_CARD_ORDER
   const summaryCardHidden = settings.data?.summaryCardHidden ?? []
   const visibleSummaryCardOrder = summaryCardOrder.filter((id) => !summaryCardHidden.includes(id))
+
+  // Budgets and what's due this week: a right-hand column beside the cash-flow
+  // chart on desktop, and stacked under the hero on smaller screens (or on
+  // desktop too, when the cash-flow section is hidden in Customize).
+  const cashflowVisible = !hidden.includes('cashflow')
+  const myList = myTransactions.data ?? []
+  // MonthSpendingCard renders nothing without an active budget; let Due this
+  // week take the full row then.
+  const hasBudgets = (budgets.data ?? []).some((b) => b.active && b.monthly_limit > 0)
+  const glanceCards = (showBudgets: boolean) => (
+    <>
+      <MonthSpendingCard budgets={budgets.data ?? []} transactions={myList} showBudgets={showBudgets} />
+      <ComingUpCard items={recurringItems.data ?? []} className={clsx('flex-1', !hasBudgets && 'sm:col-span-2')} />
+    </>
+  )
+
+  const now = new Date()
+  const name = firstName(displayName)
+  const greeting = `${greetingFor(now.getHours())}${name ? `, ${name}` : ''}`
+  const dateLabel = now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 
   const handleSummaryCardDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -237,7 +272,14 @@ export function DashboardPage() {
     // Cash flow is an independent trailing-months trend, not tied to the
     // period filter above -- otherwise "This month" would only ever have
     // one point to plot.
-    cashflow: <CashFlowChart transactions={myTransactions.data ?? []} />,
+    cashflow: (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
+          <CashFlowChart transactions={myList} />
+        </div>
+        <div className="hidden flex-col gap-4 lg:flex">{glanceCards(true)}</div>
+      </div>
+    ),
     // Category and account breakdowns are separately reorderable/hideable --
     // each rendered full-width (rather than paired in a 2-col grid) since
     // Customize can now put something else between them.
@@ -245,7 +287,7 @@ export function DashboardPage() {
     accountChart: <AccountBarChart transactions={inPeriod} />,
     accountBalances: <AccountBalances />,
     activity: (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RecentActivity
           title="Recent activity"
           transactions={inPeriod}
@@ -258,7 +300,6 @@ export function DashboardPage() {
           profiles={profiles.data}
           emptyDescription="Nothing logged by anyone yet."
         />
-        <ComingUpCard items={recurringItemsQuery.data ?? []} />
       </div>
     ),
     review: (
@@ -275,22 +316,37 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={
-          <>
-            Home
-            <button
-              type="button"
-              aria-label="Customize dashboard"
-              onClick={() => setCustomizeOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            >
-              <SlidersHorizontal size={16} />
-            </button>
-          </>
-        }
-        actions={<PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />}
-      />
+      <div className="animate-fade-in-up flex flex-col gap-1">
+        <p className="text-sm text-slate-500">{dateLabel}</p>
+        <PageHeader
+          title={
+            <>
+              {greeting}
+              <button
+                type="button"
+                aria-label="Customize dashboard"
+                onClick={() => setCustomizeOpen(true)}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <SlidersHorizontal size={16} />
+              </button>
+            </>
+          }
+          actions={<PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />}
+        />
+      </div>
+
+      <div className="stagger-rows flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
+            <BalanceHeroCard transactions={myList} balances={balances} openingBalances={openingBalances.data} />
+          </div>
+          <QuickActions className="lg:auto-rows-fr lg:grid-cols-2" />
+        </div>
+        <div className={clsx('grid grid-cols-1 items-start gap-4 sm:grid-cols-2', cashflowVisible && 'lg:hidden')}>
+          {glanceCards(false)}
+        </div>
+      </div>
 
       {order.filter((id) => !hidden.includes(id)).map((id) => (
         <div key={id}>{sections[id]}</div>
