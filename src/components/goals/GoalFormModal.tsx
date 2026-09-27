@@ -24,7 +24,7 @@ export function GoalFormModal({ open, onClose, editing }: GoalFormModalProps) {
   // so the useState initializers above only ever run once, on first mount.
   // Without this, editing a goal shows whatever was left over from the last
   // time the modal was open instead of that goal's actual values, and a
-  // fresh "Create goal" can start pre-filled with a stale draft.
+  // fresh "New goal" can start pre-filled with a stale draft.
   useEffect(() => {
     if (!open) return
     setName(editing?.name ?? '')
@@ -74,7 +74,7 @@ export function GoalFormModal({ open, onClose, editing }: GoalFormModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? 'Edit goal' : 'Create goal'}
+      title={editing ? 'Edit goal' : 'New goal'}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>

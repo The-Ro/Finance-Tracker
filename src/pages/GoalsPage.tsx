@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Target } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, Target } from 'lucide-react'
 import { useGoals, type Goal } from '@/hooks/useGoals'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -8,24 +8,54 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { GoalCard } from '@/components/goals/GoalCard'
 import { GoalFormModal } from '@/components/goals/GoalFormModal'
+import { AddMoneyModal } from '@/components/goals/AddMoneyModal'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
+import { summarizeGoals } from '@/lib/goals'
 
 function GoalsSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Card key={i} className="flex flex-col gap-3 p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-4">
+      <Skeleton className="h-[88px] w-full rounded-card" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className="flex items-center gap-4 p-4">
+            <Skeleton className="h-16 w-16 shrink-0 rounded-full" />
+            <div className="flex flex-1 flex-col gap-1.5">
               <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-36" />
+              <Skeleton className="h-3 w-40" />
             </div>
-            <Skeleton className="h-8 w-8 rounded-full" />
-          </div>
-          <Skeleton className="h-2 w-full rounded-full" />
-          <Skeleton className="h-3 w-36" />
-        </Card>
-      ))}
+            <Skeleton className="h-11 w-11 rounded-xl" />
+          </Card>
+        ))}
+      </div>
     </div>
+  )
+}
+
+function SavedSoFar({ goals }: { goals: readonly Goal[] }) {
+  const { format } = useFormatCurrency()
+  const summary = summarizeGoals(goals)
+  const saved = useAnimatedNumber(summary.saved)
+  return (
+    <Card className="animate-fade-in-up flex items-center justify-between gap-4 border-caution/30 bg-caution-light p-5">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-helper font-bold uppercase tracking-[0.12em] text-slate-600">Saved so far</p>
+        <p className="truncate font-serif text-3xl font-semibold tabular-nums text-slate-900">{format(saved)}</p>
+      </div>
+      <p className="shrink-0 text-right text-sm leading-snug text-slate-600">
+        of <span className="tabular-nums">{format(summary.target)}</span>
+        <br />
+        across {summary.count} {summary.count === 1 ? 'goal' : 'goals'}
+        {summary.reached > 0 && (
+          <>
+            <br />
+            {summary.reached} reached
+          </>
+        )}
+      </p>
+    </Card>
   )
 }
 
@@ -33,6 +63,9 @@ export function GoalsPage() {
   const { data: goals = [], remove, isLoading } = useGoals()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Goal | null>(null)
+  const [addingToId, setAddingToId] = useState<string | null>(null)
+  // Looked up from the live list so the modal always shows the latest saved amount.
+  const addingTo = useMemo(() => goals.find((g) => g.id === addingToId) ?? null, [goals, addingToId])
 
   return (
     <div className="flex flex-col gap-5">
@@ -45,7 +78,7 @@ export function GoalsPage() {
               setModalOpen(true)
             }}
           >
-            Create goal
+            <Plus size={16} aria-hidden="true" /> New goal
           </Button>
         }
       />
@@ -55,22 +88,30 @@ export function GoalsPage() {
       ) : goals.length === 0 ? (
         <EmptyState icon={Target} title="No goals yet" description="Set a savings goal to start tracking progress toward it." />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {goals.map((g) => (
-            <GoalCard
-              key={g.id}
-              goal={g}
-              onEdit={() => {
-                setEditing(g)
-                setModalOpen(true)
-              }}
-              onDelete={() => remove.mutate(g.id)}
-            />
-          ))}
-        </div>
+        <>
+          <SavedSoFar goals={goals} />
+          <div className="stagger-rows grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {goals.map((g) => (
+              // Wrapper takes the stagger animation: its `both` fill would otherwise
+              // pin transform on the card and cancel .card-interactive's hover lift.
+              <div key={g.id}>
+                <GoalCard
+                  goal={g}
+                  onEdit={() => {
+                    setEditing(g)
+                    setModalOpen(true)
+                  }}
+                  onDelete={() => remove.mutate(g.id)}
+                  onAddMoney={() => setAddingToId(g.id)}
+                />
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <GoalFormModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} />
+      <AddMoneyModal goal={addingTo} onClose={() => setAddingToId(null)} />
     </div>
   )
 }
