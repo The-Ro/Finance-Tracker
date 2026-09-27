@@ -6,7 +6,12 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3)
 }
 
-/** Animates numeric transitions (stat cards, progress amounts) via requestAnimationFrame. */
+/** Motion spec's "hero count-up" duration -- the Home balance hero passes
+ *  this; stat cards and progress amounts keep the 700ms default. */
+export const HERO_COUNT_UP_MS = 1200
+
+/** Animates numeric transitions (stat cards, progress amounts) via requestAnimationFrame.
+ *  `duration` is optional (default 700ms); the Home hero uses HERO_COUNT_UP_MS. */
 export function useAnimatedNumber(target: number, duration = 700): number {
   const [value, setValue] = useState(target)
   const fromRef = useRef(target)

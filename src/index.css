@@ -613,7 +613,7 @@ button {
 }
 
 /* Motion spec (design canvas): bars grow from zero on first view; list rows
-   rise in 60ms apart, capped at 8 so long lists don't wait. A row mounted
+   rise in 80ms apart, capped at 8 so long lists don't wait. A row mounted
    later (a newly saved entry, Load more) gets the same rise on its own. */
 @keyframes bar-grow { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 .animate-bar-grow { transform-origin: left center; animation: bar-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -621,10 +621,51 @@ button {
 .animate-bar-rise { transform-origin: bottom center; animation: bar-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes row-rise { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
 .stagger-rows > * { animation: row-rise 0.52s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.stagger-rows > *:nth-child(2) { animation-delay: 60ms } .stagger-rows > *:nth-child(3) { animation-delay: 120ms }
-.stagger-rows > *:nth-child(4) { animation-delay: 180ms } .stagger-rows > *:nth-child(5) { animation-delay: 240ms }
-.stagger-rows > *:nth-child(6) { animation-delay: 300ms } .stagger-rows > *:nth-child(7) { animation-delay: 360ms }
-.stagger-rows > *:nth-child(8) { animation-delay: 420ms }
+.stagger-rows > *:nth-child(2) { animation-delay: 80ms } .stagger-rows > *:nth-child(3) { animation-delay: 160ms }
+.stagger-rows > *:nth-child(4) { animation-delay: 240ms } .stagger-rows > *:nth-child(5) { animation-delay: 320ms }
+.stagger-rows > *:nth-child(6) { animation-delay: 400ms } .stagger-rows > *:nth-child(7) { animation-delay: 480ms }
+.stagger-rows > *:nth-child(8) { animation-delay: 560ms }
 @media (prefers-reduced-motion: reduce) {
   .animate-bar-grow, .animate-bar-rise, .stagger-rows > * { animation: none; }
+}
+
+/* Press feedback (motion spec): scale to 0.95 in 120ms, back in 200ms, on
+   the house curve. For buttons and chips -- Button.tsx uses it, and any
+   chip-style <button> can add `press`. Full-width buttons only dip to 0.98,
+   since 5% of a 400px-wide button is a lurch rather than a press. Keeps the
+   color/shadow transitions the global `button` rule above gives, because
+   this replaces its transition shorthand. Reduced motion: the state change
+   still shows, it just doesn't animate. */
+.press {
+  transition-property: transform, background-color, border-color, color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.press:active:not(:disabled) {
+  transform: scale(0.95);
+  transition-duration: 120ms;
+}
+.press.w-full:active:not(:disabled) {
+  transform: scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .press,
+  .press:active:not(:disabled) {
+    transition-duration: 0ms;
+  }
+}
+
+/* Theme preview (ThemeSettings): the sample card eases into a newly picked
+   accent/mode instead of snapping, so the change reads as a change. */
+.theme-preview,
+.theme-preview * {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 420ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-preview,
+  .theme-preview * {
+    transition-duration: 0ms;
+  }
 }
