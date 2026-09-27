@@ -10,13 +10,14 @@ import {
   TRANSACTIONS_QUERY_LIMIT,
 } from '@/hooks/useTransactions'
 import { useProfiles } from '@/hooks/useProfiles'
+import { useRequestedAccessRows } from '@/hooks/useSharing'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
-import { ScopeToggle, type TransactionScope } from '@/components/transactions/ScopeToggle'
+import type { TransactionScope } from '@/components/transactions/ScopeToggle'
 import { TransactionTable } from '@/components/transactions/TransactionTable'
 import { DuplicatesModal } from '@/components/transactions/DuplicatesModal'
 import { Card } from '@/components/ui/Card'
@@ -27,13 +28,14 @@ import { findDuplicateGroups } from '@/lib/duplicates'
 import { todayISO } from '@/lib/format'
 import { EMPTY_TRANSACTION_FILTERS, type TransactionFilters } from '@/lib/transactionSearch'
 import { SavedFilters } from '@/components/transactions/SavedFilters'
+import { toFilters, type SavedFilter } from '@/lib/savedFilters'
 
 function TransactionTableSkeleton() {
   return (
     <Card className="flex flex-col gap-3 p-4">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 py-1.5">
-          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+          <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
           <div className="flex flex-1 flex-col gap-1.5">
             <Skeleton className="h-3.5 w-1/3" />
             <Skeleton className="h-3 w-1/5" />
@@ -70,6 +72,7 @@ export function TransactionsPage() {
   const myTransactions = useMyTransactions(userId)
   const everyoneTransactions = useEveryoneTransactions()
   const profiles = useProfiles()
+  const requestedAccess = useRequestedAccessRows()
   const { data: categories = [] } = useCategories()
   const { data: accounts = [] } = useAccounts()
 
@@ -104,11 +107,31 @@ export function TransactionsPage() {
       .map(([id, name]) => ({ id, name }))
   }, [scope, everyoneTransactions.data, profiles.data])
 
+  // Mine / Everyone only means something once you can see someone else's
+  // transactions: an approved request of yours, or (belt and braces) any
+  // other owner's row already in the Everyone fetch. Stays visible while
+  // Everyone is selected so there's always a way back.
+  const canChooseScope = useMemo(
+    () =>
+      scope === 'everyone' ||
+      (requestedAccess.data ?? []).some((r) => r.status === 'approved') ||
+      (everyoneTransactions.data ?? []).some((t) => t.owner_user_id !== userId),
+    [scope, requestedAccess.data, everyoneTransactions.data, userId]
+  )
+
+  // Restores a saved view. Entries saved before scope/period were remembered
+  // don't carry them -- the current scope/period stay as they are then.
+  const applySavedView = (view: SavedFilter) => {
+    if (view.scope) setScope(view.scope)
+    setFilters(toFilters(view))
+    if (view.period && view.period !== period) settings.updatePeriod.mutate(view.period)
+  }
+
   // Always the signed-in user's own transactions (regardless of scope) -- you
   // can only delete your own, so that's all a duplicate review can act on.
   const duplicateGroups = useMemo(() => findDuplicateGroups(myTransactions.data ?? []), [myTransactions.data])
 
-  const { formatSigned, formatCompact } = useFormatCurrency()
+  const { format, formatSigned, formatCompact } = useFormatCurrency()
   // Page-level, so this reflects scope + period like the heading it sits
   // next to -- not the table's own search/type/category/account/person
   // filters below, which narrow the list further without changing the page.
@@ -140,7 +163,7 @@ export function TransactionsPage() {
         title={
           <>
             Transactions
-            <div className="inline-flex w-fit items-center divide-x divide-app-border overflow-hidden rounded-full border border-app-border bg-white text-helper font-medium">
+            <div className="hidden w-fit items-center divide-x divide-app-border overflow-hidden rounded-full border border-app-border bg-white text-helper font-medium sm:inline-flex">
               <span
                 title={`Credit -- ${formatSigned(totalCredit, 'income')} in this period`}
                 className="flex items-center gap-1 px-2.5 py-1 text-positive"
@@ -160,7 +183,6 @@ export function TransactionsPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <ScopeToggle value={scope} onChange={setScope} />
             <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
             <Button variant="secondary" onClick={handleExport} disabled={inPeriod.length === 0} className="px-3 sm:px-4">
               <Download size={16} />
@@ -179,6 +201,28 @@ export function TransactionsPage() {
         }
       />
 
+      {/* Phones: the credit/debit capsule becomes two tiles (same numbers). */}
+      <div className="animate-fade-in-up grid grid-cols-2 gap-3 sm:hidden">
+        <div className="flex min-w-0 flex-col gap-1 rounded-card bg-positive-light p-3.5">
+          <span className="flex items-center gap-1.5 text-helper font-bold text-positive">
+            <ArrowDownRight size={14} aria-hidden="true" />
+            Money in
+          </span>
+          <span className="truncate font-serif text-xl font-semibold tabular-nums text-slate-900" title={format(totalCredit)}>
+            {format(totalCredit)}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1 rounded-card bg-danger-light p-3.5">
+          <span className="flex items-center gap-1.5 text-helper font-bold text-danger">
+            <ArrowUpRight size={14} aria-hidden="true" />
+            Money out
+          </span>
+          <span className="truncate font-serif text-xl font-semibold tabular-nums text-slate-900" title={format(totalDebit)}>
+            {format(totalDebit)}
+          </span>
+        </div>
+      </div>
+
       {isCapped && (
         <div className="flex items-center gap-2 rounded-lg bg-caution-light px-3 py-2 text-helper text-caution">
           <AlertTriangle size={14} className="shrink-0" />
@@ -190,7 +234,7 @@ export function TransactionsPage() {
         </div>
       )}
 
-      <SavedFilters filters={filters} onApply={setFilters} />
+      <SavedFilters filters={filters} scope={scope} period={period} onApply={applySavedView} />
 
       {paginated.isLoading ? (
         <TransactionTableSkeleton />
@@ -198,6 +242,8 @@ export function TransactionsPage() {
         <TransactionTable
           transactions={paginatedSource}
           scope={scope}
+          onScopeChange={setScope}
+          canChooseScope={canChooseScope}
           currentUserId={userId ?? ''}
           profiles={profiles.data ?? {}}
           categories={categories}

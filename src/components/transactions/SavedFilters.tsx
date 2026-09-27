@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { Bookmark, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { addSavedFilter, describeFilters, isSaved } from '@/lib/savedFilters'
+import { addSavedFilter, describeFilters, isSaved, parseSavedFilters, type SavedFilter } from '@/lib/savedFilters'
 import { hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
+import type { SelectedPeriod } from '@/types/database.types'
+import type { TransactionScope } from './ScopeToggle'
 
 interface SavedFiltersProps {
   filters: TransactionFilters
-  onApply: (filters: TransactionFilters) => void
+  scope: TransactionScope
+  period: SelectedPeriod
+  /** Restores a saved view. `scope`/`period` are absent on entries saved
+   *  before they were remembered -- keep the current ones then. */
+  onApply: (view: SavedFilter) => void
 }
 
 // Saved per user in this browser only (a convenience, like a remembered tab) --
@@ -14,16 +20,15 @@ interface SavedFiltersProps {
 function storageKey(userId: string) {
   return `ledgeeaze:saved-filters:${userId}`
 }
-function load(userId: string | null): TransactionFilters[] {
+function load(userId: string | null): SavedFilter[] {
   if (!userId) return []
   try {
-    const raw = localStorage.getItem(storageKey(userId))
-    return raw ? (JSON.parse(raw) as TransactionFilters[]) : []
+    return parseSavedFilters(localStorage.getItem(storageKey(userId)))
   } catch {
     return []
   }
 }
-function persist(userId: string | null, list: TransactionFilters[]) {
+function persist(userId: string | null, list: SavedFilter[]) {
   if (!userId) return
   try {
     localStorage.setItem(storageKey(userId), JSON.stringify(list))
@@ -32,15 +37,18 @@ function persist(userId: string | null, list: TransactionFilters[]) {
   }
 }
 
-/** Chips for saved Transactions filter sets, plus a "Save this view" action. */
-export function SavedFilters({ filters, onApply }: SavedFiltersProps) {
+/** Chips for saved Transactions views (filters + scope + period), plus a "Save this view" action. */
+export function SavedFilters({ filters, scope, period, onApply }: SavedFiltersProps) {
   const { userId } = useAuth()
   const [saved, setSaved] = useState(() => load(userId))
-  const update = (next: TransactionFilters[]) => {
+  const update = (next: SavedFilter[]) => {
     setSaved(next)
     persist(userId, next)
   }
-  const canSave = hasActiveFilters(filters) && !isSaved(saved, filters)
+  const current: SavedFilter = { ...filters, scope, period }
+  // Everyone with no other filter is still a view worth saving; a period on
+  // its own isn't (it's already remembered in settings).
+  const canSave = (hasActiveFilters(filters) || scope === 'everyone') && !isSaved(saved, current)
   if (saved.length === 0 && !canSave) return null
 
   return (
@@ -66,7 +74,7 @@ export function SavedFilters({ filters, onApply }: SavedFiltersProps) {
       {canSave && (
         <button
           type="button"
-          onClick={() => update(addSavedFilter(saved, filters))}
+          onClick={() => update(addSavedFilter(saved, current))}
           className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-dashed border-accent px-3 text-helper font-medium text-accent-dark"
         >
           <Bookmark size={13} /> Save this view

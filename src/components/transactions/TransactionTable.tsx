@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Pencil, Receipt, Split, Trash2, X } from 'lucide-react'
+import clsx from 'clsx'
+import { CheckSquare, Pencil, Receipt, Search, SlidersHorizontal, Split, Trash2, X } from 'lucide-react'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
@@ -17,21 +18,36 @@ import { formatDate, todayISO } from '@/lib/format'
 import { addDaysISO } from '@/lib/billCalendar'
 import { formatCurrencyAs } from '@/lib/currency'
 import type { TransactionScope } from './ScopeToggle'
+import { SwipeRow, type SwipeAction } from './SwipeRow'
 import { hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
-import type { TransactionType } from '@/types/database.types'
+import { avatarTone, dayNetTotals, merchantInitial, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
 
 const BULK_CATEGORY_PLACEHOLDER = 'Change category…'
 
-const TYPE_LABELS: Record<TransactionType, string> = { income: 'Income', expense: 'Expense', transfer: 'Transfer' }
-const TYPE_FROM_LABEL: Record<string, TransactionType | undefined> = {
-  Income: 'income',
-  Expense: 'expense',
-  Transfer: 'transfer',
+// Merchant-initial avatar tints (phones). Theme tokens only, so they follow
+// light/dark mode and the accent preset; green stays reserved for income.
+const TONE_CLASSES: Record<AvatarTone, string> = {
+  positive: 'bg-positive-light text-positive',
+  accent: 'bg-accent-light text-accent-on-light',
+  info: 'bg-info-light text-info',
+  caution: 'bg-caution-light text-caution',
+  neutral: 'bg-slate-100 text-slate-600',
+}
+
+function chipClass(active: boolean) {
+  return clsx(
+    'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-sm font-semibold transition-colors',
+    active ? 'border-accent bg-accent text-white' : 'border-app-border bg-app-card text-slate-600 hover:bg-slate-50'
+  )
 }
 
 interface TransactionTableProps {
   transactions: Transaction[]
   scope: TransactionScope
+  /** Shows Mine / Everyone chips in the quick-filter row (only when the user
+   *  can actually see someone else's transactions). */
+  onScopeChange?: (scope: TransactionScope) => void
+  canChooseScope?: boolean
   currentUserId: string
   profiles: ProfileMap
   categories: string[]
@@ -52,6 +68,8 @@ interface TransactionTableProps {
 export function TransactionTable({
   transactions,
   scope,
+  onScopeChange,
+  canChooseScope = false,
   currentUserId,
   profiles,
   categories,
@@ -65,6 +83,12 @@ export function TransactionTable({
 }: TransactionTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  // Phones: checkboxes only appear in "Select" mode (the desktop grid always
+  // has its checkbox column); one swiped-open row at a time; the category/
+  // account/person dropdowns sit behind a "Filters" disclosure.
+  const [selectMode, setSelectMode] = useState(false)
+  const [openRowId, setOpenRowId] = useState<string | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const deleteTransaction = useDeleteTransaction()
   const bulkDeleteTransactions = useBulkDeleteTransactions()
   const bulkUpdateCategory = useBulkUpdateTransactionCategory()
@@ -119,18 +143,28 @@ export function TransactionTable({
     })
   }
 
+  // Net per day for the phone day headings -- only over the rows loaded so far.
+  const dayNets = useMemo(() => dayNetTotals(transactions), [transactions])
+  const showMobileCheckboxes = selectMode || selected.size > 0
+  const dropdownFilterCount = [filters.category, filters.account, filters.ownerId].filter(Boolean).length
+
+  const clearSelection = () => {
+    setSelected(new Set())
+    setSelectMode(false)
+  }
+
   const handleBulkCategoryChange = (category: string) => {
     if (category === BULK_CATEGORY_PLACEHOLDER || selected.size === 0) return
     bulkUpdateCategory.mutate(
       { ids: Array.from(selected), category },
-      { onSuccess: () => setSelected(new Set()) }
+      { onSuccess: clearSelection }
     )
   }
 
   const handleBulkDelete = () => {
     bulkDeleteTransactions.mutate(Array.from(selected), {
       onSuccess: () => {
-        setSelected(new Set())
+        clearSelection()
         setConfirmBulkDelete(false)
       },
     })
@@ -138,41 +172,109 @@ export function TransactionTable({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          value={filters.search}
-          onChange={(e) => setFilter({ search: e.target.value })}
-          placeholder="Search merchant, category, or tag"
-          className="min-h-[44px] flex-1 rounded-lg border border-app-border bg-white px-3 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-        {scope === 'everyone' && peopleOptions.length > 0 && (
-          <Dropdown
-            options={[ALL_PEOPLE, ...peopleOptions.map((p) => p.name)]}
-            value={ownerName ?? ALL_PEOPLE}
-            aria-label="Filter by person"
-            onChange={(e) =>
-              setFilter({ ownerId: peopleOptions.find((p) => p.name === e.target.value)?.id ?? null })
-            }
+      <div className="flex flex-col gap-2 md:flex-row md:items-center">
+        <div className="flex min-h-[48px] flex-1 items-center gap-2.5 rounded-xl border border-app-border bg-white px-3.5 focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
+          <Search size={17} className="shrink-0 text-slate-400" aria-hidden="true" />
+          <input
+            type="search"
+            value={filters.search}
+            onChange={(e) => setFilter({ search: e.target.value })}
+            placeholder="Search merchant, category, or tag"
+            aria-label="Search transactions"
+            className="min-h-[44px] min-w-0 flex-1 bg-transparent text-sm focus:outline-none"
           />
+        </div>
+        {/* Category/account/person: always inline from md up, behind the
+            "Filters" chip below on phones. */}
+        <div
+          id="transaction-dropdown-filters"
+          className={clsx(
+            'flex-col gap-2 sm:flex-row sm:flex-wrap md:flex md:flex-nowrap',
+            filtersOpen ? 'animate-fade-in flex' : 'hidden'
+          )}
+        >
+          {scope === 'everyone' && peopleOptions.length > 0 && (
+            <Dropdown
+              options={[ALL_PEOPLE, ...peopleOptions.map((p) => p.name)]}
+              value={ownerName ?? ALL_PEOPLE}
+              aria-label="Filter by person"
+              onChange={(e) =>
+                setFilter({ ownerId: peopleOptions.find((p) => p.name === e.target.value)?.id ?? null })
+              }
+            />
+          )}
+          <Dropdown
+            options={['All categories', ...categories]}
+            value={filters.category ?? 'All categories'}
+            aria-label="Filter by category"
+            onChange={(e) => setFilter({ category: e.target.value === 'All categories' ? null : e.target.value })}
+          />
+          <Dropdown
+            options={['All accounts', ...accounts]}
+            value={filters.account ?? 'All accounts'}
+            aria-label="Filter by account"
+            onChange={(e) => setFilter({ account: e.target.value === 'All accounts' ? null : e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Quick filters: type chips (filters.type), then Mine / Everyone when
+          there's someone else's activity to see. Scrolls sideways on phones. */}
+      <div className="scrollbar-none -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-0.5">
+        <div role="group" aria-label="Transaction type" className="flex gap-2">
+          {QUICK_TYPE_CHIPS.map((chip) => (
+            <button
+              key={chip.label}
+              type="button"
+              aria-pressed={filters.type === chip.type}
+              onClick={() => setFilter({ type: chip.type })}
+              className={chipClass(filters.type === chip.type)}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        {canChooseScope && onScopeChange && (
+          <>
+            <span className="h-6 w-px shrink-0 bg-app-border" aria-hidden="true" />
+            <div role="group" aria-label="Whose transactions" className="flex gap-2">
+              {(['mine', 'everyone'] as TransactionScope[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={scope === s}
+                  onClick={() => onScopeChange(s)}
+                  className={chipClass(scope === s)}
+                >
+                  {s === 'mine' ? 'Mine' : 'Everyone'}
+                </button>
+              ))}
+            </div>
+          </>
         )}
-        <Dropdown
-          options={['All types', 'Income', 'Expense', 'Transfer']}
-          value={filters.type ? TYPE_LABELS[filters.type] : 'All types'}
-          aria-label="Filter by type"
-          onChange={(e) => setFilter({ type: TYPE_FROM_LABEL[e.target.value] ?? null })}
-        />
-        <Dropdown
-          options={['All categories', ...categories]}
-          value={filters.category ?? 'All categories'}
-          aria-label="Filter by category"
-          onChange={(e) => setFilter({ category: e.target.value === 'All categories' ? null : e.target.value })}
-        />
-        <Dropdown
-          options={['All accounts', ...accounts]}
-          value={filters.account ?? 'All accounts'}
-          aria-label="Filter by account"
-          onChange={(e) => setFilter({ account: e.target.value === 'All accounts' ? null : e.target.value })}
-        />
+        <span className="h-6 w-px shrink-0 bg-app-border md:hidden" aria-hidden="true" />
+        <button
+          type="button"
+          aria-expanded={filtersOpen}
+          aria-controls="transaction-dropdown-filters"
+          onClick={() => setFiltersOpen((o) => !o)}
+          className={clsx(chipClass(filtersOpen || dropdownFilterCount > 0), 'md:hidden')}
+        >
+          <SlidersHorizontal size={15} aria-hidden="true" />
+          Filters
+          {dropdownFilterCount > 0 && <span className="tabular-nums">({dropdownFilterCount})</span>}
+        </button>
+        {editableFiltered.length > 0 && (
+          <button
+            type="button"
+            aria-pressed={showMobileCheckboxes}
+            onClick={() => (showMobileCheckboxes ? clearSelection() : setSelectMode(true))}
+            className={clsx(chipClass(showMobileCheckboxes), 'md:hidden')}
+          >
+            <CheckSquare size={15} aria-hidden="true" />
+            {showMobileCheckboxes ? 'Done' : 'Select'}
+          </button>
+        )}
       </div>
 
       {selected.size > 0 && (
@@ -198,7 +300,7 @@ export function TransactionTable({
             <button
               type="button"
               aria-label="Clear selection"
-              onClick={() => setSelected(new Set())}
+              onClick={clearSelection}
               className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-white/50"
             >
               <X size={16} />
@@ -271,9 +373,8 @@ export function TransactionTable({
               const newDay = index === 0 || transactions[index - 1].date !== t.date
               const owner = profiles[t.owner_user_id]
               const editable = t.owner_user_id === currentUserId
-              const amountClassName =
-                'text-sm font-serif font-semibold ' +
-                (t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-danger' : 'text-slate-600')
+              const amountTone = t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-danger' : 'text-slate-600'
+              const amountClassName = 'text-sm font-serif font-semibold ' + amountTone
               const amountLabel = t.type === 'income' ? 'Credit' : t.type === 'expense' ? 'Debit' : 'Transfer'
               const accountDisplay = t.type === 'transfer' && t.to_account ? `${t.account} → ${t.to_account}` : t.account
 
@@ -315,86 +416,120 @@ export function TransactionTable({
                 </button>
               )
 
+              // Phones: swipe-left actions, same rule as the desktop buttons --
+              // only your own rows; Split only on expenses.
+              // Solid fills with white text in light mode; the dark-mode tint
+              // pairs keep contrast where --info/--danger are brightened.
+              const swipeActions: SwipeAction[] =
+                editable && !showMobileCheckboxes
+                  ? [
+                      { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => openEditEntry(t), className: 'bg-slate-600 text-white dark:bg-info-light dark:text-info' },
+                      ...(t.type === 'expense'
+                        ? [{ key: 'split', label: 'Split', icon: Split, onSelect: () => openSplit(t), className: 'bg-accent text-white' }]
+                        : []),
+                      {
+                        key: 'delete',
+                        label: 'Delete',
+                        icon: Trash2,
+                        onSelect: () => deleteTransaction.mutate(t.id),
+                        className: 'bg-danger text-white dark:bg-danger-light dark:text-danger',
+                      },
+                    ]
+                  : []
+              const net = dayNets.get(t.date)
+              const subline = [t.type === 'transfer' ? 'Transfer' : t.category, accountDisplay, t.payment_method ? `via ${t.payment_method}` : null]
+                .filter(Boolean)
+                .join(' · ')
+              const extraLine = [t.remarks, t.tags.length ? t.tags.map((tag) => `#${tag}`).join(' ') : null]
+                .filter(Boolean)
+                .join(' · ')
+
               return (
                 <Fragment key={t.id}>
                 {newDay && (
-                  <li className="bg-slate-50 px-4 py-1.5 text-helper font-semibold uppercase tracking-wide text-slate-500 md:hidden">
-                    {dayHeading(t.date)}
+                  <li className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-2 text-helper font-semibold uppercase tracking-wide text-slate-500 md:hidden">
+                    <span>{dayHeading(t.date)}</span>
+                    {net !== undefined && (
+                      <span className="tabular-nums normal-case tracking-normal" title="Net for the loaded entries of this day">
+                        <span className="sr-only">Net </span>
+                        {net === 0 ? formatSigned(0, 'transfer') : formatSigned(net, net > 0 ? 'income' : 'expense')}
+                      </span>
+                    )}
                   </li>
                 )}
                 <li className="border-b border-app-border last:border-b-0">
-                  {/* Mobile: stacked card. Desktop: single table row (below). Kept as two
-                      separate layouts rather than one shared grid -- the row has too many
-                      cells of very different shapes (a dropdown, a tag editor, two-line
-                      amount, icon buttons) for one grid to reflow sensibly at 2 columns. */}
-                  <div className="flex flex-col gap-2 px-4 py-3 md:hidden">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        {checkbox}
-                        <span className="text-sm text-slate-600">{formatDate(t.date)}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
-                        <div className="text-helper text-slate-400">
-                          {t.original_currency && t.original_amount != null
-                            ? `${formatCurrencyAs(t.original_amount, t.original_currency)} · ${amountLabel}`
-                            : amountLabel}
+                  {/* Mobile: compact swipeable row. Desktop: single table row (below). Kept
+                      as two separate layouts rather than one shared grid -- the desktop row
+                      has too many cells of very different shapes (a dropdown, a tag editor,
+                      two-line amount, icon buttons) to reflow sensibly at phone width. */}
+                  <div className="md:hidden">
+                    <SwipeRow
+                      actions={swipeActions}
+                      open={openRowId === t.id}
+                      onOpenChange={(o) => setOpenRowId((prev) => (o ? t.id : prev === t.id ? null : prev))}
+                      label={t.merchant}
+                    >
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        {showMobileCheckboxes && checkbox && (
+                          <label className="-my-2 -ml-2 flex h-11 w-9 shrink-0 cursor-pointer items-center justify-center">
+                            {checkbox}
+                          </label>
+                        )}
+                        <span
+                          aria-hidden="true"
+                          className={clsx(
+                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold',
+                            TONE_CLASSES[avatarTone(t.category, t.type)]
+                          )}
+                        >
+                          {merchantInitial(t.merchant)}
+                        </span>
+                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
+                              {t.merchant}
+                            </span>
+                            {t.receipt &&
+                              (t.receipt_document_id ? (
+                                <button
+                                  type="button"
+                                  aria-label="View receipt"
+                                  title="View receipt"
+                                  onClick={() => handleViewReceipt(t.receipt_document_id!)}
+                                  disabled={viewReceipt.isPending}
+                                  className="-my-3 flex h-11 w-8 shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
+                                >
+                                  <Receipt size={13} />
+                                </button>
+                              ) : (
+                                <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
+                              ))}
+                            {scope === 'everyone' && owner && (
+                              <Avatar avatar={owner.avatar} name={owner.displayName} size={18} className="shrink-0" />
+                            )}
+                          </div>
+                          <span className="truncate text-helper text-slate-500" title={subline}>
+                            {subline}
+                          </span>
+                          {extraLine && (
+                            <span className="truncate text-helper text-slate-400" title={extraLine}>
+                              {extraLine}
+                            </span>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className={clsx('font-serif text-base font-semibold tabular-nums', amountTone)}>
+                            <span className="sr-only">{amountLabel} </span>
+                            {formatSigned(t.amount, t.type)}
+                          </div>
+                          {t.original_currency && t.original_amount != null && (
+                            <div className="text-helper text-slate-400">
+                              {formatCurrencyAs(t.original_amount, t.original_currency)}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-base font-semibold text-slate-900" title={t.merchant}>
-                          {t.merchant}
-                        </span>
-                        {t.receipt &&
-                          (t.receipt_document_id ? (
-                            <button
-                              type="button"
-                              aria-label="View receipt"
-                              title="View receipt"
-                              onClick={() => handleViewReceipt(t.receipt_document_id!)}
-                              disabled={viewReceipt.isPending}
-                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
-                            >
-                              <Receipt size={13} />
-                            </button>
-                          ) : (
-                            <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
-                          ))}
-                      </div>
-                      {scope === 'everyone' && owner && (
-                        <Avatar avatar={owner.avatar} name={owner.displayName} size={20} className="ml-auto shrink-0" />
-                      )}
-                    </div>
-                    {t.remarks && (
-                      <p className="truncate text-helper text-slate-400" title={t.remarks}>
-                        {t.remarks}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between gap-3">
-                      {t.type === 'transfer' ? (
-                        <span className="w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                          Transfer
-                        </span>
-                      ) : (
-                        <InlineCategoryEditor transactionId={t.id} category={t.category ?? ''} type={t.type} editable={editable} />
-                      )}
-                      <div className="shrink-0 text-right">
-                        <span className="text-sm text-slate-600">{accountDisplay}</span>
-                        {t.payment_method && <p className="text-helper text-slate-400">via {t.payment_method}</p>}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
-                      {editable && (
-                        <div className="flex shrink-0">
-                          {editButton}
-                        {splitButton}
-                          {deleteButton}
-                        </div>
-                      )}
-                    </div>
+                    </SwipeRow>
                   </div>
 
                   <div
