@@ -15,7 +15,7 @@ const TONE_CLASSES: Record<ToastTone, string> = {
 }
 
 export function Toaster() {
-  const { toasts, dismiss } = useToastList()
+  const { toasts, dismiss, pause, resume } = useToastList()
 
   if (toasts.length === 0) return null
 
@@ -30,13 +30,29 @@ export function Toaster() {
           <div
             key={toast.id}
             role="status"
+            onMouseEnter={() => pause(toast.id)}
+            onMouseLeave={() => resume(toast.id)}
+            onFocus={() => pause(toast.id)}
+            onBlur={() => resume(toast.id)}
             className={clsx(
               'flex w-full max-w-sm items-center gap-2.5 rounded-xl border border-app-border bg-app-card px-4 py-3 text-sm text-slate-800 shadow-card-lg',
               toast.leaving ? 'animate-toast-out' : 'animate-toast-in'
             )}
           >
             <Icon size={17} className={clsx('shrink-0', TONE_CLASSES[toast.tone])} />
-            <span className="flex-1">{toast.message}</span>
+            <span className={clsx('min-w-0 flex-1', toast.action && 'font-semibold')}>{toast.message}</span>
+            {toast.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.action?.onClick()
+                  dismiss(toast.id)
+                }}
+                className="-my-2 inline-flex min-h-[44px] shrink-0 items-center rounded-lg px-3 text-sm font-semibold text-accent-dark hover:bg-slate-50 active:scale-95"
+              >
+                {toast.action.label}
+              </button>
+            )}
             <button
               type="button"
               aria-label="Dismiss"

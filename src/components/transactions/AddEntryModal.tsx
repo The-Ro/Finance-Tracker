@@ -1,25 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
+import { ChevronDown } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { TagsField } from './TagsField'
+import { AccountChips } from './AccountChips'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import {
   useAddTransaction,
   useUpdateTransaction,
+  useDeleteTransaction,
   useRecentAccounts,
   useAccountBalances,
   useMyTransactions,
   DuplicateTransactionError,
   type Transaction,
 } from '@/hooks/useTransactions'
-import { useDocuments } from '@/hooks/useDocuments'
+import { useDocuments, type DocumentRow } from '@/hooks/useDocuments'
 import { useRules } from '@/hooks/useRules'
+import { useApprovedConnections, useSplitMutations } from '@/hooks/useSplits'
+import { useProfiles } from '@/hooks/useProfiles'
 import { suggestCategory } from '@/lib/smartCategory'
+import { evenShare } from '@/lib/splits'
+import { countSecondaryFields, currencySymbol, orderAccountOptions, savedEntryMessage } from '@/lib/entryForm'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatDate, todayISO } from '@/lib/format'
 import { SUPPORTED_CURRENCIES } from '@/lib/currency'
@@ -70,17 +78,29 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const [duplicatePending, setDuplicatePending] = useState(false)
   const [shakeField, setShakeField] = useState<string | null>(null)
   const [shakeToken, setShakeToken] = useState(0)
+  // "INR · change" reveals the currency picker + rate; "More details" reveals
+  // payment method, remarks, tags and receipt. Both open on their own when
+  // editing an entry that uses them.
+  const [showCurrency, setShowCurrency] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  // Optional even split of a new expense with an approved connection.
+  const [splitOn, setSplitOn] = useState(false)
+  const [splitWith, setSplitWith] = useState('')
   const contentRef = useRef<HTMLDivElement>(null)
   const isEditing = !!transaction
   const isTransfer = form.type === 'transfer'
 
   const { userId } = useAuth()
+  const { show } = useToast()
   const { expense: expenseCategories, income: incomeCategories } = useCategories()
   const categoryOptions = form.type === 'income' ? incomeCategories : expenseCategories
   const { data: accounts = [] } = useAccounts()
   const recentAccounts = useRecentAccounts(userId)
   const accountBalances = useAccountBalances(userId)
   const { data: myTransactions } = useMyTransactions(userId)
+  const connections = useApprovedConnections()
+  const { data: profiles = {} } = useProfiles()
+  const { create: createSplit } = useSplitMutations()
   // Keep the selected category chip in view in its scrolling row (horizontal
   // only -- scrollIntoView would also scroll the sheet vertically).
   const categoryRowRef = useRef<HTMLDivElement>(null)
@@ -100,14 +120,30 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const { data: rules = [] } = useRules()
   const addTransaction = useAddTransaction()
   const updateTransaction = useUpdateTransaction()
+  const deleteTransaction = useDeleteTransaction()
   const documents = useDocuments()
+  const saving =
+    addTransaction.isPending || updateTransaction.isPending || documents.upload.isPending || createSplit.isPending
 
-  // Transfer's From/To pickers must exclude each other's current pick --
-  // previously only To excluded From; From still listed whatever was
-  // already chosen as To, so it looked selectable even though picking it
-  // would just get silently reset.
-  const toAccountOptions = accounts.filter((a) => a !== form.account)
-  const fromAccountOptions = isTransfer ? accounts.filter((a) => a !== form.toAccount) : accounts
+  // A new entry starts on the most recently used account (the first chip),
+  // falling back to the first account in the list.
+  const defaultAccount = recentAccounts.find((a) => accounts.includes(a)) ?? accounts[0] ?? ''
+
+  // Account chips: recent first, then the full list (custom accounts
+  // included). Transfer's From/To rows exclude each other's current pick --
+  // picking the same account on both sides isn't a valid transfer.
+  const fromAccountOptions = useMemo(
+    () =>
+      orderAccountOptions(accounts, recentAccounts, {
+        exclude: isTransfer ? form.toAccount : undefined,
+        selected: form.account,
+      }),
+    [accounts, recentAccounts, isTransfer, form.toAccount, form.account]
+  )
+  const toAccountOptions = useMemo(
+    () => orderAccountOptions(accounts, recentAccounts, { exclude: form.account, selected: form.toAccount }),
+    [accounts, recentAccounts, form.account, form.toAccount]
+  )
 
   const amountNum = Number(form.amount)
 
@@ -115,6 +151,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // form.currency and gets converted to the home currency at the rate below,
   // fixed at entry time -- see src/lib/fx.ts.
   const isForeign = !isTransfer && !!form.currency && form.currency !== homeCurrency
+  const entryCurrency = isForeign ? form.currency : homeCurrency
   const rateNum = Number(form.fxRate)
   const homeAmount = isForeign ? convertToHome(amountNum, rateNum) : amountNum
   const [rateStatus, setRateStatus] = useState<{ state: 'idle' | 'loading' | 'error'; asOf?: string }>({ state: 'idle' })
@@ -167,10 +204,10 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   }, [accountBalances, form.toAccount, transaction])
 
   useEffect(() => {
-    if (!form.account && accounts.length > 0) {
-      setForm((f) => ({ ...f, account: accounts[0] }))
+    if (!form.account && defaultAccount) {
+      setForm((f) => ({ ...f, account: defaultAccount }))
     }
-  }, [accounts, form.account])
+  }, [defaultAccount, form.account])
 
   // Switching Expense <-> Income can leave `category` pointing at a name
   // that isn't in the newly-relevant list (e.g. "Groceries" while on
@@ -201,6 +238,14 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCashAccount])
 
+  const blankForm = () => ({
+    ...EMPTY_STATE,
+    date: todayISO(),
+    type: initialType,
+    category: expenseCategories[0] ?? 'Needs review',
+    account: defaultAccount,
+  })
+
   // Prefill from the transaction being edited (or reset to a blank form)
   // each time the modal opens -- not on every render, so typing doesn't
   // fight this effect.
@@ -225,9 +270,15 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         ...(transaction.original_amount != null ? { amount: String(transaction.original_amount) } : {}),
       })
       keepStoredRate.current = transaction.original_currency != null
+      setShowCurrency(transaction.original_currency != null)
+      setDetailsOpen(countSecondaryFields(transaction) > 0)
     } else {
-      setForm({ ...EMPTY_STATE, type: initialType, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
+      setForm(blankForm())
+      setShowCurrency(false)
+      setDetailsOpen(false)
     }
+    setSplitOn(false)
+    setSplitWith('')
     setError(null)
     setDuplicatePending(false)
     setRateStatus({ state: 'idle' })
@@ -235,13 +286,17 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   }, [open, transaction, initialType])
 
   const reset = () => {
-    setForm({ ...EMPTY_STATE, type: initialType, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
+    setForm(blankForm())
+    setShowCurrency(false)
+    setDetailsOpen(false)
+    setSplitOn(false)
+    setSplitWith('')
     setError(null)
     setDuplicatePending(false)
   }
 
   const handleClose = () => {
-    if (addTransaction.isPending || updateTransaction.isPending || documents.upload.isPending) return
+    if (saving) return
     reset()
     onClose()
   }
@@ -259,10 +314,12 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // hits Save again without changing anything), the class alone wouldn't
   // change and the CSS animation wouldn't restart -- bumping shakeToken
   // into the key forces React to remount that wrapper, restarting it every
-  // time.
+  // time. A field tucked inside a collapsed section opens that section first.
   const fail = (message: string, field?: string) => {
     setError(message)
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    if (field === 'fxRate') setShowCurrency(true)
+    if (field === 'file') setDetailsOpen(true)
     if (field) {
       setShakeField(field)
       setShakeToken((t) => t + 1)
@@ -271,13 +328,32 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const shakeKey = (field: string) => (shakeField === field ? `${field}-${shakeToken}` : field)
   const shakeClass = (field: string) => (shakeField === field ? 'animate-shake' : undefined)
 
+  const personName = (id: string) => {
+    const p = profiles[id]
+    return p?.displayName || p?.email || 'Someone'
+  }
+  const canSplit = !isEditing && form.type === 'expense' && connections.length > 0
+  const splitTarget = canSplit && splitOn ? (connections.includes(splitWith) ? splitWith : connections[0]) : null
+
+  // Undo from the "Saved" toast: removes the entry just logged (its split, if
+  // any, goes with it via the FK cascade) and the receipt uploaded with it.
+  const undoSave = async (saved: Transaction, receipt: DocumentRow | null) => {
+    try {
+      await deleteTransaction.mutateAsync(saved.id)
+      if (receipt) await documents.remove.mutateAsync(receipt).catch(() => undefined)
+      show('Entry removed', { tone: 'info' })
+    } catch (e) {
+      show(e instanceof Error ? e.message : "Couldn't undo that entry.", { tone: 'error' })
+    }
+  }
+
   const handleSubmit = async (opts?: { allowDuplicate?: boolean }) => {
     setError(null)
     if (!opts?.allowDuplicate) setDuplicatePending(false)
 
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter a valid amount greater than zero.', 'amount')
     if (!form.merchant.trim()) return fail('Enter a merchant or source.', 'merchant')
     if (!form.date) return fail('Choose a date.', 'date')
-    if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter a valid amount greater than zero.', 'amount')
     if (!form.account) return fail('Choose an account.', 'account')
     if (isTransfer && !form.toAccount) return fail('Choose an account to transfer to.', 'toAccount')
     if (isTransfer && form.toAccount === form.account) return fail('Choose a different account to transfer to.', 'toAccount')
@@ -310,34 +386,53 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           foreign,
           allowDuplicate: opts?.allowDuplicate,
         })
-      } else {
-        let receiptDocumentId: string | null = null
-        if (form.hasReceipt && form.file) {
-          const doc = await documents.upload.mutateAsync(form.file)
-          receiptDocumentId = doc.id
-        }
+        reset()
+        onClose()
+        return
+      }
 
-        await addTransaction.mutateAsync({
-          type: form.type,
-          amount: homeAmount,
-          merchant: form.merchant,
-          date: form.date,
-          category,
-          account: form.account,
-          toAccount,
-          remarks: form.remarks,
-          paymentMethod,
-          tags: form.tags,
-          receipt: form.hasReceipt,
-          receiptDocumentId,
-          rules: rules.map((r) => ({ whenText: r.when_text, thenText: r.then_text, enabled: r.enabled })),
-          foreign,
-          allowDuplicate: opts?.allowDuplicate,
-        })
+      let receipt: DocumentRow | null = null
+      if (form.hasReceipt && form.file) {
+        receipt = await documents.upload.mutateAsync(form.file)
+      }
+
+      const saved = await addTransaction.mutateAsync({
+        type: form.type,
+        amount: homeAmount,
+        merchant: form.merchant,
+        date: form.date,
+        category,
+        account: form.account,
+        toAccount,
+        remarks: form.remarks,
+        paymentMethod,
+        tags: form.tags,
+        receipt: form.hasReceipt,
+        receiptDocumentId: receipt?.id ?? null,
+        rules: rules.map((r) => ({ whenText: r.when_text, thenText: r.then_text, enabled: r.enabled })),
+        foreign,
+        allowDuplicate: opts?.allowDuplicate,
+      })
+
+      // The entry is saved at this point; a failed split doesn't undo it --
+      // it can still be split later from the entry's Split button.
+      let splitError: string | null = null
+      if (splitTarget && saved.type === 'expense') {
+        try {
+          await createSplit.mutateAsync({ transaction: saved, withUserId: splitTarget, amount: evenShare(saved.amount) })
+        } catch (e) {
+          splitError = e instanceof Error ? e.message : 'Could not save the split.'
+        }
       }
 
       reset()
       onClose()
+      show(savedEntryMessage(saved.merchant, format(saved.amount)), {
+        action: { label: 'Undo', onClick: () => void undoSave(saved, receipt) },
+      })
+      if (splitError) {
+        show(`Saved, but the split didn't go through: ${splitError}`, { tone: 'error', duration: 6000 })
+      }
     } catch (e) {
       if (e instanceof DuplicateTransactionError) {
         setDuplicatePending(true)
@@ -348,16 +443,21 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     }
   }
 
-  const saving = addTransaction.isPending || updateTransaction.isPending || documents.upload.isPending
+  const secondaryCount = countSecondaryFields({
+    payment_method: form.paymentMethod,
+    remarks: form.remarks,
+    tags: form.tags,
+    receipt: !isEditing && form.hasReceipt,
+  })
 
   return (
     <Modal
       open={open}
       onClose={handleClose}
-      title={isEditing ? 'Edit entry' : 'Add entry'}
+      title={isEditing ? 'Edit entry' : 'New entry'}
       contentRef={contentRef}
       footer={
-        <div className="flex justify-end gap-2">
+        <div className="flex gap-2 sm:justify-end">
           <Button variant="secondary" onClick={handleClose} disabled={saving}>
             Cancel
           </Button>
@@ -366,7 +466,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               Save anyway
             </Button>
           )}
-          <Button onClick={() => handleSubmit()} disabled={saving}>
+          <Button onClick={() => handleSubmit()} disabled={saving} className="flex-1 font-semibold sm:flex-none">
             {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Save entry'}
           </Button>
         </div>
@@ -375,14 +475,15 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       <div className="flex flex-col gap-4">
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
 
-        <div className="flex rounded-lg border border-app-border p-1">
+        <div role="group" aria-label="Entry type" className="grid grid-cols-3 gap-1 rounded-xl border border-app-border p-1">
           {(['expense', 'income', 'transfer'] as TransactionType[]).map((t) => (
             <button
               key={t}
               type="button"
+              aria-pressed={form.type === t}
               onClick={() => setForm((f) => ({ ...f, type: t, ...(t === 'transfer' ? { currency: '', fxRate: '' } : {}) }))}
               className={clsx(
-                'flex-1 rounded-md py-2 text-sm font-medium capitalize transition-colors',
+                'min-h-[44px] rounded-lg text-sm font-semibold capitalize transition-colors duration-200',
                 form.type === t ? 'bg-accent text-white' : 'text-slate-500 hover:bg-slate-50'
               )}
             >
@@ -391,21 +492,126 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div key={shakeKey('amount')} className={shakeClass('amount')}>
-            <TextField
-              label={isForeign ? `Amount (${form.currency})` : 'Amount'}
+        {/* The amount leads: one big serif figure, centered, with the currency as a
+            compact "INR · change" control that reveals the picker and rate. */}
+        <div
+          key={shakeKey('amount')}
+          className={clsx('flex flex-col items-center gap-1.5 py-1', shakeClass('amount'))}
+        >
+          <label
+            htmlFor="entry-amount"
+            className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500"
+          >
+            {isForeign ? `Amount in ${form.currency}` : 'Amount'}
+          </label>
+          <div className="flex max-w-full items-baseline justify-center gap-1">
+            <span aria-hidden="true" className="font-serif text-3xl text-slate-400">
+              {currencySymbol(entryCurrency)}
+            </span>
+            <input
+              id="entry-amount"
               type="number"
+              inputMode="decimal"
               min="0.01"
               step="0.01"
-              placeholder="0.00"
+              placeholder="0"
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+              style={{ width: `${Math.min(Math.max(form.amount.length, 1), 12) + 0.75}ch` }}
+              className="min-w-[2ch] max-w-full border-0 border-b-2 border-transparent bg-transparent p-0 text-center font-serif text-5xl font-semibold tabular-nums text-slate-900 transition-colors placeholder:text-slate-300 focus:border-accent focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
+          </div>
+          {!isTransfer && (
+            <button
+              type="button"
+              aria-expanded={showCurrency}
+              aria-controls="entry-currency-panel"
+              onClick={() => setShowCurrency((v) => !v)}
+              className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-app-border px-3 text-helper font-semibold text-slate-600 transition-colors hover:border-accent hover:text-accent-dark"
+            >
+              {entryCurrency} · change
+              <ChevronDown
+                size={14}
+                aria-hidden="true"
+                className={clsx('transition-transform duration-200', showCurrency && 'rotate-180')}
+              />
+            </button>
+          )}
+          {isForeign && (
+            <p
+              className={clsx(
+                'text-center text-helper',
+                rateStatus.state === 'error' && !(homeAmount > 0) ? 'text-caution' : 'text-slate-500'
+              )}
+            >
+              {Number.isFinite(homeAmount) && homeAmount > 0
+                ? `Saved as ${format(homeAmount)}${
+                    rateStatus.state !== 'error' && rateStatus.asOf
+                      ? ` (ECB rate for ${formatDate(rateStatus.asOf)}, editable)`
+                      : ''
+                  }`
+                : rateStatus.state === 'error'
+                  ? "Couldn't look up a rate. Type the one you were charged."
+                  : rateStatus.state === 'loading'
+                    ? 'Looking up the exchange rate…'
+                    : 'Enter the amount and rate to see the converted value.'}
+            </p>
+          )}
+        </div>
+
+        {!isTransfer && showCurrency && (
+          <div id="entry-currency-panel" className="animate-fade-in-up grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-helper font-medium text-slate-600">Currency</label>
+              <Dropdown
+                options={CURRENCY_CODES}
+                value={form.currency || homeCurrency}
+                aria-label="Currency"
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, currency: e.target.value === homeCurrency ? '' : e.target.value, fxRate: '' }))
+                }
+              />
+            </div>
+            {isForeign && (
+              <div key={shakeKey('fxRate')} className={shakeClass('fxRate')}>
+                <TextField
+                  label={`1 ${form.currency} = ? ${homeCurrency}`}
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder={rateStatus.state === 'loading' ? 'Looking up…' : 'Rate'}
+                  value={form.fxRate}
+                  onChange={(e) => setForm((f) => ({ ...f, fxRate: e.target.value }))}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
+          <div key={shakeKey('merchant')} className={shakeClass('merchant')}>
+            <TextField
+              label={form.type === 'income' ? 'Source' : isTransfer ? 'Description' : 'Merchant'}
+              id="entry-merchant"
+              placeholder={form.type === 'income' ? 'e.g. Salary' : isTransfer ? 'e.g. Card payment' : "e.g. Trader Joe's"}
+              maxLength={60}
+              value={form.merchant}
+              onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
+            />
+            {suggestedCategory && (
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, category: suggestedCategory }))}
+                className="animate-fade-in mt-1.5 inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-accent-light px-3 text-helper font-medium text-accent-on-light"
+              >
+                Use {suggestedCategory}, like last time
+              </button>
+            )}
           </div>
           <div key={shakeKey('date')} className={shakeClass('date')}>
             <TextField
               label="Date"
+              id="entry-date"
               type="date"
               value={form.date}
               onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
@@ -414,192 +620,220 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         </div>
 
         {!isTransfer && (
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-helper font-medium text-slate-600">Currency</label>
-                <Dropdown
-                  options={CURRENCY_CODES}
-                  value={form.currency || homeCurrency}
-                  aria-label="Currency"
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, currency: e.target.value === homeCurrency ? '' : e.target.value, fxRate: '' }))
-                  }
-                />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span id="entry-category-label" className="text-helper font-medium text-slate-600">
+              Category
+            </span>
+            {/* One horizontally scrolling row of chips (full list, custom categories
+                included): one tap to pick, and it stays a single line tall instead of
+                wrapping into a block that pushes the rest of the form down. */}
+            <div
+              role="group"
+              aria-labelledby="entry-category-label"
+              ref={categoryRowRef}
+              className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              {categoryOptions.map((option) => {
+                const selected = form.category === option
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setForm((f) => ({ ...f, category: option }))}
+                    className={
+                      'min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95 ' +
+                      (selected
+                        ? 'border-accent bg-accent-light text-accent-on-light'
+                        : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark')
+                    }
+                  >
+                    {option}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div key={shakeKey('account')} className={shakeClass('account')}>
+          <AccountChips
+            label={isTransfer ? 'From account' : 'Account'}
+            options={fromAccountOptions}
+            value={form.account}
+            onChange={(account) => setForm((f) => ({ ...f, account, toAccount: '' }))}
+            emptyText="No accounts yet. Add one in Settings, Financial setup."
+          />
+          {isTransfer && form.account && (
+            <p
+              className={clsx(
+                'mt-1 text-helper',
+                amountNum > fromAccountBalance ? 'font-medium text-caution' : 'text-slate-400'
+              )}
+            >
+              {amountNum > fromAccountBalance
+                ? `Only ${format(fromAccountBalance)} available in ${form.account}`
+                : `${format(fromAccountBalance)} available in ${form.account}`}
+            </p>
+          )}
+        </div>
+
+        {isTransfer && (
+          <div key={shakeKey('toAccount')} className={shakeClass('toAccount')}>
+            <AccountChips
+              label="To account"
+              options={toAccountOptions}
+              value={form.toAccount}
+              onChange={(toAccount) => setForm((f) => ({ ...f, toAccount }))}
+              emptyText="No other accounts yet. Add one in Settings, Financial setup."
+            />
+            {form.toAccount && (
+              <p className="mt-1 text-helper text-slate-400">
+                {format(toAccountBalance)} available in {form.toAccount}
+              </p>
+            )}
+          </div>
+        )}
+
+        {canSplit && (
+          <div className="flex flex-col gap-2 rounded-xl border border-app-border px-3 py-1">
+            <label className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-sm font-medium text-slate-700">
+              <span>{connections.length === 1 ? `Split with ${personName(connections[0])}` : 'Split with someone'}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={splitOn}
+                onChange={(e) => {
+                  setSplitOn(e.target.checked)
+                  if (e.target.checked && !connections.includes(splitWith)) setSplitWith(connections[0])
+                }}
+                className="h-5 w-5 rounded border-app-border"
+              />
+            </label>
+            {splitOn && (
+              <div className="animate-fade-in-up flex flex-col gap-2 pb-2">
+                {connections.length > 1 && (
+                  <div
+                    role="group"
+                    aria-label="Split with"
+                    className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+                    style={{ scrollbarWidth: 'none' }}
+                  >
+                    {connections.map((id) => {
+                      const selected = splitTarget === id
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={selected}
+                          title={profiles[id]?.email}
+                          onClick={() => setSplitWith(id)}
+                          className={clsx(
+                            'min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
+                            selected
+                              ? 'border-accent bg-accent-light text-accent-on-light'
+                              : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'
+                          )}
+                        >
+                          {personName(id)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                <p className="text-helper text-slate-500">
+                  {splitTarget && Number.isFinite(homeAmount) && homeAmount > 0
+                    ? `${personName(splitTarget)} will owe you ${format(evenShare(homeAmount))}, half of this expense.`
+                    : 'Split evenly: they owe you half.'}{' '}
+                  You can change it later from the entry's Split button.
+                </p>
               </div>
-              {isForeign && (
-                <div key={shakeKey('fxRate')} className={shakeClass('fxRate')}>
-                  <TextField
-                    label={`1 ${form.currency} = ? ${homeCurrency}`}
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder={rateStatus.state === 'loading' ? 'Looking up…' : 'Rate'}
-                    value={form.fxRate}
-                    onChange={(e) => setForm((f) => ({ ...f, fxRate: e.target.value }))}
+            )}
+          </div>
+        )}
+
+        <div className="rounded-xl border border-app-border">
+          <button
+            type="button"
+            aria-expanded={detailsOpen}
+            aria-controls="entry-more-details"
+            onClick={() => setDetailsOpen((v) => !v)}
+            className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <span className="flex items-center gap-2">
+              More details
+              {secondaryCount > 0 && (
+                <span className="rounded-full bg-accent-light px-2 py-0.5 text-helper font-semibold text-accent-on-light">
+                  {secondaryCount}
+                </span>
+              )}
+            </span>
+            <span className="flex items-center gap-1 text-helper font-normal text-slate-400">
+              {!detailsOpen && 'Payment, note, tags, receipt'}
+              <ChevronDown
+                size={16}
+                aria-hidden="true"
+                className={clsx('shrink-0 transition-transform duration-200', detailsOpen && 'rotate-180')}
+              />
+            </span>
+          </button>
+
+          {detailsOpen && (
+            <div id="entry-more-details" className="animate-fade-in-up flex flex-col gap-4 border-t border-app-border p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-helper font-medium text-slate-600">Payment method</label>
+                  <Dropdown
+                    options={[NO_PAYMENT_METHOD, ...PAYMENT_METHODS]}
+                    value={isCashAccount ? NO_PAYMENT_METHOD : form.paymentMethod || NO_PAYMENT_METHOD}
+                    disabled={isCashAccount}
+                    aria-label="Payment method"
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        paymentMethod: e.target.value === NO_PAYMENT_METHOD ? '' : (e.target.value as PaymentMethod),
+                      }))
+                    }
                   />
                 </div>
-              )}
-            </div>
-            {isForeign && (
-              <p
-                className={clsx(
-                  'text-helper',
-                  rateStatus.state === 'error' && !(homeAmount > 0) ? 'text-caution' : 'text-slate-500'
-                )}
-              >
-                {Number.isFinite(homeAmount) && homeAmount > 0
-                  ? `Saved as ${format(homeAmount)}${
-                      rateStatus.state !== 'error' && rateStatus.asOf
-                        ? ` (ECB rate for ${formatDate(rateStatus.asOf)}, editable)`
-                        : ''
-                    }`
-                  : rateStatus.state === 'error'
-                    ? "Couldn't look up a rate. Type the one you were charged."
-                    : rateStatus.state === 'loading'
-                      ? 'Looking up the exchange rate…'
-                      : 'Enter the amount and rate to see the converted value.'}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div key={shakeKey('merchant')} className={shakeClass('merchant')}>
-          <TextField
-            label="Merchant or source"
-            placeholder="e.g. Trader Joe's"
-            maxLength={60}
-            value={form.merchant}
-            onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
-          />
-          {suggestedCategory && (
-            <button
-              type="button"
-              onClick={() => setForm((f) => ({ ...f, category: suggestedCategory }))}
-              className="animate-fade-in mt-1.5 inline-flex min-h-[32px] items-center gap-1.5 rounded-full bg-accent-light px-3 text-helper font-medium text-accent-on-light"
-            >
-              Use {suggestedCategory}, like last time
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div key={shakeKey('account')} className={clsx('flex flex-col gap-1.5', shakeClass('account'))}>
-            <label className="text-helper font-medium text-slate-600">{isTransfer ? 'From account' : 'Account'}</label>
-            <Dropdown
-              options={fromAccountOptions}
-              recentOptions={recentAccounts}
-              value={form.account}
-              onChange={(e) => setForm((f) => ({ ...f, account: e.target.value, toAccount: '' }))}
-            />
-            {isTransfer && form.account && (
-              <p className={clsx('text-helper', amountNum > fromAccountBalance ? 'font-medium text-caution' : 'text-slate-400')}>
-                {amountNum > fromAccountBalance
-                  ? `Only ${format(fromAccountBalance)} available in ${form.account}`
-                  : `${format(fromAccountBalance)} available in ${form.account}`}
-              </p>
-            )}
-          </div>
-          {isTransfer ? (
-            <div key={shakeKey('toAccount')} className={clsx('flex flex-col gap-1.5', shakeClass('toAccount'))}>
-              <label className="text-helper font-medium text-slate-600">To account</label>
-              <Dropdown
-                options={toAccountOptions.length > 0 ? toAccountOptions : ['No other accounts yet']}
-                recentOptions={recentAccounts}
-                value={form.toAccount || 'No other accounts yet'}
-                onChange={(e) => setForm((f) => ({ ...f, toAccount: e.target.value }))}
-                disabled={toAccountOptions.length === 0}
-              />
-              {form.toAccount && (
-                <p className="text-helper text-slate-400">{format(toAccountBalance)} available in {form.toAccount}</p>
-              )}
-            </div>
-          ) : (
-            <div className="col-span-2 flex min-w-0 flex-col gap-1.5">
-              <span id="entry-category-label" className="text-helper font-medium text-slate-600">
-                Category
-              </span>
-              {/* One horizontally scrolling row of chips (full list, custom categories
-                  included): one tap to pick, and it stays a single line tall instead of
-                  wrapping into a block that pushes the rest of the form down. */}
-              <div
-                role="group"
-                aria-labelledby="entry-category-label"
-                ref={categoryRowRef}
-                className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
-                style={{ scrollbarWidth: 'none' }}
-              >
-                {categoryOptions.map((option) => {
-                  const selected = form.category === option
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => setForm((f) => ({ ...f, category: option }))}
-                      className={
-                        'min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95 ' +
-                        (selected
-                          ? 'border-accent bg-accent-light text-accent-on-light'
-                          : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark')
-                      }
-                    >
-                      {option}
-                    </button>
-                  )
-                })}
+                <TextField
+                  label="Remarks"
+                  id="entry-remarks"
+                  placeholder="Add a note"
+                  maxLength={200}
+                  value={form.remarks}
+                  onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+                />
               </div>
+
+              <TagsField selected={form.tags} onChange={(tags) => setForm((f) => ({ ...f, tags }))} />
+
+              {!isEditing && (
+                <label className="flex min-h-[44px] items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={form.hasReceipt}
+                    onChange={(e) => setForm((f) => ({ ...f, hasReceipt: e.target.checked, file: null }))}
+                    className="h-4 w-4 rounded border-app-border"
+                  />
+                  I have a receipt to attach
+                </label>
+              )}
+
+              {!isEditing && form.hasReceipt && (
+                <input
+                  key={shakeKey('file')}
+                  type="file"
+                  aria-label="Receipt file"
+                  accept="image/*,.pdf,.csv,.xls,.xlsx"
+                  onChange={(e) => setForm((f) => ({ ...f, file: e.target.files?.[0] ?? null }))}
+                  className={clsx('text-sm', shakeClass('file'))}
+                />
+              )}
             </div>
           )}
         </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-helper font-medium text-slate-600">Payment method</label>
-            <Dropdown
-              options={[NO_PAYMENT_METHOD, ...PAYMENT_METHODS]}
-              value={isCashAccount ? NO_PAYMENT_METHOD : form.paymentMethod || NO_PAYMENT_METHOD}
-              disabled={isCashAccount}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  paymentMethod: e.target.value === NO_PAYMENT_METHOD ? '' : (e.target.value as PaymentMethod),
-                }))
-              }
-            />
-          </div>
-          <TextField
-            label="Remarks"
-            placeholder="Add a note"
-            maxLength={200}
-            value={form.remarks}
-            onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
-          />
-        </div>
-
-        <TagsField selected={form.tags} onChange={(tags) => setForm((f) => ({ ...f, tags }))} />
-
-        {!isEditing && (
-          <label className="flex min-h-[44px] items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={form.hasReceipt}
-              onChange={(e) => setForm((f) => ({ ...f, hasReceipt: e.target.checked, file: null }))}
-              className="h-4 w-4 rounded border-app-border"
-            />
-            I have a receipt to attach
-          </label>
-        )}
-
-        {!isEditing && form.hasReceipt && (
-          <input
-            key={shakeKey('file')}
-            type="file"
-            accept="image/*,.pdf,.csv,.xls,.xlsx"
-            onChange={(e) => setForm((f) => ({ ...f, file: e.target.files?.[0] ?? null }))}
-            className={clsx('text-sm', shakeClass('file'))}
-          />
-        )}
       </div>
     </Modal>
   )
