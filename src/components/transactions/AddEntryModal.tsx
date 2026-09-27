@@ -79,6 +79,14 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
   const recentAccounts = useRecentAccounts(userId)
   const accountBalances = useAccountBalances(userId)
   const { data: myTransactions } = useMyTransactions(userId)
+  // Keep the selected category chip in view in its scrolling row (horizontal
+  // only -- scrollIntoView would also scroll the sheet vertically).
+  const categoryRowRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const row = categoryRowRef.current
+    const chip = row?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (row && chip) row.scrollTo({ left: chip.offsetLeft - row.clientWidth / 2 + chip.clientWidth / 2, behavior: 'smooth' })
+  }, [form.category, open])
   // Smart category: offered (never auto-applied) from the user's own past
   // entries at a similar merchant, for new entries only.
   const suggestedCategory = useMemo(() => {
@@ -505,16 +513,19 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
               )}
             </div>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="col-span-2 flex min-w-0 flex-col gap-1.5">
               <span id="entry-category-label" className="text-helper font-medium text-slate-600">
                 Category
               </span>
-              {/* Chips rather than a dropdown: one tap, and every option (custom ones
-                  included -- categoryOptions is the full list) is visible at once. */}
+              {/* One horizontally scrolling row of chips (full list, custom categories
+                  included): one tap to pick, and it stays a single line tall instead of
+                  wrapping into a block that pushes the rest of the form down. */}
               <div
                 role="group"
                 aria-labelledby="entry-category-label"
-                className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto"
+                ref={categoryRowRef}
+                className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+                style={{ scrollbarWidth: 'none' }}
               >
                 {categoryOptions.map((option) => {
                   const selected = form.category === option
@@ -525,7 +536,7 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
                       aria-pressed={selected}
                       onClick={() => setForm((f) => ({ ...f, category: option }))}
                       className={
-                        'min-h-[36px] rounded-full border px-3 text-helper font-medium transition-colors active:scale-95 ' +
+                        'min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95 ' +
                         (selected
                           ? 'border-accent bg-accent-light text-accent-on-light'
                           : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark')

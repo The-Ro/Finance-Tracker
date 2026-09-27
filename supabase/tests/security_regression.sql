@@ -139,6 +139,17 @@ begin
   if found then raise exception 'FAIL: QA15 updated another user''s transaction'; end if;
   delete from public.transactions where owner_user_id <> me;
   if found then raise exception 'FAIL: QA15 deleted another user''s transaction'; end if;
+  -- Splits: only your own, only on your own expense, only with an approved connection.
+  if exists (select 1 from public.transaction_splits where owner_user_id <> me and with_user_id <> me) then
+    raise exception 'FAIL: QA15 can read a split they are not part of';
+  end if;
+  begin
+    insert into public.transaction_splits (transaction_id, owner_user_id, with_user_id, description, date, amount)
+    select id, me, '8330b931-4022-40ba-bef2-79af3dc8035f', 'sec-test', '2026-01-01', 1
+    from public.transactions where owner_user_id = me and type = 'expense' limit 1;
+    if found then raise exception 'FAIL: split with an unconnected user was accepted'; end if;
+  exception when insufficient_privilege then null;
+  end;
   update public.budgets set rollover = true where owner_user_id <> me;
   if found then raise exception 'FAIL: QA15 changed another user''s budget rollover'; end if;
 
@@ -184,13 +195,16 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 4. As anon (no session)
+-- 4. As anon (no session). transaction_splits isn't granted to anon at all.
 -- ---------------------------------------------------------------------------
 reset role;
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 do $$
 begin
+  if has_table_privilege('anon', 'public.transaction_splits', 'select') then
+    raise exception 'FAIL: anon has SELECT on transaction_splits';
+  end if;
   if exists (select 1 from public.transactions) or exists (select 1 from public.budgets)
      or exists (select 1 from public.viewer_access) then
     raise exception 'FAIL: anon can read user data';
