@@ -14,36 +14,38 @@ export const HERO_COUNT_UP_MS = 1200
  *  `duration` is optional (default 700ms); the Home hero uses HERO_COUNT_UP_MS. */
 export function useAnimatedNumber(target: number, duration = 700): number {
   const [value, setValue] = useState(target)
-  const fromRef = useRef(target)
+  // The number currently on screen. Each new target animates from here (not
+  // from the previous target), so a target that changes mid-animation -- data
+  // arriving in pieces on first load -- can never leave the figure stuck.
+  const shownRef = useRef(target)
   const frameRef = useRef<number>()
 
   useEffect(() => {
+    const show = (n: number) => {
+      shownRef.current = n
+      setValue(n)
+    }
     if (typeof window === 'undefined' || window.matchMedia(REDUCED_MOTION_QUERY).matches) {
-      setValue(target)
-      fromRef.current = target
+      show(target)
       return
     }
 
-    const from = fromRef.current
-    if (from === target) return
+    const from = shownRef.current
+    if (from === target) {
+      show(target)
+      return
+    }
 
     const start = performance.now()
     const animate = (now: number) => {
-      const elapsed = now - start
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = easeOutCubic(progress)
-      setValue(from + (target - from) * eased)
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate)
-      } else {
-        fromRef.current = target
-      }
+      const progress = Math.min((now - start) / duration, 1)
+      show(progress < 1 ? from + (target - from) * easeOutCubic(progress) : target)
+      if (progress < 1) frameRef.current = requestAnimationFrame(animate)
     }
     frameRef.current = requestAnimationFrame(animate)
 
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current)
-      fromRef.current = target
     }
   }, [target, duration])
 
