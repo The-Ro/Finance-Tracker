@@ -35,6 +35,8 @@ interface AddEntryModalProps {
   open: boolean
   onClose: () => void
   transaction?: Transaction | null
+  /** Type a new entry starts on (quick actions, ?add=income etc.). Ignored when editing. */
+  initialType?: TransactionType
 }
 
 const EMPTY_STATE = {
@@ -57,7 +59,7 @@ const EMPTY_STATE = {
 
 const CURRENCY_CODES = SUPPORTED_CURRENCIES.map((c) => c.code)
 
-export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps) {
+export function AddEntryModal({ open, onClose, transaction, initialType = 'expense' }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
   const [error, setError] = useState<string | null>(null)
   // Set when the last save attempt was rejected as a duplicate -- offers a
@@ -224,16 +226,16 @@ export function AddEntryModal({ open, onClose, transaction }: AddEntryModalProps
       })
       keepStoredRate.current = transaction.original_currency != null
     } else {
-      setForm({ ...EMPTY_STATE, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
+      setForm({ ...EMPTY_STATE, type: initialType, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
     }
     setError(null)
     setDuplicatePending(false)
     setRateStatus({ state: 'idle' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, transaction])
+  }, [open, transaction, initialType])
 
   const reset = () => {
-    setForm({ ...EMPTY_STATE, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
+    setForm({ ...EMPTY_STATE, type: initialType, category: expenseCategories[0] ?? 'Needs review', account: accounts[0] ?? '' })
     setError(null)
     setDuplicatePending(false)
   }
