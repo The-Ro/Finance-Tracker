@@ -186,7 +186,11 @@ export function useAddTransaction() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: NewTransactionInput & { rules?: SimpleRule[]; allowDuplicate?: boolean }) => {
+    /** Resolves to the inserted row, so the caller can act on it right away
+     *  (AddEntryModal's Undo toast and optional split need its id). */
+    mutationFn: async (
+      input: NewTransactionInput & { rules?: SimpleRule[]; allowDuplicate?: boolean }
+    ): Promise<Transaction> => {
       if (!userId) throw new Error('Not signed in')
 
       let category = input.category
@@ -207,24 +211,28 @@ export function useAddTransaction() {
         input.allowDuplicate
       )
 
-      const { error } = await supabase.from('transactions').insert({
-        owner_user_id: userId,
-        date: input.date,
-        merchant: input.merchant.trim(),
-        category,
-        amount: input.amount,
-        type: input.type,
-        account: input.account,
-        to_account: input.toAccount ?? null,
-        remarks: input.remarks?.trim() || null,
-        payment_method: input.paymentMethod ?? null,
-        tags,
-        receipt: input.receipt,
-        receipt_document_id: input.receiptDocumentId ?? null,
-        source: 'manual',
-        fingerprint,
-        ...foreignColumns(input.foreign),
-      })
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          owner_user_id: userId,
+          date: input.date,
+          merchant: input.merchant.trim(),
+          category,
+          amount: input.amount,
+          type: input.type,
+          account: input.account,
+          to_account: input.toAccount ?? null,
+          remarks: input.remarks?.trim() || null,
+          payment_method: input.paymentMethod ?? null,
+          tags,
+          receipt: input.receipt,
+          receipt_document_id: input.receiptDocumentId ?? null,
+          source: 'manual',
+          fingerprint,
+          ...foreignColumns(input.foreign),
+        })
+        .select('*')
+        .single()
 
       if (error) {
         if (error.code === DUPLICATE_CODE) {
@@ -232,6 +240,7 @@ export function useAddTransaction() {
         }
         throw error
       }
+      return data
     },
     onSuccess: () => invalidateTransactionQueries(queryClient),
   })
