@@ -1,0 +1,47 @@
+/* Sidebar motion (Sidebar.tsx). House curve from the motion spec. */
+
+/* Rows: background/colour ease in on hover and when a row becomes active,
+   and the icon nudges right a touch on hover. */
+.sidebar-row {
+  transition:
+    background-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sidebar-row .sidebar-row-icon {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sidebar-row:hover .sidebar-row-icon {
+  transform: translateX(2px);
+}
+
+/* Sections rise in 60ms apart when the rail (or the floating menu) mounts.
+   The rail lives in AppShell, which doesn't remount on navigation, so this
+   plays once per load, not on every page change. --sidebar-i is the
+   section's index, set inline. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes sidebar-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .sidebar-section {
+    animation: sidebar-rise 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--sidebar-i, 0) * 60ms);
+  }
+}
+
+/* Reduced motion: final state, no movement. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-row,
+  .sidebar-row .sidebar-row-icon {
+    transition-duration: 0ms;
+  }
+  .sidebar-row:hover .sidebar-row-icon {
+    transform: none;
+  }
+}

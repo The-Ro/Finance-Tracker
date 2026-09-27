@@ -12,6 +12,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
+import { groupNavItems, type NavGroupOf } from '@/lib/navGroups'
 
 export interface NavItem {
   to: string
@@ -34,6 +35,18 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/rules', label: 'Rules', icon: SlidersHorizontal },
 ]
+
+export type NavGroup = NavGroupOf<NavItem>
+
+// The same NAV_ITEMS, sectioned for the Sidebar (desktop rail and the
+// floating menu below lg): day-to-day money first, then planning, then the
+// rest. Any NAV_ITEMS entry not listed here still shows, at the end of
+// "More" (see groupNavItems), so adding a page can't silently hide it.
+export const NAV_GROUPS: NavGroup[] = groupNavItems(NAV_ITEMS, [
+  { label: 'Money', paths: ['/', '/transactions', '/bills', '/review'] },
+  { label: 'Plan', paths: ['/budgets', '/goals', '/recurring', '/subscriptions'] },
+  { label: 'More', paths: ['/shared', '/documents', '/rules'] },
+])
 
 // The phone bottom nav: Home, Activity, Review, Bills (plus the centre Add
 // button in BottomNav) -- the day-to-day loop. Everything else (Recurring, Subscriptions, Goals, Shared, ...) stays one
