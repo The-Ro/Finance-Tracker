@@ -35,8 +35,18 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/rules', label: 'Rules', icon: SlidersHorizontal },
 ]
 
-// Trimmed to 5 for the mobile bottom nav -- Goals, Documents, Rules, Bills and Review stay
-// one tap away in the Sidebar menu instead.
-export const BOTTOM_NAV_ITEMS: NavItem[] = NAV_ITEMS.filter(
-  (item) => !['/goals', '/documents', '/rules', '/bills', '/review', '/shared'].includes(item.to)
-)
+// The phone bottom nav: Home, Activity, Bills, Review, Budgets -- the day-to-day
+// loop. Everything else (Recurring, Subscriptions, Goals, Shared, ...) stays one
+// tap away in the Sidebar menu. Short labels here; icons come from NAV_ITEMS.
+const BOTTOM_NAV: { to: string; label: string }[] = [
+  { to: '/', label: 'Home' },
+  { to: '/transactions', label: 'Activity' },
+  { to: '/bills', label: 'Bills' },
+  { to: '/review', label: 'Review' },
+  { to: '/budgets', label: 'Budgets' },
+]
+
+export const BOTTOM_NAV_ITEMS: NavItem[] = BOTTOM_NAV.flatMap(({ to, label }) => {
+  const item = NAV_ITEMS.find((n) => n.to === to)
+  return item ? [{ ...item, label }] : []
+})
