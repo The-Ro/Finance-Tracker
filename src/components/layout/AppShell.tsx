@@ -22,9 +22,9 @@ export function AppShell() {
 
   return (
     <GlobalModalsProvider>
-      {/* lg:pl-64 clears the persistent desktop sidebar (Sidebar.tsx, w-64,
+      {/* lg:pl-60 clears the persistent desktop sidebar (Sidebar.tsx, w-60,
           fixed) so the header and page content start beside it, not under it. */}
-      <div className="flex min-h-dvh flex-col bg-app-bg lg:pl-64">
+      <div className="flex min-h-dvh flex-col bg-app-bg lg:pl-60">
         <WelcomeModal />
         <WhatsNewModal />
         {/* Desktop rail (lg+) and the floating toggle below lg -- both fixed
