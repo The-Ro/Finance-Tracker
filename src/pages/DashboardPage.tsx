@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AlertCircle, SlidersHorizontal } from 'lucide-react'
 import {
   DndContext,
@@ -17,18 +17,19 @@ import { useMyTransactions, useEveryoneTransactions, useAccountBalances } from '
 import { useProfiles } from '@/hooks/useProfiles'
 import { useRecurringItemsRaw } from '@/hooks/useRecurring'
 import { useBudgets } from '@/hooks/useBudgets'
-import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
+import { useCardStatuses } from '@/hooks/useCards'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
 import { SortableSummaryCard } from '@/components/dashboard/SortableSummaryCard'
-import { CashFlowChart } from '@/components/dashboard/CashFlowChart'
+import { SavingsFlowCard } from '@/components/dashboard/SavingsFlowCard'
+import { CreditCardsCard } from '@/components/dashboard/CreditCardsCard'
 import { CategoryDonut } from '@/components/dashboard/CategoryDonut'
 import { AccountBarChart } from '@/components/dashboard/AccountBarChart'
 import { AccountBalances } from '@/components/dashboard/AccountBalances'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { ComingUpCard } from '@/components/dashboard/ComingUpCard'
-import { BalanceHeroCard } from '@/components/dashboard/BalanceHeroCard'
+import { HomeTiles } from '@/components/dashboard/HomeTiles'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { MonthSpendingCard } from '@/components/dashboard/MonthSpendingCard'
 import { CustomizeDashboardModal } from '@/components/dashboard/CustomizeDashboardModal'
@@ -37,6 +38,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, resolvePriorPeriod, isWithinRange } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { firstName, greetingFor } from '@/lib/home'
+import { monthlySavings, savingsHeadline } from '@/lib/savings'
+import { todayISO } from '@/lib/format'
 import {
   DEFAULT_DASHBOARD_ORDER,
   DEFAULT_SUMMARY_CARD_ORDER,
@@ -46,6 +49,21 @@ import {
 } from '@/lib/dashboardSections'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
+
+const DESKTOP_QUERY = '(min-width: 1024px)'
+
+/** True at Tailwind's lg breakpoint and up; follows window resizes. */
+function useIsDesktop(): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(DESKTOP_QUERY).matches)
+  useEffect(() => {
+    const query = window.matchMedia(DESKTOP_QUERY)
+    const onChange = () => setMatches(query.matches)
+    onChange()
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
+  return matches
+}
 
 function DashboardSkeleton() {
   return (
@@ -57,17 +75,19 @@ function DashboardSkeleton() {
         </div>
         <Skeleton className="h-10 w-36 rounded-lg" />
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="flex flex-col gap-3 p-6 lg:col-span-2">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-14 w-full" />
-        </Card>
-        <div className="grid grid-cols-4 gap-2.5 lg:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[72px] rounded-2xl lg:h-full" />
-          ))}
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className={clsx('flex flex-col gap-2 p-4 sm:p-5', i === 2 && 'col-span-2 lg:col-span-1')}>
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-3 w-40" />
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-4 gap-2.5">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-[72px] rounded-2xl" />
+        ))}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -102,7 +122,9 @@ export function DashboardPage() {
   const everyoneTransactions = useEveryoneTransactions()
   const profiles = useProfiles()
   const balances = useAccountBalances(userId)
-  const openingBalances = useAccountOpeningBalances()
+  const cardStatuses = useCardStatuses()
+  // The budget list inside "<Month> spending" is desktop-only, as before.
+  const isDesktop = useIsDesktop()
   const budgets = useBudgets()
   const recurringItems = useRecurringItemsRaw()
 
@@ -149,6 +171,12 @@ export function DashboardPage() {
 
   const everyoneRecent = everyoneTransactions.data ?? []
 
+  // Savings flow + "Saved this month": the user's own last six calendar
+  // months (local dates), independent of the period filter -- otherwise
+  // "This month" would only ever have one point to plot.
+  const savingsRows = useMemo(() => monthlySavings(myTransactions.data ?? [], todayISO(), 6), [myTransactions.data])
+  const savedThisMonth = useMemo(() => savingsHeadline(savingsRows), [savingsRows])
+
   if (settings.isLoading || myTransactions.isLoading) return <DashboardSkeleton />
 
   const order = settings.data?.dashboardOrder ?? DEFAULT_DASHBOARD_ORDER
@@ -157,20 +185,12 @@ export function DashboardPage() {
   const summaryCardHidden = settings.data?.summaryCardHidden ?? []
   const visibleSummaryCardOrder = summaryCardOrder.filter((id) => !summaryCardHidden.includes(id))
 
-  // Budgets and what's due this week: a right-hand column beside the cash-flow
-  // chart on desktop, and stacked under the hero on smaller screens (or on
-  // desktop too, when the cash-flow section is hidden in Customize).
-  const cashflowVisible = !hidden.includes('cashflow')
   const myList = myTransactions.data ?? []
-  // MonthSpendingCard renders nothing without an active budget; let Due this
-  // week take the full row then.
+  // Budgets and what's due this week sit side by side under the tiles (stacked
+  // on phones). MonthSpendingCard renders nothing without an active budget;
+  // let Due this week take the full row then.
   const hasBudgets = (budgets.data ?? []).some((b) => b.active && b.monthly_limit > 0)
-  const glanceCards = (showBudgets: boolean) => (
-    <>
-      <MonthSpendingCard budgets={budgets.data ?? []} transactions={myList} showBudgets={showBudgets} />
-      <ComingUpCard items={recurringItems.data ?? []} className={clsx('flex-1', !hasBudgets && 'sm:col-span-2')} />
-    </>
-  )
+  const hasCards = cardStatuses.size > 0
 
   const now = new Date()
   const name = firstName(displayName)
@@ -269,15 +289,12 @@ export function DashboardPage() {
         </SortableContext>
       </DndContext>
     ),
-    // Cash flow is an independent trailing-months trend, not tied to the
-    // period filter above -- otherwise "This month" would only ever have
-    // one point to plot.
+    // Savings flow (the old cash-flow slot, same Customize id) with the
+    // Credit cards card beside it on desktop; full width without cards.
     cashflow: (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="min-w-0 lg:col-span-2">
-          <CashFlowChart transactions={myList} />
-        </div>
-        <div className="hidden flex-col gap-4 lg:flex">{glanceCards(true)}</div>
+      <div className={clsx('grid grid-cols-1 gap-4', hasCards && 'lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]')}>
+        <SavingsFlowCard rows={savingsRows} />
+        <CreditCardsCard />
       </div>
     ),
     // Category and account breakdowns are separately reorderable/hideable --
@@ -336,15 +353,13 @@ export function DashboardPage() {
         />
       </div>
 
+      <HomeTiles balances={balances} saved={savedThisMonth} />
+
       <div className="stagger-rows flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="min-w-0 lg:col-span-2">
-            <BalanceHeroCard transactions={myList} balances={balances} openingBalances={openingBalances.data} />
-          </div>
-          <QuickActions className="lg:auto-rows-fr lg:grid-cols-2" />
-        </div>
-        <div className={clsx('grid grid-cols-1 items-start gap-4 sm:grid-cols-2', cashflowVisible && 'lg:hidden')}>
-          {glanceCards(false)}
+        <QuickActions />
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+          <MonthSpendingCard budgets={budgets.data ?? []} transactions={myList} showBudgets={isDesktop} />
+          <ComingUpCard items={recurringItems.data ?? []} className={clsx(!hasBudgets && 'sm:col-span-2')} />
         </div>
       </div>
 
