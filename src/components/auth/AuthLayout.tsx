@@ -47,7 +47,7 @@ export function AuthLayout({ children, headline, supportingText, title, subtitle
         </svg>
 
         <AuthRise index={0} className="relative flex items-center gap-4">
-          <BrandMark className="h-20 w-20" />
+          <BrandMark size="md" className="h-20 w-20" />
           <span className="font-serif text-3xl font-semibold text-accent-on-light">LedgeEaze</span>
         </AuthRise>
 
