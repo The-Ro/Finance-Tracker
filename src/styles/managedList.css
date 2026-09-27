@@ -1,0 +1,126 @@
+/*
+ * ManagedListEditor (Settings -> Financial setup): selection mode, the
+ * per-chip trash icon and the staggered chip exit. Timing follows the motion
+ * spec's cubic-bezier(0.16, 1, 0.3, 1); CHIP_EXIT_MS in
+ * src/lib/managedListSelection.ts must match the 180ms exit below.
+ */
+
+.ml-chip-trash {
+  transition:
+    opacity 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Desktop: the chip's trash icon shows on hover, or when keyboard focus reaches it. */
+@media (hover: hover) {
+  .ml-chip .ml-chip-trash {
+    opacity: 0;
+  }
+  .ml-chip:hover .ml-chip-trash,
+  .ml-chip:focus-within .ml-chip-trash {
+    opacity: 1;
+  }
+}
+
+/* Phones: no hover, so the trash icon only appears in selection mode. */
+@media (hover: none) {
+  .ml-chip:not(.ml-chip-selecting) .ml-chip-trash {
+    display: none;
+  }
+  .ml-chip:not(.ml-chip-selecting) .ml-chip-label {
+    padding-right: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ml-trash-wiggle {
+    0%,
+    100% {
+      transform: rotate(0);
+    }
+    25% {
+      transform: rotate(-12deg);
+    }
+    50% {
+      transform: rotate(10deg);
+    }
+    75% {
+      transform: rotate(-5deg);
+    }
+  }
+  .ml-trash:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+  .ml-trash:hover:not(:disabled) svg,
+  .ml-trash:focus-visible svg {
+    animation: ml-trash-wiggle 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ml-trash:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+
+  @keyframes ml-chip-exit {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+  }
+  .ml-chip-exit {
+    animation: ml-chip-exit 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes ml-check-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0);
+    }
+    70% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .ml-check-pop {
+    animation: ml-check-pop 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes ml-bar-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .ml-bar-in {
+    animation: ml-bar-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .ml-chip {
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/* Reduced motion: no movement, just the end state (leaving chips are gone, the check is there). */
+@media (prefers-reduced-motion: reduce) {
+  .ml-chip-exit {
+    opacity: 0;
+  }
+}
+
+.ml-chip-exit {
+  pointer-events: none;
+}
