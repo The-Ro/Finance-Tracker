@@ -191,7 +191,7 @@ function FloatingMenu() {
         aria-haspopup="true"
         aria-expanded={open}
         className={clsx(
-          'press fixed left-4 top-[calc(1rem+var(--safe-top))] z-40 flex items-center hover:scale-105',
+          'press fixed left-4 top-[calc(1rem+var(--safe-top))] z-40 flex items-center [@media(hover:hover)]:hover:scale-105',
           open
             ? 'h-12 w-12 justify-center rounded-full bg-slate-900/85 text-white shadow-card'
             : 'min-h-[44px] gap-2'

@@ -45,17 +45,28 @@ interface BrandMarkProps {
  *  for anything rendered under 40px -- no ring, no flourish, bigger letters,
  *  and only the roll-in. The default box is 36px, so the default size is
  *  'sm'; pass size="md" with a 40px+ box. */
+// The intro (roll-in, ring fill, flourish, shimmer) plays once per app load.
+// Marks that mount later -- the phone menu button re-creates the coin every
+// time the menu closes, and pages remount on navigation -- show it complete
+// and still, so the coin never re-rolls from off-screen or flickers.
+let introPlayed = false
+
 export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' }: BrandMarkProps) {
   const small = size === 'sm'
   // useId gives ":r1:"-style ids; colons don't survive inside url(#...).
   const uid = `bm${useId().replace(/:/g, '')}`
   const [flipping, setFlipping] = useState(false)
+  const [intro] = useState(() => {
+    if (introPlayed) return false
+    introPlayed = true
+    return true
+  })
 
   return (
     <span
-      className={`brand-coin inline-flex shrink-0 ${className}`}
+      className={`brand-coin${intro ? ' brand-coin--intro' : ''} inline-flex shrink-0 ${className}`}
       aria-hidden="true"
-      onPointerEnter={small ? undefined : () => setFlipping(true)}
+      onPointerEnter={small ? undefined : (e) => e.pointerType === 'mouse' && setFlipping(true)}
     >
       <svg
         viewBox="0 0 120 120"

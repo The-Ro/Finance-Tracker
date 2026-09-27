@@ -641,22 +641,22 @@ button {
    can't replay the roll-in the way a :hover animation swap would). The roll
    sits on the wrapper and the flip on the SVG so the two never fight over
    one transform. The small (<40px) artwork has only the roll-in. */
-@keyframes brand-coin-roll { 0% { opacity: 0; transform: translateX(-36px) rotate(-150deg) } 70% { opacity: 1; transform: translateX(3px) rotate(8deg) } 100% { opacity: 1; transform: none } }
+@keyframes brand-coin-roll { 0% { opacity: 0; transform: translateX(-10px) rotate(-120deg) } 70% { opacity: 1; transform: translateX(1px) rotate(6deg) } 100% { opacity: 1; transform: none } }
 @keyframes brand-coin-ring { from { stroke-dashoffset: 315 } to { stroke-dashoffset: 0 } }
 @keyframes brand-coin-draw { from { stroke-dashoffset: 60 } to { stroke-dashoffset: 0 } }
 @keyframes brand-coin-shimmer { 0%, 68% { transform: translateX(-90px) } 100% { transform: translateX(210px) } }
 @keyframes brand-coin-flip { from { transform: perspective(400px) rotateY(0) } to { transform: perspective(400px) rotateY(360deg) } }
-.brand-coin { transform-origin: center; animation: brand-coin-roll 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Resting state: complete and still (ring and flourish drawn, shine parked off the coin). */
 .brand-coin .brand-coin-face { transform-origin: center; }
+.brand-coin .brand-coin-shine { transform: translateX(-90px); }
+/* Intro -- only on the first mark of an app load (see BrandMark). */
+.brand-coin--intro { transform-origin: center; animation: brand-coin-roll 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.brand-coin--intro .brand-coin-ring { stroke-dasharray: 315; animation: brand-coin-ring 900ms cubic-bezier(0.16, 1, 0.3, 1) 450ms both; }
+.brand-coin--intro .brand-coin-flourish { stroke-dasharray: 60; animation: brand-coin-draw 500ms cubic-bezier(0.16, 1, 0.3, 1) 600ms both; }
+.brand-coin--intro .brand-coin-shine { animation: brand-coin-shimmer 6s ease-in-out 1.8s 3 both; }
 .brand-coin .brand-coin-face.is-flipping { animation: brand-coin-flip 800ms cubic-bezier(0.16, 1, 0.3, 1); }
-/* 315 ~ the r=50 ring's circumference (2*pi*50 = 314.2). */
-.brand-coin .brand-coin-ring { stroke-dasharray: 315; animation: brand-coin-ring 900ms cubic-bezier(0.16, 1, 0.3, 1) 450ms both; }
-.brand-coin .brand-coin-flourish { stroke-dasharray: 60; animation: brand-coin-draw 500ms cubic-bezier(0.16, 1, 0.3, 1) 600ms both; }
-/* Held off-coin for the first 68% of each 6s cycle, then sweeps; `both`
-   leaves it parked past the right edge (clipped away) after the third pass. */
-.brand-coin .brand-coin-shine { transform: translateX(-90px); animation: brand-coin-shimmer 6s ease-in-out 1.8s 3 both; }
 @media (prefers-reduced-motion: reduce) {
-  .brand-coin, .brand-coin .brand-coin-face.is-flipping, .brand-coin .brand-coin-ring, .brand-coin .brand-coin-flourish { animation: none; }
+  .brand-coin--intro, .brand-coin .brand-coin-face.is-flipping, .brand-coin--intro .brand-coin-ring, .brand-coin--intro .brand-coin-flourish { animation: none; }
   .brand-coin .brand-coin-ring, .brand-coin .brand-coin-flourish { stroke-dashoffset: 0; }
   .brand-coin .brand-coin-shine { animation: none; visibility: hidden; }
 }
