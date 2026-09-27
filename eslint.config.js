@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist/', 'node_modules/', '*.tsbuildinfo', 'vite.config.js', 'vite.config.d.ts', '.remember/'],
+    ignores: ['dist/', 'node_modules/', '*.tsbuildinfo', 'vite.config.js', 'vite.config.d.ts', '.remember/', '.claude/'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
