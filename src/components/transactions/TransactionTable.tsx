@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { CheckSquare, Pencil, Receipt, Search, SlidersHorizontal, Split, Trash2, X } from 'lucide-react'
 import { Dropdown } from '@/components/ui/Dropdown'
@@ -14,13 +14,12 @@ import { useViewReceipt } from '@/hooks/useDocuments'
 import type { ProfileMap } from '@/hooks/useProfiles'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
-import { formatDate, todayISO } from '@/lib/format'
-import { addDaysISO } from '@/lib/billCalendar'
+import { todayISO } from '@/lib/format'
 import { formatCurrencyAs } from '@/lib/currency'
 import type { TransactionScope } from './ScopeToggle'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 import { hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
-import { avatarTone, dayNetTotals, merchantInitial, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
+import { avatarTone, dayHeadingLabel, groupByDay, merchantInitial, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
 
 const BULK_CATEGORY_PLACEHOLDER = 'Change category…'
 
@@ -33,6 +32,16 @@ const TONE_CLASSES: Record<AvatarTone, string> = {
   caution: 'bg-caution-light text-caution',
   neutral: 'bg-slate-100 text-slate-600',
 }
+
+// Desktop grid templates, shared by the column header and every row so the two
+// can't drift apart. Built to fit from md (~700px of content) without sideways
+// scrolling -- the sticky day headings need the list box not to scroll -- so
+// the Tags column only appears from xl; below that, tags show under the merchant.
+// Columns: select, [owner], merchant, category, account, [tags], amount, actions.
+const DESKTOP_GRID_MINE =
+  'md:grid-cols-[28px_minmax(0,2fr)_128px_minmax(0,1fr)_112px_104px] xl:grid-cols-[28px_minmax(0,2fr)_150px_minmax(0,1fr)_minmax(0,1.4fr)_112px_104px]'
+const DESKTOP_GRID_EVERYONE =
+  'md:grid-cols-[28px_32px_minmax(0,2fr)_128px_minmax(0,1fr)_112px_104px] xl:grid-cols-[28px_32px_minmax(0,2fr)_150px_minmax(0,1fr)_minmax(0,1.4fr)_112px_104px]'
 
 function chipClass(active: boolean) {
   return clsx(
@@ -143,8 +152,11 @@ export function TransactionTable({
     })
   }
 
-  // Net per day for the phone day headings -- only over the rows loaded so far.
-  const dayNets = useMemo(() => dayNetTotals(transactions), [transactions])
+  // Day groups (with each day's net) over the rows loaded so far -- a "Load
+  // more" page that continues a day lands in that day's existing group.
+  const groups = useMemo(() => groupByDay(transactions), [transactions])
+  const today = todayISO()
+  const desktopGrid = scope === 'everyone' ? DESKTOP_GRID_EVERYONE : DESKTOP_GRID_MINE
   const showMobileCheckboxes = selectMode || selected.size > 0
   const dropdownFilterCount = [filters.category, filters.account, filters.ownerId].filter(Boolean).length
 
@@ -168,6 +180,232 @@ export function TransactionTable({
         setConfirmBulkDelete(false)
       },
     })
+  }
+
+  const renderRow = (t: Transaction) => {
+    const owner = profiles[t.owner_user_id]
+    const editable = t.owner_user_id === currentUserId
+    const amountTone = t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-danger' : 'text-slate-600'
+    const amountClassName = 'text-sm font-serif font-semibold ' + amountTone
+    const amountLabel = t.type === 'income' ? 'Credit' : t.type === 'expense' ? 'Debit' : 'Transfer'
+    const accountDisplay = t.type === 'transfer' && t.to_account ? `${t.account} → ${t.to_account}` : t.account
+
+    const checkbox = editable && (
+      <input
+        type="checkbox"
+        aria-label={`Select ${t.merchant}`}
+        checked={selected.has(t.id)}
+        onChange={() => toggleOne(t.id)}
+        className="h-4 w-4 rounded border-app-border"
+      />
+    )
+
+    const editButton = editable && (
+      <button
+        aria-label="Edit transaction"
+        onClick={() => openEditEntry(t)}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+      >
+        <Pencil size={14} />
+      </button>
+    )
+    const splitButton = editable && t.type === 'expense' && (
+      <button
+        aria-label="Split expense"
+        onClick={() => openSplit(t)}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+      >
+        <Split size={14} />
+      </button>
+    )
+    const deleteButton = editable && (
+      <button
+        aria-label="Delete transaction"
+        onClick={() => deleteTransaction.mutate(t.id)}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
+      >
+        <Trash2 size={14} />
+      </button>
+    )
+
+    // Phones: swipe-left actions, same rule as the desktop buttons --
+    // only your own rows; Split only on expenses.
+    // Solid fills with white text in light mode; the dark-mode tint
+    // pairs keep contrast where --info/--danger are brightened.
+    const swipeActions: SwipeAction[] =
+      editable && !showMobileCheckboxes
+        ? [
+            { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => openEditEntry(t), className: 'bg-slate-600 text-white dark:bg-info-light dark:text-info' },
+            ...(t.type === 'expense'
+              ? [{ key: 'split', label: 'Split', icon: Split, onSelect: () => openSplit(t), className: 'bg-accent text-white' }]
+              : []),
+            {
+              key: 'delete',
+              label: 'Delete',
+              icon: Trash2,
+              onSelect: () => deleteTransaction.mutate(t.id),
+              className: 'bg-danger text-white dark:bg-danger-light dark:text-danger',
+            },
+          ]
+        : []
+    const subline = [t.type === 'transfer' ? 'Transfer' : t.category, accountDisplay, t.payment_method ? `via ${t.payment_method}` : null]
+      .filter(Boolean)
+      .join(' · ')
+    const tagLine = t.tags.length ? t.tags.map((tag) => `#${tag}`).join(' ') : null
+    const extraLine = [t.remarks, tagLine].filter(Boolean).join(' · ')
+
+    return (
+      <li key={t.id} className="border-t border-app-border first:border-t-0">
+        {/* Mobile: compact swipeable row. Desktop: single grid row (below). Kept
+            as two separate layouts rather than one shared grid -- the desktop row
+            has too many cells of very different shapes (a dropdown, a tag editor,
+            two-line amount, icon buttons) to reflow sensibly at phone width. */}
+        <div className="md:hidden">
+          <SwipeRow
+            actions={swipeActions}
+            open={openRowId === t.id}
+            onOpenChange={(o) => setOpenRowId((prev) => (o ? t.id : prev === t.id ? null : prev))}
+            label={t.merchant}
+          >
+            <div className="flex items-center gap-3 px-4 py-3">
+              {showMobileCheckboxes && checkbox && (
+                <label className="-my-2 -ml-2 flex h-11 w-9 shrink-0 cursor-pointer items-center justify-center">
+                  {checkbox}
+                </label>
+              )}
+              <span
+                aria-hidden="true"
+                className={clsx(
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold',
+                  TONE_CLASSES[avatarTone(t.category, t.type)]
+                )}
+              >
+                {merchantInitial(t.merchant)}
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
+                    {t.merchant}
+                  </span>
+                  {t.receipt &&
+                    (t.receipt_document_id ? (
+                      <button
+                        type="button"
+                        aria-label="View receipt"
+                        title="View receipt"
+                        onClick={() => handleViewReceipt(t.receipt_document_id!)}
+                        disabled={viewReceipt.isPending}
+                        className="-my-3 flex h-11 w-8 shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
+                      >
+                        <Receipt size={13} />
+                      </button>
+                    ) : (
+                      <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
+                    ))}
+                  {scope === 'everyone' && owner && (
+                    <Avatar avatar={owner.avatar} name={owner.displayName} size={18} className="shrink-0" />
+                  )}
+                </div>
+                <span className="truncate text-helper text-slate-500" title={subline}>
+                  {subline}
+                </span>
+                {extraLine && (
+                  <span className="truncate text-helper text-slate-400" title={extraLine}>
+                    {extraLine}
+                  </span>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                <div className={clsx('font-serif text-base font-semibold tabular-nums', amountTone)}>
+                  <span className="sr-only">{amountLabel} </span>
+                  {formatSigned(t.amount, t.type)}
+                </div>
+                {t.original_currency && t.original_amount != null && (
+                  <div className="text-helper text-slate-400">
+                    {formatCurrencyAs(t.original_amount, t.original_currency)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </SwipeRow>
+        </div>
+
+        {/* No Date cell: the day heading above the group already says it. */}
+        <div className={clsx('hidden items-center gap-3 px-4 py-3 md:grid', desktopGrid)}>
+          <div className="flex items-center justify-center">{checkbox}</div>
+          {scope === 'everyone' && (
+            <div className="flex items-center justify-center">
+              {owner && <Avatar avatar={owner.avatar} name={owner.displayName} size={22} />}
+            </div>
+          )}
+          <div className="flex min-w-0 flex-col">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
+                {t.merchant}
+              </span>
+              {t.receipt &&
+                (t.receipt_document_id ? (
+                  <button
+                    type="button"
+                    aria-label="View receipt"
+                    title="View receipt"
+                    onClick={() => handleViewReceipt(t.receipt_document_id!)}
+                    disabled={viewReceipt.isPending}
+                    className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
+                  >
+                    <Receipt size={13} />
+                  </button>
+                ) : (
+                  <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
+                ))}
+            </div>
+            {t.remarks && (
+              <span className="truncate text-helper text-slate-400" title={t.remarks}>
+                {t.remarks}
+              </span>
+            )}
+            {/* Below xl there's no Tags column, so tags ride along here
+                (read-only; Edit still changes them). */}
+            {tagLine && (
+              <span className="truncate text-helper text-slate-400 xl:hidden" title={tagLine}>
+                {tagLine}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0">
+            {t.type === 'transfer' ? (
+              <span className="w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                Transfer
+              </span>
+            ) : (
+              <InlineCategoryEditor transactionId={t.id} category={t.category ?? ''} type={t.type} editable={editable} />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm text-slate-600" title={accountDisplay}>
+              {accountDisplay}
+            </div>
+            {t.payment_method && <div className="truncate text-helper text-slate-400">via {t.payment_method}</div>}
+          </div>
+          <div className="hidden min-w-0 xl:block">
+            <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
+          </div>
+          <div className="min-w-0 text-right">
+            <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
+            <div className="truncate text-helper text-slate-400">
+              {t.original_currency && t.original_amount != null
+                ? `${formatCurrencyAs(t.original_amount, t.original_currency)} · ${amountLabel}`
+                : amountLabel}
+            </div>
+          </div>
+          <div className="flex justify-end gap-1">
+            {editButton}
+            {splitButton}
+            {deleteButton}
+          </div>
+        </div>
+      </li>
+    )
   }
 
   return (
@@ -320,292 +558,61 @@ export function TransactionTable({
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-card border border-app-border bg-white">
-          {scope === 'everyone' ? (
-            <div className="hidden min-w-[972px] grid-cols-[28px_44px_100px_1fr_150px_120px_1fr_110px_40px_40px] gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid">
-              <div className="flex items-center justify-center">
-                {editableFiltered.length > 0 && (
-                  <input
-                    type="checkbox"
-                    aria-label="Select all"
-                    checked={allEditableSelected}
-                    onChange={toggleSelectAll}
-                    className="h-4 w-4 rounded border-app-border"
-                  />
-                )}
-              </div>
-              <span />
-              <span>Date</span>
-              <span>Merchant</span>
-              <span>Category</span>
-              <span>Account</span>
-              <span>Tags</span>
-              <span className="text-right">Amount</span>
-              <span />
-              <span />
-            </div>
-          ) : (
-            <div className="hidden min-w-[928px] grid-cols-[28px_100px_1fr_150px_120px_1fr_110px_40px_40px] gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid">
-              <div className="flex items-center justify-center">
-                {editableFiltered.length > 0 && (
-                  <input
-                    type="checkbox"
-                    aria-label="Select all"
-                    checked={allEditableSelected}
-                    onChange={toggleSelectAll}
-                    className="h-4 w-4 rounded border-app-border"
-                  />
-                )}
-              </div>
-              <span>Date</span>
-              <span>Merchant</span>
-              <span>Category</span>
-              <span>Account</span>
-              <span>Tags</span>
-              <span className="text-right">Amount</span>
-              <span />
-              <span />
-            </div>
-          )}
-          <ul className={'stagger-rows ' + (scope === 'everyone' ? 'md:min-w-[972px]' : 'md:min-w-[928px]')}>
-            {transactions.map((t, index) => {
-              // Phones group rows under a day heading (the desktop table keeps its Date column).
-              const newDay = index === 0 || transactions[index - 1].date !== t.date
-              const owner = profiles[t.owner_user_id]
-              const editable = t.owner_user_id === currentUserId
-              const amountTone = t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-danger' : 'text-slate-600'
-              const amountClassName = 'text-sm font-serif font-semibold ' + amountTone
-              const amountLabel = t.type === 'income' ? 'Credit' : t.type === 'expense' ? 'Debit' : 'Transfer'
-              const accountDisplay = t.type === 'transfer' && t.to_account ? `${t.account} → ${t.to_account}` : t.account
-
-              const checkbox = editable && (
+        // overflow-clip, not overflow-hidden/auto: those make this box a scroll
+        // container, and the sticky day headings would then stick to it (which
+        // never scrolls) instead of the page. The grid is sized to fit from md
+        // up without sideways scrolling for the same reason.
+        <div className="overflow-clip rounded-card border border-app-border bg-white">
+          <div
+            className={clsx(
+              'hidden gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-medium uppercase tracking-wide text-slate-500 md:grid',
+              desktopGrid
+            )}
+          >
+            <div className="flex items-center justify-center">
+              {editableFiltered.length > 0 && (
                 <input
                   type="checkbox"
-                  aria-label={`Select ${t.merchant}`}
-                  checked={selected.has(t.id)}
-                  onChange={() => toggleOne(t.id)}
+                  aria-label="Select all"
+                  checked={allEditableSelected}
+                  onChange={toggleSelectAll}
                   className="h-4 w-4 rounded border-app-border"
                 />
-              )
-
-              const editButton = editable && (
-                <button
-                  aria-label="Edit transaction"
-                  onClick={() => openEditEntry(t)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                >
-                  <Pencil size={14} />
-                </button>
-              )
-              const splitButton = editable && t.type === 'expense' && (
-                <button
-                  aria-label="Split expense"
-                  onClick={() => openSplit(t)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                >
-                  <Split size={14} />
-                </button>
-              )
-              const deleteButton = editable && (
-                <button
-                  aria-label="Delete transaction"
-                  onClick={() => deleteTransaction.mutate(t.id)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )
-
-              // Phones: swipe-left actions, same rule as the desktop buttons --
-              // only your own rows; Split only on expenses.
-              // Solid fills with white text in light mode; the dark-mode tint
-              // pairs keep contrast where --info/--danger are brightened.
-              const swipeActions: SwipeAction[] =
-                editable && !showMobileCheckboxes
-                  ? [
-                      { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => openEditEntry(t), className: 'bg-slate-600 text-white dark:bg-info-light dark:text-info' },
-                      ...(t.type === 'expense'
-                        ? [{ key: 'split', label: 'Split', icon: Split, onSelect: () => openSplit(t), className: 'bg-accent text-white' }]
-                        : []),
-                      {
-                        key: 'delete',
-                        label: 'Delete',
-                        icon: Trash2,
-                        onSelect: () => deleteTransaction.mutate(t.id),
-                        className: 'bg-danger text-white dark:bg-danger-light dark:text-danger',
-                      },
-                    ]
-                  : []
-              const net = dayNets.get(t.date)
-              const subline = [t.type === 'transfer' ? 'Transfer' : t.category, accountDisplay, t.payment_method ? `via ${t.payment_method}` : null]
-                .filter(Boolean)
-                .join(' · ')
-              const extraLine = [t.remarks, t.tags.length ? t.tags.map((tag) => `#${tag}`).join(' ') : null]
-                .filter(Boolean)
-                .join(' · ')
-
+              )}
+            </div>
+            {scope === 'everyone' && <span />}
+            <span>Merchant</span>
+            <span>Category</span>
+            <span>Account</span>
+            <span className="hidden xl:block">Tags</span>
+            <span className="text-right">Amount</span>
+            <span />
+          </div>
+          {/* One group per day on every screen size: a heading that sticks under
+              the top bar while its own rows scroll past, then that day's rows.
+              Groups (not rows) rise in, so "Load more" pages don't replay it. */}
+          <ul className="stagger-rows">
+            {groups.map((group) => {
+              const headingId = `tx-day-${group.date}`
               return (
-                <Fragment key={t.id}>
-                {newDay && (
-                  <li className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-2 text-helper font-semibold uppercase tracking-wide text-slate-500 md:hidden">
-                    <span>{dayHeading(t.date)}</span>
-                    {net !== undefined && (
-                      <span className="tabular-nums normal-case tracking-normal" title="Net for the loaded entries of this day">
+                <li key={group.date} aria-labelledby={headingId} className="border-t border-app-border first:border-t-0">
+                  <div className="sticky top-[calc(76px+var(--safe-top))] z-10 flex min-h-[40px] items-center justify-between gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-semibold uppercase tracking-wide text-slate-500">
+                    <h3 id={headingId}>{dayHeadingLabel(group.date, today)}</h3>
+                    {group.net !== null && (
+                      <span
+                        className={clsx(
+                          'tabular-nums normal-case tracking-normal',
+                          group.net > 0 ? 'text-positive' : group.net < 0 ? 'text-danger' : 'text-slate-500'
+                        )}
+                        title="Net for the loaded entries of this day (transfers left out)"
+                      >
                         <span className="sr-only">Net </span>
-                        {net === 0 ? formatSigned(0, 'transfer') : formatSigned(net, net > 0 ? 'income' : 'expense')}
+                        {formatSigned(group.net, group.net > 0 ? 'income' : group.net < 0 ? 'expense' : 'transfer')}
                       </span>
                     )}
-                  </li>
-                )}
-                <li className="border-b border-app-border last:border-b-0">
-                  {/* Mobile: compact swipeable row. Desktop: single table row (below). Kept
-                      as two separate layouts rather than one shared grid -- the desktop row
-                      has too many cells of very different shapes (a dropdown, a tag editor,
-                      two-line amount, icon buttons) to reflow sensibly at phone width. */}
-                  <div className="md:hidden">
-                    <SwipeRow
-                      actions={swipeActions}
-                      open={openRowId === t.id}
-                      onOpenChange={(o) => setOpenRowId((prev) => (o ? t.id : prev === t.id ? null : prev))}
-                      label={t.merchant}
-                    >
-                      <div className="flex items-center gap-3 px-4 py-3">
-                        {showMobileCheckboxes && checkbox && (
-                          <label className="-my-2 -ml-2 flex h-11 w-9 shrink-0 cursor-pointer items-center justify-center">
-                            {checkbox}
-                          </label>
-                        )}
-                        <span
-                          aria-hidden="true"
-                          className={clsx(
-                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold',
-                            TONE_CLASSES[avatarTone(t.category, t.type)]
-                          )}
-                        >
-                          {merchantInitial(t.merchant)}
-                        </span>
-                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
-                              {t.merchant}
-                            </span>
-                            {t.receipt &&
-                              (t.receipt_document_id ? (
-                                <button
-                                  type="button"
-                                  aria-label="View receipt"
-                                  title="View receipt"
-                                  onClick={() => handleViewReceipt(t.receipt_document_id!)}
-                                  disabled={viewReceipt.isPending}
-                                  className="-my-3 flex h-11 w-8 shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
-                                >
-                                  <Receipt size={13} />
-                                </button>
-                              ) : (
-                                <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
-                              ))}
-                            {scope === 'everyone' && owner && (
-                              <Avatar avatar={owner.avatar} name={owner.displayName} size={18} className="shrink-0" />
-                            )}
-                          </div>
-                          <span className="truncate text-helper text-slate-500" title={subline}>
-                            {subline}
-                          </span>
-                          {extraLine && (
-                            <span className="truncate text-helper text-slate-400" title={extraLine}>
-                              {extraLine}
-                            </span>
-                          )}
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <div className={clsx('font-serif text-base font-semibold tabular-nums', amountTone)}>
-                            <span className="sr-only">{amountLabel} </span>
-                            {formatSigned(t.amount, t.type)}
-                          </div>
-                          {t.original_currency && t.original_amount != null && (
-                            <div className="text-helper text-slate-400">
-                              {formatCurrencyAs(t.original_amount, t.original_currency)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </SwipeRow>
                   </div>
-
-                  <div
-                    className={
-                      'hidden px-4 py-3 md:grid md:items-center md:gap-3 ' +
-                      (scope === 'everyone'
-                        ? 'md:grid-cols-[28px_44px_100px_1fr_150px_120px_1fr_110px_40px_40px]'
-                        : 'md:grid-cols-[28px_100px_1fr_150px_120px_1fr_110px_40px_40px]')
-                    }
-                  >
-                    <div className="flex items-center justify-center">{checkbox}</div>
-                    {scope === 'everyone' && (
-                      <div className="flex items-center justify-center">
-                        {owner && <Avatar avatar={owner.avatar} name={owner.displayName} size={22} />}
-                      </div>
-                    )}
-                    <div className="text-sm text-slate-600">{formatDate(t.date)}</div>
-                    <div className="flex min-w-0 flex-col">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
-                          {t.merchant}
-                        </span>
-                        {t.receipt &&
-                          (t.receipt_document_id ? (
-                            <button
-                              type="button"
-                              aria-label="View receipt"
-                              title="View receipt"
-                              onClick={() => handleViewReceipt(t.receipt_document_id!)}
-                              disabled={viewReceipt.isPending}
-                              className="flex shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
-                            >
-                              <Receipt size={13} />
-                            </button>
-                          ) : (
-                            <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
-                          ))}
-                      </div>
-                      {t.remarks && (
-                        <span className="truncate text-helper text-slate-400" title={t.remarks}>
-                          {t.remarks}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      {t.type === 'transfer' ? (
-                        <span className="w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                          Transfer
-                        </span>
-                      ) : (
-                        <InlineCategoryEditor transactionId={t.id} category={t.category ?? ''} type={t.type} editable={editable} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm text-slate-600" title={accountDisplay}>
-                        {accountDisplay}
-                      </div>
-                      {t.payment_method && <div className="truncate text-helper text-slate-400">via {t.payment_method}</div>}
-                    </div>
-                    <div>
-                      <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
-                    </div>
-                    <div className="text-right">
-                      <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
-                      <div className="text-helper text-slate-400">
-                          {t.original_currency && t.original_amount != null
-                            ? `${formatCurrencyAs(t.original_amount, t.original_currency)} · ${amountLabel}`
-                            : amountLabel}
-                        </div>
-                    </div>
-                    <div className="flex justify-end">{editButton}
-                        {splitButton}</div>
-                    <div className="flex justify-end">{deleteButton}</div>
-                  </div>
+                  <ul>{group.rows.map(renderRow)}</ul>
                 </li>
-                </Fragment>
               )
             })}
           </ul>
@@ -650,9 +657,3 @@ export function TransactionTable({
   )
 }
 
-function dayHeading(iso: string): string {
-  const today = todayISO()
-  if (iso === today) return `Today · ${formatDate(iso)}`
-  if (iso === addDaysISO(today, -1)) return `Yesterday · ${formatDate(iso)}`
-  return formatDate(iso)
-}

@@ -1,6 +1,7 @@
 import type { TransactionType } from '@/types/database.types'
+import { addDaysISO } from '@/lib/billCalendar'
 
-/** The minimum a row needs for the phone list's day totals. */
+/** The minimum a row needs for the list's day totals. */
 interface DayRow {
   date: string
   type: TransactionType
@@ -23,6 +24,51 @@ export function dayNetTotals(rows: DayRow[]): Map<string, number> {
   // Round away float noise (0.1 + 0.2) so a balanced day reads as exactly 0.
   for (const [date, total] of totals) totals.set(date, Math.round(total * 100) / 100)
   return totals
+}
+
+export interface DayGroup<T> {
+  /** ISO calendar date (YYYY-MM-DD) shared by every row in the group. */
+  date: string
+  rows: T[]
+  /** Income minus expenses for the group's rows; null when it only has transfers. */
+  net: number | null
+}
+
+/**
+ * Splits a loaded list into one group per calendar day, in the order each day
+ * first appears (the list comes back newest first). Rows of a day that arrive
+ * later -- the next "Load more" page continuing the same day -- join that
+ * day's existing group instead of starting a second heading for it.
+ */
+export function groupByDay<T extends DayRow>(rows: T[]): DayGroup<T>[] {
+  const byDate = new Map<string, T[]>()
+  for (const r of rows) {
+    const list = byDate.get(r.date)
+    if (list) list.push(r)
+    else byDate.set(r.date, [r])
+  }
+  const nets = dayNetTotals(rows)
+  return Array.from(byDate, ([date, dayRows]) => ({ date, rows: dayRows, net: nets.get(date) ?? null }))
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * The day heading over a group: "Today · Sun 27 Sep", "Yesterday · Sat 26 Sep",
+ * otherwise just "Fri 25 Sep" -- with the year added once it's not this year's.
+ * `today` is the local calendar date (pass `todayISO()`), never a UTC one.
+ */
+export function dayHeadingLabel(iso: string, today: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  // Local-time constructor on purpose: only the weekday is read back, and the
+  // date parts came from the string itself, so no UTC shift can creep in.
+  const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()]
+  const sameYear = today.slice(0, 4) === iso.slice(0, 4)
+  const date = `${weekday} ${d} ${MONTHS[m - 1]}${sameYear ? '' : ` ${y}`}`
+  if (iso === today) return `Today · ${date}`
+  if (iso === addDaysISO(today, -1)) return `Yesterday · ${date}`
+  return date
 }
 
 /** First letter or digit of a merchant name, upper-cased, for the row avatar. */

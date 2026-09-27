@@ -1,5 +1,56 @@
 import { describe, expect, it } from 'vitest'
-import { avatarTone, dayNetTotals, dragOffset, merchantInitial, snapOffset } from './activityList'
+import { avatarTone, dayHeadingLabel, dayNetTotals, dragOffset, groupByDay, merchantInitial, snapOffset } from './activityList'
+
+describe('groupByDay', () => {
+  it('groups rows per day in first-seen order with a net per day', () => {
+    const groups = groupByDay([
+      { id: 'a', date: '2026-09-27', type: 'expense' as const, amount: 1284 },
+      { id: 'b', date: '2026-09-27', type: 'expense' as const, amount: 449 },
+      { id: 'c', date: '2026-09-26', type: 'income' as const, amount: 62000 },
+      { id: 'd', date: '2026-09-26', type: 'transfer' as const, amount: 5000 },
+      { id: 'e', date: '2026-09-25', type: 'transfer' as const, amount: 100 },
+    ])
+    expect(groups.map((g) => g.date)).toEqual(['2026-09-27', '2026-09-26', '2026-09-25'])
+    expect(groups[0].rows.map((r) => r.id)).toEqual(['a', 'b'])
+    expect(groups[0].net).toBe(-1733)
+    expect(groups[1].net).toBe(62000)
+    // Only transfers: no total to show.
+    expect(groups[2].net).toBeNull()
+  })
+  it('puts a later page continuing the same day into that day, not a new group', () => {
+    const page1 = [
+      { id: 'a', date: '2026-09-27', type: 'expense' as const, amount: 10 },
+      { id: 'b', date: '2026-09-26', type: 'expense' as const, amount: 20 },
+    ]
+    const page2 = [
+      { id: 'c', date: '2026-09-26', type: 'income' as const, amount: 50 },
+      { id: 'd', date: '2026-09-24', type: 'expense' as const, amount: 5 },
+    ]
+    const groups = groupByDay([...page1, ...page2])
+    expect(groups.map((g) => g.date)).toEqual(['2026-09-27', '2026-09-26', '2026-09-24'])
+    expect(groups[1].rows.map((r) => r.id)).toEqual(['b', 'c'])
+    expect(groups[1].net).toBe(30)
+  })
+  it('returns no groups for no rows', () => {
+    expect(groupByDay([])).toEqual([])
+  })
+})
+
+describe('dayHeadingLabel', () => {
+  const today = '2026-09-27'
+  it('names today and yesterday with the weekday and date', () => {
+    expect(dayHeadingLabel('2026-09-27', today)).toBe('Today · Sun 27 Sep')
+    expect(dayHeadingLabel('2026-09-26', today)).toBe('Yesterday · Sat 26 Sep')
+  })
+  it('shows weekday and date otherwise, adding the year only when it differs', () => {
+    expect(dayHeadingLabel('2026-09-25', today)).toBe('Fri 25 Sep')
+    expect(dayHeadingLabel('2025-12-31', today)).toBe('Wed 31 Dec 2025')
+  })
+  it('handles yesterday across a month and year boundary', () => {
+    expect(dayHeadingLabel('2026-02-28', '2026-03-01')).toBe('Yesterday · Sat 28 Feb')
+    expect(dayHeadingLabel('2025-12-31', '2026-01-01')).toBe('Yesterday · Wed 31 Dec 2025')
+  })
+})
 
 describe('dayNetTotals', () => {
   it('adds income, subtracts expenses and skips transfers per day', () => {

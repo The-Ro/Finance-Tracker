@@ -33,6 +33,11 @@ import { toFilters, type SavedFilter } from '@/lib/savedFilters'
 function TransactionTableSkeleton() {
   return (
     <Card className="flex flex-col gap-3 p-4">
+      {/* Stands in for the first day heading of the grouped list. */}
+      <div className="flex items-center justify-between py-1">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-3 w-14" />
+      </div>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 py-1.5">
           <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
