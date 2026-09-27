@@ -40,3 +40,29 @@ export function splitBalances(splits: SplitLike[], me: string): PersonBalance[] 
 export function evenShare(total: number, people = 2): number {
   return Math.round((total / people) * 100) / 100
 }
+
+interface IdentifiedSplit extends SplitLike {
+  id: string
+}
+
+export interface PersonSplitSummary {
+  /** Unsettled split expenses between me and this person, in either direction. */
+  count: number
+  /** Unsettled splits I paid for with this person -- the only ones I can settle (RLS lets only the payer update). */
+  settleableIds: string[]
+}
+
+/** What "Settle all" can act on for one person, plus the "From N shared expenses" count. */
+export function personSplitSummary(splits: IdentifiedSplit[], me: string, other: string): PersonSplitSummary {
+  let count = 0
+  const settleableIds: string[] = []
+  for (const s of splits) {
+    if (s.settled_at) continue
+    const iPaid = s.owner_user_id === me && s.with_user_id === other
+    const theyPaid = s.owner_user_id === other && s.with_user_id === me
+    if (!iPaid && !theyPaid) continue
+    count++
+    if (iPaid) settleableIds.push(s.id)
+  }
+  return { count, settleableIds }
+}

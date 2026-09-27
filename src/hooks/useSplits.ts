@@ -73,6 +73,29 @@ export function useSplitMutations() {
     onSuccess: invalidate,
   })
 
+  /**
+   * "Settle all" with one person: marks every listed unsettled split settled in
+   * one request. The caller passes only splits I paid for (personSplitSummary);
+   * the owner/unsettled filters here are a client-side backstop -- RLS
+   * (transaction_splits_update_own) is what actually restricts it to the payer.
+   * Resolves to how many rows changed.
+   */
+  const settleMany = useMutation({
+    mutationFn: async (ids: string[]): Promise<number> => {
+      if (ids.length === 0) return 0
+      const { data, error } = await supabase
+        .from('transaction_splits')
+        .update({ settled_at: new Date().toISOString() })
+        .in('id', ids)
+        .eq('owner_user_id', userId!)
+        .is('settled_at', null)
+        .select('id')
+      if (error) throw error
+      return data?.length ?? 0
+    },
+    onSuccess: invalidate,
+  })
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('transaction_splits').delete().eq('id', id)
@@ -81,5 +104,5 @@ export function useSplitMutations() {
     onSuccess: invalidate,
   })
 
-  return { create, setSettled, remove }
+  return { create, setSettled, settleMany, remove }
 }

@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, TriangleAlert, Repeat, TrendingDown, TrendingUp } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleCheck, TriangleAlert, Repeat, TrendingDown, TrendingUp } from 'lucide-react'
+import clsx from 'clsx'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { SpendDonut } from '@/components/review/SpendDonut'
+import { MonthCompare } from '@/components/review/MonthCompare'
 import { useMyTransactions } from '@/hooks/useTransactions'
 import { applyRollover, useBudgets } from '@/hooks/useBudgets'
 import { useRecurringItemsRaw } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { useAuth } from '@/context/AuthContext'
-import { buildMonthlyReview } from '@/lib/monthlyReview'
-import { dueDatesInRange, monthGrid } from '@/lib/billCalendar'
+import { buildMonthlyReview, donutSegments, subscriptionSummary } from '@/lib/monthlyReview'
+import { monthGrid } from '@/lib/billCalendar'
 import { todayISO } from '@/lib/format'
 import { monthEndBalances } from '@/lib/balanceHistory'
 import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
@@ -53,12 +55,11 @@ export function ReviewPage() {
   }, [transactions, budgets, range.start, prior.start]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const subscriptions = useMemo(
-    () =>
-      recurring
-        .filter((r) => r.kind === 'subscription')
-        .reduce((sum, r) => sum + dueDatesInRange(r, range.start, range.end).length * r.amount, 0),
-    [recurring, range.start, range.end]
+    () => subscriptionSummary(recurring, range),
+    [recurring, range.start, range.end] // eslint-disable-line react-hooks/exhaustive-deps
   )
+  const segments = useMemo(() => donutSegments(review.categories), [review.categories])
+  const [compare, setCompare] = useState(false)
 
   const spent = useAnimatedNumber(review.spent)
   const shiftMonth = (delta: number) =>
@@ -67,7 +68,15 @@ export function ReviewPage() {
       return { year: year + Math.floor(n / 12), index: ((n % 12) + 12) % 12 }
     })
   const label = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const monthName = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long' })
+  const priorName = new Date(month.year, month.index - 1, 1).toLocaleDateString(undefined, { month: 'long' })
   const isCurrentMonth = range.end >= todayISO()
+  const underBudget = review.underBudget.slice(0, 3)
+  const nothingStoodOut =
+    (review.spentChange === null || review.spentChange === 0) &&
+    review.overBudget.length === 0 &&
+    underBudget.length === 0 &&
+    subscriptions.total === 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -103,7 +112,41 @@ export function ReviewPage() {
           You spent {format(spent)}
           {review.keptPercent !== null ? ` and kept ${Math.round(review.keptPercent)}% of what came in.` : '.'}
         </h2>
+        {review.prior && (
+          <button
+            type="button"
+            aria-pressed={compare}
+            aria-controls="review-compare"
+            onClick={() => setCompare((c) => !c)}
+            className={clsx(
+              'mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors active:scale-[0.97]',
+              compare
+                ? 'border-accent bg-accent-light text-accent-on-light'
+                : 'border-app-border text-slate-700 hover:border-accent hover:text-accent-dark'
+            )}
+          >
+            Compare to {priorName}
+          </button>
+        )}
       </div>
+
+      {compare && review.prior && (
+        <Card id="review-compare" className="animate-fade-in-up p-5">
+          <div className="mb-4 flex items-baseline justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-800">
+              {monthName} vs {priorName}
+            </h3>
+            {isCurrentMonth && <span className="text-helper text-slate-500">{monthName} so far</span>}
+          </div>
+          <MonthCompare
+            current={review}
+            prior={review.prior}
+            currentLabel={monthName}
+            priorLabel={priorName}
+            format={format}
+          />
+        </Card>
+      )}
 
       <Card className="animate-fade-in-up p-5">
         <div className="mb-4 flex items-baseline justify-between gap-3">
@@ -129,22 +172,34 @@ export function ReviewPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="animate-fade-in-up p-5">
           <h3 className="mb-4 text-sm font-semibold text-slate-800">Where it went</h3>
-          {review.categories.length === 0 ? (
+          {segments.length === 0 ? (
             <p className="text-sm text-slate-500">No spending logged for this month.</p>
           ) : (
-            <ul className="flex flex-col gap-3">
-              {review.categories.slice(0, 6).map((c) => (
-                <li key={c.category} className="flex flex-col gap-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-700">{c.category}</span>
-                    <span className="tabular-nums text-slate-500">
-                      {format(c.amount)} · {Math.round(c.share)}%
-                    </span>
-                  </div>
-                  <ProgressBar percent={c.share} tone="accent" />
-                </li>
-              ))}
-            </ul>
+            <>
+              <SpendDonut
+                key={`${month.year}-${month.index}`}
+                segments={segments}
+                centerValue={formatCompact(review.spent)}
+                formatAmount={format}
+              />
+              {segments.some((s) => s.other) && (
+                <details className="mt-4 border-t border-app-border pt-3 text-sm">
+                  <summary className="flex min-h-[44px] cursor-pointer items-center font-medium text-accent-dark">
+                    All {review.categories.length} categories
+                  </summary>
+                  <ul className="flex flex-col gap-2 pt-1">
+                    {review.categories.map((c) => (
+                      <li key={c.category} className="flex justify-between gap-3">
+                        <span className="truncate text-slate-700">{c.category}</span>
+                        <span className="shrink-0 tabular-nums text-slate-500">
+                          {format(c.amount)} · {Math.round(c.share)}%
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </>
           )}
         </Card>
 
@@ -170,14 +225,25 @@ export function ReviewPage() {
               </span>
             </div>
           ))}
-          {subscriptions > 0 && (
+          {underBudget.map((b) => (
+            <div key={b.category} className="flex items-center gap-3 rounded-xl bg-positive-light p-3 text-sm text-slate-700">
+              <CircleCheck size={18} className="shrink-0 text-positive" />
+              <span>
+                {b.category} {isCurrentMonth ? 'is at' : 'stayed at'} <strong>{format(b.spent)}</strong>
+                {isCurrentMonth ? ' so far' : ''}, well under its {format(b.limit)} budget.
+              </span>
+            </div>
+          ))}
+          {subscriptions.total > 0 && (
             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
               <Repeat size={18} className="shrink-0 text-caution" />
               <span>
-                Subscriptions due this month come to <strong>{format(subscriptions)}</strong>.
+                Subscriptions due this month come to <strong>{format(subscriptions.total)}</strong> across{' '}
+                {subscriptions.count === 1 ? '1 subscription' : `${subscriptions.count} subscriptions`}.
               </span>
             </div>
           )}
+          {nothingStoodOut && <p className="text-sm text-slate-500">Nothing unusual this month.</p>}
           <div className="mt-auto grid grid-cols-2 gap-3 border-t border-app-border pt-3 text-sm">
             <div>
               <p className="text-helper text-slate-500">Money in</p>
