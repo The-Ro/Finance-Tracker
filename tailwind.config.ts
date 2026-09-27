@@ -39,6 +39,10 @@ export default {
           DEFAULT: withOpacity('--caution'),
           light: withOpacity('--caution-light'),
         },
+        brass: {
+          DEFAULT: withOpacity('--brass'),
+          light: withOpacity('--brass-light'),
+        },
         info: {
           DEFAULT: withOpacity('--info'),
           light: withOpacity('--info-light'),

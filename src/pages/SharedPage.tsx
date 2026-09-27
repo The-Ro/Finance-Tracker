@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { personSplitSummary, splitBalances, type PersonBalance } from '@/lib/splits'
 import { formatShortDate } from '@/lib/format'
+import { shareText } from '@/lib/share'
 
 interface SettleTarget {
   userId: string
@@ -220,6 +221,13 @@ function PersonCard({
 }: PersonCardProps) {
   const FlowIcon = b.net > 0 ? ArrowLeft : b.net < 0 ? ArrowRight : Equal
   const canSettle = summary.settleableIds.length > 0
+  const { show } = useToast()
+  // Hands a reminder to the user's own apps (share sheet / clipboard) -- LedgeEaze sends no messages itself.
+  const remind = async (text: string) => {
+    const result = await shareText('Reminder', text)
+    if (result === 'copied') show('Reminder copied. Paste it into a message.')
+    else if (result === 'failed') show('Could not share the reminder.', { tone: 'error' })
+  }
   return (
     <Card className="flex flex-col items-center gap-3 p-5 text-center">
       <div className="flex items-center gap-3">
@@ -249,9 +257,21 @@ function PersonCard({
       </div>
       {canSettle ? (
         <div className="flex w-full flex-col gap-2">
-          <Button className="w-full" onClick={() => onSettleAll(summary.settleableIds)} disabled={busy}>
-            Settle all
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                remind(
+                  `Hi ${theirFirstName}, a quick reminder: you owe me ${format(b.owedToMe)} for ${summary.settleableIds.length} shared ${summary.settleableIds.length === 1 ? 'expense' : 'expenses'}. Thanks!`
+                )
+              }
+            >
+              Remind
+            </Button>
+            <Button onClick={() => onSettleAll(summary.settleableIds)} disabled={busy}>
+              Settle all
+            </Button>
+          </div>
           {b.iOwe > 0 && (
             <p className="text-helper text-slate-500">
               Settles the {format(b.owedToMe)} {theirFirstName} owes you. {theirFirstName} marks the {format(b.iOwe)} you owe

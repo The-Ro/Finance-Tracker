@@ -21,7 +21,7 @@ interface GoalRingProps {
  * Circular goal progress. Starts empty and fills in (stroke-dashoffset
  * transition) the first time it scrolls into view; later changes (Add money)
  * animate from the current fill. With reduced motion it's drawn at its final
- * value straight away. A reached goal fills with the brass (caution) tone.
+ * value straight away. A reached goal fills with the brass tone.
  */
 export function GoalRing({ percent, reached, label }: GoalRingProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -77,7 +77,7 @@ export function GoalRing({ percent, reached, label }: GoalRingProps) {
           opacity={shown > 0 ? 1 : 0}
           className={clsx(
             'motion-safe:transition-[stroke-dashoffset,stroke] motion-safe:duration-[900ms] motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]',
-            reached ? 'stroke-caution' : 'stroke-positive'
+            reached ? 'stroke-brass' : 'stroke-positive'
           )}
         />
       </svg>

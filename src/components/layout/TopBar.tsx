@@ -63,7 +63,7 @@ export function TopBar() {
           <Upload size={16} />
           <span className="hidden sm:inline">Import</span>
         </Button>
-        <Button onClick={() => openAddEntry()} className="px-3 sm:px-4">
+        <Button onClick={() => openAddEntry()} className="hidden px-3 sm:px-4 md:inline-flex">
           <Plus size={16} />
           <span className="hidden sm:inline">Add entry</span>
         </Button>

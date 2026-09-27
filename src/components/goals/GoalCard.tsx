@@ -99,11 +99,11 @@ export function GoalCard({ goal, onEdit, onDelete, onAddMoney }: GoalCardProps) 
         {reached ? (
           <span
             className={clsx(
-              'inline-flex items-center gap-1.5 rounded-full bg-caution-light px-2.5 py-1 text-helper font-semibold text-slate-900',
+              'inline-flex items-center gap-1.5 rounded-full bg-brass-light px-2.5 py-1 text-helper font-semibold text-slate-900',
               popBadge && 'animate-pop-in'
             )}
           >
-            <PartyPopper size={14} aria-hidden="true" className="text-caution" />
+            <PartyPopper size={14} aria-hidden="true" className="text-brass" />
             Goal reached
           </span>
         ) : (

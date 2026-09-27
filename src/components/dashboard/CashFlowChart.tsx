@@ -7,6 +7,7 @@ import type { Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useTheme } from '@/context/ThemeContext'
 import { getChartTheme } from '@/lib/themeColors'
+import { axisTick, gridProps, seriesMotion, tooltipProps } from '@/lib/chartStyle'
 
 interface CashFlowChartProps {
   transactions: Transaction[]
@@ -79,20 +80,18 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
                   <stop offset="100%" stopColor={colors.danger} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={colors.border} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: colors.tick }} />
+              <CartesianGrid {...gridProps(colors)} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={axisTick(colors)} />
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                tick={{ fontSize: 12, fill: colors.tick }}
+                tick={axisTick(colors)}
                 tickFormatter={(v: number) => compactFormatter.format(v)}
                 width={44}
               />
               <Tooltip
                 formatter={(value: number) => format(value)}
-                contentStyle={{ backgroundColor: colors.tooltipBg, border: `1px solid ${colors.border}`, borderRadius: 8 }}
-                labelStyle={{ color: colors.tick }}
-                itemStyle={{ color: colors.tick }}
+                {...tooltipProps(colors)}
               />
               <Legend
                 iconType="circle"
@@ -108,7 +107,9 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
                 dataKey="income"
                 stroke={colors.positive}
                 fill="url(#incomeGradient)"
-                strokeWidth={2}
+                strokeWidth={2.5}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                {...seriesMotion(0)}
                 name="Income"
                 hide={hidden.has('income')}
               />
@@ -117,7 +118,9 @@ export function CashFlowChart({ transactions }: CashFlowChartProps) {
                 dataKey="expense"
                 stroke={colors.danger}
                 fill="url(#expenseGradient)"
-                strokeWidth={2}
+                strokeWidth={2.5}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                {...seriesMotion(1)}
                 name="Spending"
                 hide={hidden.has('expense')}
               />

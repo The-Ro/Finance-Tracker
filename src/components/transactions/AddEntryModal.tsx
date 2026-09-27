@@ -552,7 +552,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               aria-expanded={showCurrency}
               aria-controls="entry-currency-panel"
               onClick={() => setShowCurrency((v) => !v)}
-              className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-app-border px-3 text-helper font-semibold text-slate-600 transition-colors hover:border-accent hover:text-accent-dark"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-app-border px-3 text-helper font-semibold text-slate-600 transition-colors hover:border-accent hover:text-accent-dark"
             >
               {entryCurrency} · change
               <ChevronDown
@@ -668,7 +668,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                     aria-pressed={selected}
                     onClick={() => setForm((f) => ({ ...f, category: option }))}
                     className={
-                      'min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95 ' +
+                      'min-h-[44px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95 ' +
                       (selected
                         ? 'border-accent bg-accent-light text-accent-on-light'
                         : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark')
@@ -759,7 +759,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                           title={profiles[id]?.email}
                           onClick={() => setSplitWith(id)}
                           className={clsx(
-                            'min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
+                            'min-h-[44px] shrink-0 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
                             selected
                               ? 'border-accent bg-accent-light text-accent-on-light'
                               : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'

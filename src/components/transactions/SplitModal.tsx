@@ -139,7 +139,7 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
                   key={n}
                   type="button"
                   onClick={() => setAmount(String(evenShare(transaction.amount, n)))}
-                  className="min-h-[36px] rounded-full border border-app-border px-3 text-helper font-medium text-slate-600 hover:border-accent hover:text-accent-dark"
+                  className="min-h-[44px] rounded-full border border-app-border px-3 text-helper font-medium text-slate-600 hover:border-accent hover:text-accent-dark"
                 >
                   1/{n}
                 </button>

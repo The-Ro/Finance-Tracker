@@ -85,7 +85,7 @@ export function ComingUpCard({ items, className }: ComingUpCardProps) {
                 <span
                   className={clsx(
                     'text-[11px] font-bold uppercase',
-                    overdue ? 'text-danger' : date === today ? 'text-caution' : 'text-slate-500'
+                    overdue ? 'text-danger' : date === today ? 'text-brass' : 'text-slate-500'
                   )}
                 >
                   {overdue ? 'Late' : date === today ? 'Today' : weekdayOf(date)}

@@ -35,15 +35,14 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/rules', label: 'Rules', icon: SlidersHorizontal },
 ]
 
-// The phone bottom nav: Home, Activity, Bills, Review, Budgets -- the day-to-day
-// loop. Everything else (Recurring, Subscriptions, Goals, Shared, ...) stays one
+// The phone bottom nav: Home, Activity, Review, Bills (plus the centre Add
+// button in BottomNav) -- the day-to-day loop. Everything else (Recurring, Subscriptions, Goals, Shared, ...) stays one
 // tap away in the Sidebar menu. Short labels here; icons come from NAV_ITEMS.
 const BOTTOM_NAV: { to: string; label: string }[] = [
   { to: '/', label: 'Home' },
   { to: '/transactions', label: 'Activity' },
-  { to: '/bills', label: 'Bills' },
   { to: '/review', label: 'Review' },
-  { to: '/budgets', label: 'Budgets' },
+  { to: '/bills', label: 'Bills' },
 ]
 
 export const BOTTOM_NAV_ITEMS: NavItem[] = BOTTOM_NAV.flatMap(({ to, label }) => {

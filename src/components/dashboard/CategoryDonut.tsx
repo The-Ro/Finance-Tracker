@@ -8,6 +8,7 @@ import type { Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useTheme } from '@/context/ThemeContext'
 import { getChartTheme } from '@/lib/themeColors'
+import { seriesMotion, tooltipProps } from '@/lib/chartStyle'
 
 interface CategoryDonutProps {
   transactions: Transaction[]
@@ -79,7 +80,7 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
           <div className="relative mx-auto h-48 w-48 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={2}>
+                <Pie data={data} dataKey="value" nameKey="name" innerRadius={58} outerRadius={80} paddingAngle={3} cornerRadius={6} startAngle={90} endAngle={-270} {...seriesMotion(0)}>
                   {data.map((entry, i) => (
                     <Cell key={entry.name} fill={COLORS[i % COLORS.length]} stroke={colors.tooltipBg} strokeWidth={2} />
                   ))}
@@ -91,9 +92,7 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
                   // %/amount label, the two texts overlapping illegibly.
                   position={{ y: 195 }}
                   formatter={(value: number) => format(value)}
-                  contentStyle={{ backgroundColor: colors.tooltipBg, border: `1px solid ${colors.border}`, borderRadius: 8 }}
-                  labelStyle={{ color: colors.tick }}
-                  itemStyle={{ color: colors.tick }}
+                  {...tooltipProps(colors)}
                 />
               </PieChart>
             </ResponsiveContainer>

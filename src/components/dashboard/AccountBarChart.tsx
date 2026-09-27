@@ -8,6 +8,7 @@ import { useAccountBalances, type Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useTheme } from '@/context/ThemeContext'
 import { getChartTheme } from '@/lib/themeColors'
+import { axisTick, gridProps, seriesMotion, tooltipProps } from '@/lib/chartStyle'
 
 interface AccountBarChartProps {
   /** Period-filtered -- used for the expense bar. Balance is all-time by
@@ -61,31 +62,28 @@ export function AccountBarChart({ transactions }: AccountBarChartProps) {
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ left: 4, right: 12, top: 8, bottom: 0 }} barGap={3} barCategoryGap="24%">
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={colors.border} />
+              <CartesianGrid {...gridProps(colors)} />
               <XAxis
                 dataKey="name"
                 tickLine={false}
                 axisLine={false}
                 height={28}
-                tick={{ fontSize: 11, fill: colors.tick }}
+                tick={axisTick(colors, 11)}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                tick={{ fontSize: 12, fill: colors.tick }}
+                tick={axisTick(colors)}
                 tickFormatter={(v: number) => compactFormatter.format(v)}
                 width={44}
               />
               <Tooltip
-                cursor={{ fill: colors.border, opacity: 0.3 }}
                 formatter={(value: number) => format(value)}
-                contentStyle={{ backgroundColor: colors.tooltipBg, border: `1px solid ${colors.border}`, borderRadius: 8 }}
-                labelStyle={{ color: colors.tick, fontWeight: 600, marginBottom: 4 }}
-                itemStyle={{ color: colors.tick }}
+                {...tooltipProps(colors)}
               />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
-              <Bar dataKey="balance" name="Current balance" fill={colors.positive} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
-              <Bar dataKey="expense" name="Expense" fill={colors.danger} fillOpacity={0.55} radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="balance" name="Current balance" fill={colors.positive} fillOpacity={0.85} radius={[8, 8, 0, 0]} maxBarSize={28} {...seriesMotion(0)} />
+              <Bar dataKey="expense" name="Expense" fill={colors.danger} fillOpacity={0.85} radius={[8, 8, 0, 0]} maxBarSize={28} {...seriesMotion(1)} />
             </BarChart>
           </ResponsiveContainer>
         </div>

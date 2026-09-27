@@ -56,9 +56,9 @@ export function SavedFilters({ filters, scope, period, onApply }: SavedFiltersPr
       {saved.map((f, i) => (
         <span
           key={i}
-          className="animate-fade-in inline-flex min-h-[36px] items-center rounded-full border border-app-border bg-app-card text-helper font-medium text-slate-700"
+          className="animate-fade-in inline-flex min-h-[44px] items-center rounded-full border border-app-border bg-app-card text-helper font-medium text-slate-700"
         >
-          <button type="button" onClick={() => onApply(f)} className="min-h-[36px] pl-3 pr-1 hover:text-accent-dark">
+          <button type="button" onClick={() => onApply(f)} className="min-h-[44px] pl-3 pr-1 hover:text-accent-dark">
             {describeFilters(f)}
           </button>
           <button
@@ -75,7 +75,7 @@ export function SavedFilters({ filters, scope, period, onApply }: SavedFiltersPr
         <button
           type="button"
           onClick={() => update(addSavedFilter(saved, current))}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-dashed border-accent px-3 text-helper font-medium text-accent-dark"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-dashed border-accent px-3 text-helper font-medium text-accent-dark"
         >
           <Bookmark size={13} /> Save this view
         </button>

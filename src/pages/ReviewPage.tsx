@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, CircleCheck, TriangleAlert, Repeat, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight, CircleCheck, Share2, TriangleAlert, Repeat, TrendingDown, TrendingUp } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { useToast } from '@/context/ToastContext'
+import { shareText } from '@/lib/share'
 import clsx from 'clsx'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -68,6 +71,21 @@ export function ReviewPage() {
       return { year: year + Math.floor(n / 12), index: ((n % 12) + 12) % 12 }
     })
   const label = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const { show } = useToast()
+  // Share a short text summary through the device's share sheet (or clipboard).
+  const shareSummary = async () => {
+    const top = review.categories.slice(0, 3).map((c) => `${c.category} ${format(c.amount)}`).join(', ')
+    const text = [
+      `My ${label} on LedgeEaze: spent ${format(review.spent)}` +
+        (review.keptPercent !== null ? `, kept ${Math.round(review.keptPercent)}% of income.` : '.'),
+      top ? `Top spending: ${top}.` : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+    const result = await shareText(`${label} review`, text)
+    if (result === 'copied') show('Summary copied.')
+    else if (result === 'failed') show('Could not share the summary.', { tone: 'error' })
+  }
   const monthName = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long' })
   const priorName = new Date(month.year, month.index - 1, 1).toLocaleDateString(undefined, { month: 'long' })
   const isCurrentMonth = range.end >= todayISO()
@@ -84,6 +102,14 @@ export function ReviewPage() {
         title="Monthly review"
         actions={
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Share summary"
+              onClick={shareSummary}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+            >
+              <Share2 size={18} />
+            </button>
             <button
               aria-label="Previous month"
               onClick={() => shiftMonth(-1)}
@@ -255,6 +281,17 @@ export function ReviewPage() {
             </div>
           </div>
         </Card>
+      </div>
+
+      {/* Story-style hand-off to the next review screen (canvas InsightsPhone). */}
+      <div className="flex justify-end">
+        <Link
+          to="/goals"
+          className="press inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-white"
+        >
+          Next: goals
+          <ArrowRight size={16} aria-hidden="true" />
+        </Link>
       </div>
     </div>
   )

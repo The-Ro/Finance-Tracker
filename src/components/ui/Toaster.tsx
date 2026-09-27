@@ -22,7 +22,7 @@ export function Toaster() {
   return (
     <div
       aria-live="polite"
-      className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 md:inset-x-auto md:bottom-6 md:right-6 md:items-end md:px-0"
+      className="fixed inset-x-0 top-[calc(84px+var(--safe-top))] z-50 flex flex-col items-center gap-2 px-4 md:inset-x-auto md:top-auto md:bottom-6 md:right-6 md:items-end md:px-0"
     >
       {toasts.map((toast) => {
         const Icon = TONE_ICON[toast.tone]
@@ -36,7 +36,7 @@ export function Toaster() {
             onBlur={() => resume(toast.id)}
             className={clsx(
               'flex w-full max-w-sm items-center gap-2.5 rounded-xl border border-app-border bg-app-card px-4 py-3 text-sm text-slate-800 shadow-card-lg',
-              toast.leaving ? 'animate-toast-out' : 'animate-toast-in'
+              toast.leaving ? 'animate-toast-out-top md:animate-toast-out' : 'animate-toast-in-top md:animate-toast-in'
             )}
           >
             <Icon size={17} className={clsx('shrink-0', TONE_CLASSES[toast.tone])} />

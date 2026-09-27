@@ -25,6 +25,9 @@
   --positive-light: 230 246 239;
   --caution: 229 138 46;
   --caution-light: 253 241 227;
+  /* Brass: highlights (due dates, reached goals, the week-ahead card) -- not warnings. */
+  --brass: 166 120 36;
+  --brass-light: 250 242 222;
   --info: 46 125 229;
   --info-light: 233 241 253;
 
@@ -121,6 +124,8 @@
   --positive-light: 21 51 42;
   --caution: 240 165 88;
   --caution-light: 63 43 21;
+  --brass: 212 166 74;
+  --brass-light: 58 48 22;
   --info: 96 165 250;
   --info-light: 22 40 66;
 
@@ -428,6 +433,33 @@
       opacity: 0;
       transform: translateY(6px) scale(0.96);
     }
+  }
+  /* Phones: toasts drop in from the top (Motion spec / MotionFlow). */
+  @keyframes toast-in-top {
+    from {
+      opacity: 0;
+      transform: translateY(-14px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes toast-out-top {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.96);
+    }
+  }
+  .animate-toast-in-top {
+    animation: toast-in-top 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-toast-out-top {
+    animation: toast-out-top 0.15s ease-in both;
   }
   .animate-toast-in {
     animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;

@@ -55,7 +55,7 @@ export function AccountChips({ label, options, value, onChange, emptyText, class
                 aria-pressed={selected}
                 onClick={() => onChange(option)}
                 className={clsx(
-                  'inline-flex min-h-[36px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
+                  'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-helper font-medium transition-colors active:scale-95',
                   selected
                     ? 'animate-pop-in border-accent bg-accent-light text-accent-on-light'
                     : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'

@@ -110,7 +110,7 @@ export function BillsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader title="Bills" />
 
-      <Card className="animate-fade-in-up flex flex-wrap items-center justify-between gap-3 border-caution/30 bg-caution-light p-5">
+      <Card className="animate-fade-in-up flex flex-wrap items-center justify-between gap-3 border-brass/30 bg-brass-light p-5">
         <div>
           <p className="text-helper font-semibold uppercase tracking-wide text-slate-600">Next 7 days</p>
           <p className="font-serif text-3xl font-semibold text-slate-900">{format(weekTotal)} due</p>
@@ -174,7 +174,7 @@ export function BillsPage() {
                   )}
                 >
                   {Number(date.slice(8))}
-                  <span className={clsx('h-1.5 w-1.5 rounded-full', due ? (isSelected ? 'bg-white' : 'bg-caution') : 'bg-transparent')} />
+                  <span className={clsx('h-1.5 w-1.5 rounded-full', due ? (isSelected ? 'bg-white' : 'bg-brass') : 'bg-transparent')} />
                 </button>
               )
             })}
