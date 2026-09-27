@@ -1,12 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { BrandHeader } from '@/components/ui/BrandHeader'
+import { AuthError, AuthRise, AuthSpinner, AuthSubmitButton, AuthSuccess } from '@/components/auth/AuthMotion'
 
 // Reached only via the link in a password-recovery email. Supabase's client
 // detects the recovery token in the URL and establishes a session before this
@@ -21,6 +19,8 @@ export function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  // Bumped per submit so a repeated, identical error still shakes.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -35,6 +35,7 @@ export function ResetPasswordPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    setAttempt((n) => n + 1)
     setError(null)
     if (password.length < 6) return setError('Use at least 6 characters.')
     if (password !== confirmPassword) return setError("Passwords don't match.")
@@ -51,28 +52,31 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AuthLayout>
-      <Card className="w-full max-w-sm p-6">
-        <div className="mb-6">
-          <BrandHeader tagline />
-        </div>
-        <h1 className="mb-4 text-base font-semibold text-slate-800">Set a new password</h1>
-
-        {!ready ? (
-          <p className="text-helper text-slate-500">Loading…</p>
-        ) : done ? (
-          <InlineMessage tone="success">Password updated. Taking you to your dashboard…</InlineMessage>
-        ) : !hasSession ? (
-          <>
-            <InlineMessage tone="error">This reset link is invalid or has expired.</InlineMessage>
-            <p className="mt-4 text-center text-helper text-slate-500">
-              <Link to="/forgot-password" className="font-medium text-accent-dark hover:underline">
-                Request a new link
-              </Link>
-            </p>
-          </>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <AuthLayout
+      headline="Every rupee, in one clear ledger."
+      supportingText="Track spending, split shared expenses, and stay ahead of every bill."
+      title="Set a new password"
+      subtitle="Choose a password with at least 6 characters."
+    >
+      {!ready ? (
+        <p className="flex items-center gap-2 text-helper text-slate-500">
+          <AuthSpinner />
+          Loading…
+        </p>
+      ) : done ? (
+        <AuthSuccess>Password updated. Taking you to your dashboard…</AuthSuccess>
+      ) : !hasSession ? (
+        <>
+          <InlineMessage tone="error">This reset link is invalid or has expired.</InlineMessage>
+          <p className="mt-4 text-center text-sm text-slate-500">
+            <Link to="/forgot-password" className="font-semibold text-accent-dark hover:underline">
+              Request a new link
+            </Link>
+          </p>
+        </>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <AuthRise index={2}>
             <TextField
               label="New password"
               type="password"
@@ -81,6 +85,8 @@ export function ResetPasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+          </AuthRise>
+          <AuthRise index={3}>
             <TextField
               label="Confirm new password"
               type="password"
@@ -89,13 +95,15 @@ export function ResetPasswordPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
-            {error && <InlineMessage tone="error">{error}</InlineMessage>}
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Updating…' : 'Update password'}
-            </Button>
-          </form>
-        )}
-      </Card>
+          </AuthRise>
+          <AuthError key={attempt} message={error} />
+          <AuthRise index={4}>
+            <AuthSubmitButton loading={loading} loadingLabel="Updating…">
+              Update password
+            </AuthSubmitButton>
+          </AuthRise>
+        </form>
+      )}
     </AuthLayout>
   )
 }

@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { BrandHeader } from '@/components/ui/BrandHeader'
+import { AuthError, AuthRise, AuthSubmitButton, AuthSuccess } from '@/components/auth/AuthMotion'
+
+const HEADLINE = 'Start tracking in minutes.'
+const SUPPORTING_TEXT = 'Create your ledger to track spending, split shared expenses, and stay ahead of every bill.'
 
 export function SignupPage() {
   const [displayName, setDisplayName] = useState('')
@@ -15,9 +15,12 @@ export function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmationSent, setConfirmationSent] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Bumped per submit so a repeated, identical error still shakes.
+  const [attempt, setAttempt] = useState(0)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    setAttempt((n) => n + 1)
     setError(null)
 
     if (password.length < 6) {
@@ -43,37 +46,47 @@ export function SignupPage() {
   if (confirmationSent) {
     return (
       <AuthLayout
-        split
-        headline="Start tracking in minutes."
-        supportingText="Create your ledger to track spending, split shared expenses, and stay ahead of every bill."
-      >
-        <Card className="w-full max-w-sm p-6 text-center">
-          <h1 className="mb-2 text-base font-semibold text-slate-800">Check your email</h1>
-          <p className="text-sm text-slate-600">
-            We sent a confirmation link to <span className="font-medium">{email}</span>. Click it, then come
-            back and sign in.
-          </p>
-          <Link to="/login" className="mt-4 inline-block text-sm font-medium text-accent-dark hover:underline">
+        headline={HEADLINE}
+        supportingText={SUPPORTING_TEXT}
+        footer={
+          <Link to="/login" className="font-semibold text-accent-dark hover:underline">
             Back to sign in
           </Link>
-        </Card>
+        }
+      >
+        <AuthSuccess title="Check your email">
+          We sent a confirmation link to <span className="font-medium text-slate-900">{email}</span>. Click it, then
+          come back and sign in.
+        </AuthSuccess>
       </AuthLayout>
     )
   }
 
   return (
     <AuthLayout
-      split
-      headline="Start tracking in minutes."
-      supportingText="Create your ledger to track spending, split shared expenses, and stay ahead of every bill."
+      headline={HEADLINE}
+      supportingText={SUPPORTING_TEXT}
+      title="Create your account"
+      subtitle="It takes less than a minute."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" className="font-semibold text-accent-dark hover:underline">
+            Sign in
+          </Link>
+        </>
+      }
     >
-      <Card className="w-full max-w-sm p-6">
-        <div className="mb-6 lg:hidden">
-          <BrandHeader tagline />
-        </div>
-        <h1 className="mb-4 text-base font-semibold text-slate-800">Create your account</h1>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <TextField label="Display name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <AuthRise index={2}>
+          <TextField
+            label="Display name"
+            required
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </AuthRise>
+        <AuthRise index={3}>
           <TextField
             label="Email"
             type="email"
@@ -82,6 +95,8 @@ export function SignupPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+        </AuthRise>
+        <AuthRise index={4}>
           <TextField
             label="Password"
             type="password"
@@ -90,18 +105,14 @@ export function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {error && <InlineMessage tone="error">{error}</InlineMessage>}
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Creating account…' : 'Create account'}
-          </Button>
-        </form>
-        <p className="mt-4 text-center text-helper text-slate-500">
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-accent-dark hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </Card>
+        </AuthRise>
+        <AuthError key={attempt} message={error} />
+        <AuthRise index={5}>
+          <AuthSubmitButton loading={loading} loadingLabel="Creating account…">
+            Create account
+          </AuthSubmitButton>
+        </AuthRise>
+      </form>
     </AuthLayout>
   )
 }

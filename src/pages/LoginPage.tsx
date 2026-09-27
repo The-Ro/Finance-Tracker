@@ -1,21 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
-import { BrandHeader } from '@/components/ui/BrandHeader'
+import { AuthError, AuthRise, AuthSubmitButton } from '@/components/auth/AuthMotion'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // Bumped per submit so a repeated, identical error still shakes.
+  const [attempt, setAttempt] = useState(0)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    setAttempt((n) => n + 1)
     setError(null)
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -25,22 +25,26 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      split
       headline="Every rupee, in one clear ledger."
       supportingText="Track spending, split shared expenses, and stay ahead of every bill."
+      title="Welcome back"
+      subtitle="Sign in to continue to your ledger."
+      footer={
+        <>
+          Don't have an account?{' '}
+          <Link to="/signup" tabIndex={5} className="font-semibold text-accent-dark hover:underline">
+            Sign up
+          </Link>
+        </>
+      }
     >
-      <Card className="w-full max-w-sm p-6">
-        <div className="mb-6 lg:hidden">
-          <BrandHeader tagline />
-        </div>
-        <h1 className="mb-4 text-base font-semibold text-slate-800">Sign in</h1>
-        {/* Explicit tab order: email, password, show/hide toggle, sign in,
-            sign up, forgot password last -- "Forgot password?" sits
-            visually beside the Password label (reached early in plain DOM
-            order) but belongs at the end of the flow, so every focusable
-            element here gets a matching tabIndex rather than relying on
-            DOM position. */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Explicit tab order: email, password, show/hide toggle, sign in,
+          sign up, forgot password last -- "Forgot password?" sits visually
+          beside the Password label (reached early in plain DOM order) but
+          belongs at the end of the flow, so every focusable element here
+          gets a matching tabIndex rather than relying on DOM position. */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <AuthRise index={2}>
           <TextField
             label="Email"
             type="email"
@@ -50,6 +54,8 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+        </AuthRise>
+        <AuthRise index={3}>
           <div className="relative flex flex-col gap-1.5">
             <label htmlFor="password" className="text-helper font-medium text-slate-600">
               Password
@@ -72,18 +78,14 @@ export function LoginPage() {
               Forgot password?
             </Link>
           </div>
-          {error && <InlineMessage tone="error">{error}</InlineMessage>}
-          <Button type="submit" disabled={loading} tabIndex={4} className="w-full">
-            {loading ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
-        <p className="mt-4 text-center text-helper text-slate-500">
-          Don't have an account?{' '}
-          <Link to="/signup" tabIndex={5} className="font-medium text-accent-dark hover:underline">
-            Sign up
-          </Link>
-        </p>
-      </Card>
+        </AuthRise>
+        <AuthError key={attempt} message={error} />
+        <AuthRise index={4}>
+          <AuthSubmitButton loading={loading} loadingLabel="Signing in…" tabIndex={4}>
+            Sign in
+          </AuthSubmitButton>
+        </AuthRise>
+      </form>
     </AuthLayout>
   )
 }
