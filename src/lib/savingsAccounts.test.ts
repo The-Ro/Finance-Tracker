@@ -35,6 +35,14 @@ describe('savingsAccountFlows', () => {
     ])
   })
 
+  it('skips untouched savings accounts (seeded banks), keeping used ones even when quiet this period', () => {
+    const withSeeded = new Map([...kinds, ['Yes Bank', 'savings' as const], ['Kotak', 'savings' as const]])
+    const oldOnly = [{ type: 'income', date: '2026-01-10', amount: 50, account: 'Kotak', to_account: null }]
+    const rows = savingsAccountFlows([...tx, ...oldOnly], new Map([...balances, ['Kotak', 0]]), withSeeded, new Set(['Old Savings']), sep)
+    expect(rows.map((r) => r.account)).toEqual(['HDFC Savings', 'SBI Savings', 'Kotak'])
+    expect(rows[2]).toEqual({ account: 'Kotak', balance: 0, moneyIn: 0, moneyOut: 0 })
+  })
+
   it('is empty when no account is marked as savings', () => {
     expect(savingsAccountFlows(tx, balances, new Map([['Cash', 'cash' as const]]), new Set(), sep)).toEqual([])
   })

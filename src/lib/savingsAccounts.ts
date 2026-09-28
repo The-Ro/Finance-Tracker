@@ -26,6 +26,10 @@ const round2 = (n: number) => Math.round(n * 100) / 100
  * current balance plus money in and out during `range`. Transfers count here
  * -- moving money into savings is exactly what this view is for -- unlike the
  * income/spending totals elsewhere, which ignore transfers.
+ *
+ * Only accounts in use are listed: a non-zero balance or at least one
+ * transaction ever. Every signup is seeded with ~40 Indian banks, all savings
+ * since 1.7.0, and listing the untouched ones buries the real accounts.
  */
 export function savingsAccountFlows(
   transactions: FlowTransaction[],
@@ -39,7 +43,10 @@ export function savingsAccountFlows(
     if (kind !== 'savings' || closed.has(name)) continue
     flows.set(name, { account: name, balance: round2(balances.get(name) ?? 0), moneyIn: 0, moneyOut: 0 })
   }
+  const used = new Set<string>()
   for (const t of transactions) {
+    used.add(t.account)
+    if (t.to_account) used.add(t.to_account)
     if (!isWithinRange(t.date, range)) continue
     const from = flows.get(t.account)
     if (t.type === 'income' && from) from.moneyIn += t.amount
@@ -51,6 +58,7 @@ export function savingsAccountFlows(
     }
   }
   return [...flows.values()]
+    .filter((f) => f.balance !== 0 || used.has(f.account))
     .map((f) => ({ ...f, moneyIn: round2(f.moneyIn), moneyOut: round2(f.moneyOut) }))
     .sort((a, b) => b.balance - a.balance || a.account.localeCompare(b.account))
 }

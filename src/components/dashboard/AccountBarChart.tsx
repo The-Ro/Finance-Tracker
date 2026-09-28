@@ -63,8 +63,8 @@ export function AccountBarChart({ transactions, range, periodLabel }: AccountBar
       {rows.length === 0 ? (
         <EmptyState
           icon={PiggyBank}
-          title="No savings accounts yet"
-          description="Mark your bank accounts as Savings in Settings, Accounts, to track them here."
+          title="No savings accounts in use yet"
+          description="Set a starting balance or log a transaction on a savings account and it shows up here."
           action={
             <Link to="/settings/accounts" className="text-helper font-medium text-accent-dark hover:underline">
               Open account settings
