@@ -39,7 +39,9 @@ export function UpdateBanner() {
   if (!needRefresh) return null
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-center gap-3 border-t border-app-border bg-app-navy px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 text-white shadow-card">
+    // z-[55]: above an open Modal (z-50, e.g. the auto-shown What's new), below
+    // dropdown/date popovers (z-[60]) so it never covers a list inside a modal.
+    <div className="fixed inset-x-0 bottom-0 z-[55] flex items-center justify-center gap-3 border-t border-app-border bg-app-navy px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 text-white shadow-card">
       <p className="text-sm">A new version of LedgeEaze is available.</p>
       <button
         type="button"
