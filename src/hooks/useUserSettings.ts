@@ -32,6 +32,8 @@ export interface UserSettings {
   dashboardHidden: string[]
   summaryCardOrder: SummaryCardId[]
   summaryCardHidden: string[]
+  /** Home's "Finish setting up" checklist was hidden. */
+  setupChecklistDismissed: boolean
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -53,6 +55,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   dashboardHidden: [],
   summaryCardOrder: DEFAULT_SUMMARY_CARD_ORDER,
   summaryCardHidden: [],
+  setupChecklistDismissed: false,
 }
 
 export function useUserSettings() {
@@ -96,6 +99,7 @@ export function useUserSettings() {
         dashboardHidden: data.dashboard_hidden ?? [],
         summaryCardOrder: normalizeSummaryCardOrder(data.summary_card_order),
         summaryCardHidden: data.summary_card_hidden ?? [],
+        setupChecklistDismissed: data.setup_checklist_dismissed ?? false,
       }
     },
   })
@@ -225,6 +229,17 @@ export function useUserSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
   })
 
+  const dismissSetupChecklist = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ setup_checklist_dismissed: true })
+        .eq('owner_user_id', userId!)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
+  })
+
   const markWhatsNewSeen = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -245,6 +260,7 @@ export function useUserSettings() {
     updateDashboardLayout,
     updatePersonalDetails,
     completeOnboarding,
+    dismissSetupChecklist,
     markWhatsNewSeen,
   }
 }

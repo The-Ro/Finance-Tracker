@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 
 interface BrandHeaderProps {
   /** Shows the "Effortless money management" tagline underneath the
@@ -45,10 +45,14 @@ interface BrandMarkProps {
  *  for anything rendered under 40px -- no ring, no flourish, bigger letters,
  *  and only the roll-in. The default box is 36px, so the default size is
  *  'sm'; pass size="md" with a 40px+ box. */
-// The intro (roll-in, ring fill, flourish, shimmer) plays once per app load.
-// Marks that mount later -- the phone menu button re-creates the coin every
-// time the menu closes, and pages remount on navigation -- show it complete
-// and still, so the coin never re-rolls from off-screen or flickers.
+// The intro (roll-in, ring fill, flourish, shimmer) plays once per app load,
+// on the first mark that is actually on screen. Marks that mount later -- the
+// phone menu button re-creates the coin every time the menu closes, and pages
+// remount on navigation -- show it complete and still, so the coin never
+// re-rolls from off-screen or flickers. "On screen" matters: the desktop
+// sidebar is always mounted (just display:none below lg) and mounts first, so
+// claiming the intro on mount let that hidden coin use it up and the phone's
+// coin never shimmered at all.
 let introPlayed = false
 
 export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' }: BrandMarkProps) {
@@ -56,14 +60,20 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
   // useId gives ":r1:"-style ids; colons don't survive inside url(#...).
   const uid = `bm${useId().replace(/:/g, '')}`
   const [flipping, setFlipping] = useState(false)
-  const [intro] = useState(() => {
-    if (introPlayed) return false
+  const ref = useRef<HTMLSpanElement>(null)
+  const [intro, setIntro] = useState(false)
+  // Layout effect: decided before the first paint, so a coin that gets the
+  // intro never shows a finished frame first. getClientRects() is empty for
+  // anything inside a display:none ancestor.
+  useLayoutEffect(() => {
+    if (introPlayed || !ref.current || ref.current.getClientRects().length === 0) return
     introPlayed = true
-    return true
-  })
+    setIntro(true)
+  }, [])
 
   return (
     <span
+      ref={ref}
       className={`brand-coin${intro ? ' brand-coin--intro' : ''} inline-flex shrink-0 ${className}`}
       aria-hidden="true"
       onPointerEnter={small ? undefined : (e) => e.pointerType === 'mouse' && setFlipping(true)}

@@ -81,14 +81,24 @@ function ReplyComposer({ item }: { item: FeedbackRow }) {
  *  every user's feedback submission, newest first, with an inline reply
  *  composer. Lives in the notification bell dropdown alongside everyone
  *  else's own notifications. */
-export function AdminFeedbackInbox() {
+export function AdminFeedbackInbox({
+  filter = 'all',
+  emptyText,
+}: {
+  /** The admin dashboard filters to open (no reply yet) or replied; the bell shows everything. */
+  filter?: 'all' | 'open' | 'replied'
+  /** Shown instead of rendering nothing when there are no items (the dashboard). */
+  emptyText?: string
+} = {}) {
   const inbox = useAdminFeedbackInbox()
   const profiles = useProfiles()
   const dismiss = useDismissFeedbackItem()
-  const items = inbox.data ?? []
+  const items = (inbox.data ?? []).filter((item) =>
+    filter === 'open' ? !item.admin_reply : filter === 'replied' ? !!item.admin_reply : true
+  )
   const profileMap = profiles.data ?? {}
 
-  if (items.length === 0) return null
+  if (items.length === 0) return emptyText ? <p className="text-sm text-slate-500">{emptyText}</p> : null
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-app-border p-3">

@@ -3,7 +3,16 @@ import { hasActiveFilters, type TransactionFilters } from '@/lib/transactionSear
 /** How long a saved cache is trusted for offline use. */
 export const PERSISTED_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
+/**
+ * Bump when a release changes the shape of cached data (e.g. 1.7.0's account
+ * kinds: a pre-1.7 cache held kind 'bank', which crashed Home before the
+ * refetch landed). A saved cache from another version is never restored.
+ */
+export const PERSISTED_CACHE_VERSION = 2
+
 export interface PersistedCache<State> {
+  /** PERSISTED_CACHE_VERSION when saved; missing on caches from before 1.7.1. */
+  version?: number
   userId: string
   savedAt: number
   state: State
@@ -44,11 +53,16 @@ export function cacheResetOnAuthChange(
   }
 }
 
-/** A saved cache is only restored for the same user, and only while fresh. */
+/** A saved cache is only restored for the same user, from this cache version, and only while fresh. */
 export function isRestorable<State>(
   saved: PersistedCache<State> | undefined,
   userId: string,
   now: number
 ): saved is PersistedCache<State> {
-  return !!saved && saved.userId === userId && now - saved.savedAt <= PERSISTED_CACHE_MAX_AGE_MS
+  return (
+    !!saved &&
+    saved.version === PERSISTED_CACHE_VERSION &&
+    saved.userId === userId &&
+    now - saved.savedAt <= PERSISTED_CACHE_MAX_AGE_MS
+  )
 }

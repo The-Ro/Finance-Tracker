@@ -6,6 +6,47 @@ export type TransactionType = 'expense' | 'income' | 'transfer'
 export type TransactionSource = 'manual' | 'csv'
 export type CategoryKind = 'expense' | 'income'
 /** Savings and current are both bank accounts; debit cards are separate (debit_cards table) and draw from one. */
+export type AnnouncementTone = 'info' | 'success' | 'warning'
+
+/** admin_overview(): counts only -- no one's transactions or amounts. */
+export interface AdminOverview {
+  users: number
+  signups_7d: number
+  signups_30d: number
+  signed_in_7d: number
+  /** People who logged at least one entry in the last 7 days. */
+  logging_7d: number
+  transactions: number
+  transactions_7d: number
+  feedback_open: number
+  errors_7d: number
+  signups_by_week: { week: string; count: number }[]
+}
+
+export interface AdminUserRow {
+  id: string
+  display_name: string | null
+  email: string
+  created_at: string
+  last_sign_in_at: string | null
+  email_confirmed: boolean
+  setup_done: boolean
+  transactions: number
+  last_entry_at: string | null
+  is_admin: boolean
+}
+
+export interface AdminErrorGroup {
+  message: string
+  occurrences: number
+  people: number
+  first_seen: string
+  last_seen: string
+  versions: string[]
+  sample_url: string | null
+  sample_stack: string | null
+}
+
 export type AccountKind = 'savings' | 'current' | 'credit_card' | 'cash' | 'wallet'
 export type PaymentMethod =
   | 'UPI'
@@ -255,6 +296,13 @@ export interface Database {
           created_at: string
           /** Maintained by the recurring_items_keep_anchor_day trigger; absent until that migration runs. */
           anchor_day?: number | null
+          /** Loan / EMI details (all three or none; migration 2026-09-29_recurring_loan_details). */
+          loan_amount: number | null
+          loan_tenure_months: number | null
+          /** First EMI month, stored as the 1st of that month. */
+          loan_start_date: string | null
+          /** Annual interest rate in %, optional (only with loan details). */
+          loan_interest_rate: number | null
         }
         Insert: {
           id?: string
@@ -267,6 +315,10 @@ export interface Database {
           next_date: string
           account?: string | null
           active?: boolean
+          loan_amount?: number | null
+          loan_tenure_months?: number | null
+          loan_start_date?: string | null
+          loan_interest_rate?: number | null
         }
         Update: Partial<{
           name: string
@@ -276,6 +328,10 @@ export interface Database {
           next_date: string
           account: string | null
           active: boolean
+          loan_amount: number | null
+          loan_tenure_months: number | null
+          loan_start_date: string | null
+          loan_interest_rate: number | null
         }>
       }
       dismissed_patterns: {
@@ -352,6 +408,8 @@ export interface Database {
           stack: string | null
           url: string | null
           user_agent: string | null
+          /** APP_VERSION of the build that reported it. */
+          app_version: string | null
           created_at: string
         }
         Insert: {
@@ -361,8 +419,28 @@ export interface Database {
           stack?: string | null
           url?: string | null
           user_agent?: string | null
+          app_version?: string | null
         }
         Update: never
+      }
+      app_announcements: {
+        Row: {
+          id: string
+          message: string
+          tone: AnnouncementTone
+          active: boolean
+          ends_at: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          message: string
+          tone?: AnnouncementTone
+          active?: boolean
+          ends_at?: string | null
+          created_by?: string | null
+        }
+        Update: Partial<{ message: string; tone: AnnouncementTone; active: boolean; ends_at: string | null }>
       }
       viewer_access: {
         Row: {
@@ -402,6 +480,7 @@ export interface Database {
           dashboard_hidden: string[]
           summary_card_order: string[]
           summary_card_hidden: string[]
+          setup_checklist_dismissed: boolean
           updated_at: string
         }
         Insert: {
@@ -424,6 +503,7 @@ export interface Database {
           dashboard_hidden?: string[]
           summary_card_order?: string[]
           summary_card_hidden?: string[]
+          setup_checklist_dismissed?: boolean
         }
         Update: Partial<{
           assets_total: number
@@ -444,10 +524,23 @@ export interface Database {
           dashboard_hidden: string[]
           summary_card_order: string[]
           summary_card_hidden: string[]
+          setup_checklist_dismissed: boolean
         }>
       }
     }
     Functions: {
+      admin_overview: {
+        Args: Record<string, never>
+        Returns: AdminOverview
+      }
+      admin_list_users: {
+        Args: Record<string, never>
+        Returns: AdminUserRow[]
+      }
+      admin_client_errors: {
+        Args: { p_days?: number }
+        Returns: AdminErrorGroup[]
+      }
       mark_recurring_item_paid: {
         Args: { recurring_item_id: string; paid_on: string }
         Returns: undefined

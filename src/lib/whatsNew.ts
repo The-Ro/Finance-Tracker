@@ -1,17 +1,15 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.7.0'
+export const APP_VERSION = '1.8.0'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-10-01'
+export const CURRENT_WHATS_NEW_VERSION = '2026-10-02'
 
 export const WHATS_NEW_ITEMS: string[] = [
-  'Home shows your savings accounts: balance plus money in and out, in the same style as Monthly review.',
-  'Easier to read everywhere: larger small text and stronger contrast, especially on phones.',
-  'Savings accounts, current accounts, debit cards and credit cards are now separate. Add your debit card to its savings account and pay with it in one tap -- the money comes out of that account.',
-  'Each credit card has its own page: this bill, what isn\'t billed yet, past statements and a Pay bill button.',
-  'Card bills logged as an expense were being counted twice. LedgeEaze now spots them and turns them into card payments with one tap.',
-  'Settings is organised into sections, and Accounts & cards sets up every account, card and balance in one place. Card balances are entered as what you owe -- no negative numbers.',
-  'Banks you don\'t use are hidden from the account pickers.',
-  'Better on iPhone: the keyboard no longer hides the entry form, fields don\'t zoom in, and nothing sits under the notch or home bar.',
-  'Lots of fixes: CSV import understands more bank formats, totals include all your transactions, and deleting asks first.',
+  'Loans and EMIs: add the loan amount, interest rate, tenure and first EMI month to a recurring payment and see how many EMIs are paid, what\'s left and when it ends.',
+  'Activity is easier to scan: an icon for each category, the amount beside the merchant, and the account and payment mode as small tags. Tap the green or red total to show only money in or money out.',
+  'Home: a tidier header with a small period filter, balanced tiles, credit card use in colour, savings accounts beside account balances on bigger screens, and "See more" on your lists.',
+  'Savings flow now counts card spending when you pay the card bill, not when you swipe the card.',
+  'Spending by category uses the same ring as Monthly review, and Balance over time no longer shows made-up amounts for months before you started. Tap a month to review it.',
+  'Bills: choose the next 7, 14 or 30 days, and swipe the calendar to change month.',
+  'Fixed: the app could crash after updating if it had old saved data, the coin stopped shimmering on phones, and the bottom menu could vanish on Activity on iPhone.',
 ]

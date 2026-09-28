@@ -11,7 +11,8 @@ const ICONS = {
 
 /** One icon per account kind; debit cards use `DebitCardIcon`. */
 export function AccountKindIcon({ kind, ...props }: { kind: AccountKind | undefined } & LucideProps) {
-  const Icon = ICONS[kind ?? 'savings']
+  // Unknown kinds (e.g. 'bank' from an old offline cache) fall back to the bank icon.
+  const Icon = ICONS[kind as AccountKind] ?? Landmark
   return <Icon aria-hidden="true" {...props} />
 }
 

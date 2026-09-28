@@ -17,6 +17,15 @@ export const ACCOUNT_KIND_LABELS: Record<AccountKind, string> = {
   wallet: 'Wallet',
 }
 
+/**
+ * Any stored kind as a current one: the pre-1.7 'bank' (still in old offline
+ * caches and old clients) and anything unknown read as savings, so nothing
+ * that switches on kind can fall through.
+ */
+export function normalizeAccountKind(kind: string | null | undefined): AccountKind {
+  return ACCOUNT_KINDS.includes(kind as AccountKind) ? (kind as AccountKind) : DEFAULT_ACCOUNT_KIND
+}
+
 /** Savings and current accounts are the bank accounts; only these can have debit cards. */
 export function isBankKind(kind: AccountKind | undefined): boolean {
   return kind === 'savings' || kind === 'current'

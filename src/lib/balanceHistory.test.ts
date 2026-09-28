@@ -15,6 +15,19 @@ describe('monthEndBalances', () => {
       { month: '2026-09', total: 849.5 },
     ])
   })
+  it('leaves months before the first transaction empty instead of repeating the starting balance', () => {
+    const tx = [{ type: 'expense', date: '2026-09-10', amount: 300 }]
+    expect(monthEndBalances(tx, 9700, 3, '2026-09-27')).toEqual([
+      { month: '2026-07', total: null },
+      { month: '2026-08', total: null },
+      { month: '2026-09', total: 9400 },
+    ])
+    // Nothing logged yet: only this month, showing the starting balances.
+    expect(monthEndBalances([], 500, 2, '2026-09-27')).toEqual([
+      { month: '2026-08', total: null },
+      { month: '2026-09', total: 500 },
+    ])
+  })
   it('crosses a year boundary', () => {
     expect(monthEndBalances([], 0, 3, '2026-01-15').map((b) => b.month)).toEqual(['2025-11', '2025-12', '2026-01'])
   })

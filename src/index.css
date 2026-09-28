@@ -309,6 +309,19 @@
 }
 .chrome-surface-bottom {
   box-shadow: 0 -6px 20px rgba(16, 16, 40, 0.06);
+  /* The fixed tab bar is solid (no frosted blur) and on its own compositing
+     layer. iOS Safari can drop a fixed, backdrop-filtered bar on pages with
+     many sticky/animated layers -- on Activity (sticky day headings, animated
+     rows) the bottom menu vanished on an iPhone, both on opening the page and
+     while scrolling. The header keeps its blur; it's sticky, not fixed. */
+  background-color: rgb(var(--app-card));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 .dark .chrome-surface-bottom {
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35);
@@ -417,6 +430,33 @@
   }
   .animate-sheet-up {
     animation: sheet-up 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  /* Bills calendar: the next month slides in from the right, the previous from the left. */
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(24%);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-24%);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-slide-in-left {
+    animation: slide-in-left 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .animate-scale-in {
     animation: scale-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -703,6 +743,18 @@ button {
 .brand-coin--intro .brand-coin-flourish { stroke-dasharray: 60; animation: brand-coin-draw 500ms cubic-bezier(0.16, 1, 0.3, 1) 600ms both; }
 .brand-coin--intro .brand-coin-shine { animation: brand-coin-shimmer 6s ease-in-out 1.8s 3 both; }
 .brand-coin .brand-coin-face.is-flipping { animation: brand-coin-flip 800ms cubic-bezier(0.16, 1, 0.3, 1); }
+/* Idle glint (user request: shimmer more often): after the intro, every coin
+   on screen gets one quick shine sweep every 20s -- parked for the first 88%
+   of the cycle, then a ~2.4s pass. The intro coin picks it up once its three
+   intro sweeps end (1.8s delay + 3 x 6s = 19.8s); later mounts start it after
+   a short pause. Motion-only: reduced motion keeps the coin still. */
+@keyframes brand-coin-glint { 0%, 88% { transform: translateX(-90px) } 100% { transform: translateX(210px) } }
+@media (prefers-reduced-motion: no-preference) {
+  .brand-coin:not(.brand-coin--intro) .brand-coin-shine { animation: brand-coin-glint 20s ease-in-out 6s infinite; }
+  .brand-coin--intro .brand-coin-shine {
+    animation: brand-coin-shimmer 6s ease-in-out 1.8s 3 both, brand-coin-glint 20s ease-in-out 19.8s infinite;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .brand-coin--intro, .brand-coin .brand-coin-face.is-flipping, .brand-coin--intro .brand-coin-ring, .brand-coin--intro .brand-coin-flourish { animation: none; }
   .brand-coin .brand-coin-ring, .brand-coin .brand-coin-flourish { stroke-dashoffset: 0; }

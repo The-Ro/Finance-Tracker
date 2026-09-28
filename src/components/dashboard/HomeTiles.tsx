@@ -6,7 +6,8 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { HERO_COUNT_UP_MS, useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { useAccountKinds, useCardStatuses, useClosedAccounts } from '@/hooks/useCards'
 import { cashAndCardDebt } from '@/lib/creditCards'
-import { cardLimitTotals } from '@/lib/cardSummary'
+import { cardLimitTotals, utilizationTone } from '@/lib/cardSummary'
+import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { SavingsHeadline } from '@/lib/savings'
 
 interface HomeTilesProps {
@@ -15,9 +16,6 @@ interface HomeTilesProps {
   /** This month's savings (savingsHeadline over monthlySavings). */
   saved: SavingsHeadline
 }
-
-/** How many account names "In your accounts" lists before "+N more". */
-const MAX_NAMES = 4
 
 /** A figure that counts up from zero when it first appears (straight to the value under reduced motion). */
 function CountUp({ value, format, className }: { value: number; format: (n: number) => string; className?: string }) {
@@ -57,16 +55,18 @@ function Tile({
         className
       )}
     >
+      {/* One line for the label and one for the footer on every tile, so the
+          two half-width tiles on a phone line up row for row. */}
       <span
         className={clsx(
-          'text-helper font-semibold uppercase tracking-[0.12em]',
+          'truncate whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] sm:text-helper sm:tracking-[0.12em]',
           tinted ? 'text-accent-on-light/80' : 'text-slate-500'
         )}
       >
         {label}
       </span>
       {children}
-      <span className={clsx('text-helper', tinted ? 'text-accent-on-light/80' : 'text-slate-500')}>{footer}</span>
+      <span className={clsx('mt-auto truncate text-helper', tinted ? 'text-accent-on-light/80' : 'text-slate-500')}>{footer}</span>
     </Card>
   )
 }
@@ -78,7 +78,7 @@ function Tile({
  * was saved this month. Closed accounts are left out of every figure.
  */
 export function HomeTiles({ balances, saved }: HomeTilesProps) {
-  const { format } = useFormatCurrency()
+  const { format, formatCompact } = useFormatCurrency()
   const kinds = useAccountKinds()
   const closed = useClosedAccounts()
   const cards = useCardStatuses()
@@ -115,9 +115,11 @@ export function HomeTiles({ balances, saved }: HomeTilesProps) {
         to see this
       </>
     ) : (
-      <span className="block truncate" title={cashNames.join(' · ')}>
-        {cashNames.slice(0, MAX_NAMES).join(' · ')}
-        {cashNames.length > MAX_NAMES ? ` · +${cashNames.length - MAX_NAMES} more` : ''}
+      // A count rather than the names -- the names crowded a half-width tile
+      // into "HDFC Bank · State Ba..."; the full list is in the tooltip and on
+      // Account balances below.
+      <span title={cashNames.join(' · ')}>
+        {cashNames.length === 1 ? cashNames[0] : `Across ${cashNames.length} accounts`}
       </span>
     )
 
@@ -130,7 +132,7 @@ export function HomeTiles({ balances, saved }: HomeTilesProps) {
         </Link>
       </>
     ) : limits.percent !== null ? (
-      `${Math.round(limits.percent)}% of ${format(limits.limit)} total limit`
+      `${Math.round(limits.percent)}% of ${formatCompact(limits.limit)} limit`
     ) : (
       `Across ${cards.size} card${cards.size === 1 ? '' : 's'}`
     )
@@ -147,6 +149,11 @@ export function HomeTiles({ balances, saved }: HomeTilesProps) {
       </Tile>
       <Tile label="Owed on cards" footer={cardFooter}>
         <CountUp value={cardDebt} format={format} className={cardDebt > 0 ? 'text-danger' : 'text-slate-900'} />
+        {limits.percent !== null && (
+          <div className="my-1">
+            <ProgressBar percent={limits.percent} tone={utilizationTone(limits.percent)} />
+          </div>
+        )}
       </Tile>
       <Tile label="Saved this month" footer={savedFooter} tinted className="col-span-2 lg:col-span-1">
         <CountUp

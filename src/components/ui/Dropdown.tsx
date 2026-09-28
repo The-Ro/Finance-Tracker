@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, type LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
 
 interface DropdownProps {
@@ -11,8 +11,19 @@ interface DropdownProps {
   disabled?: boolean
   /** Pinned above the rest under a "Recent" label, most-recent first. Any entry not present in `options` is ignored. */
   recentOptions?: string[]
+  /**
+   * A small rounded pill (icon + current value) instead of a full-width field
+   * -- for filters in a toolbar. Its list opens at least COMPACT_LIST_WIDTH
+   * wide, right-aligned under the pill.
+   */
+  compact?: boolean
+  /** With compact + icon: a round icon-only button (the current value goes in the aria-label/title). */
+  iconOnly?: boolean
+  icon?: LucideIcon
   'aria-label'?: string
 }
+
+const COMPACT_LIST_WIDTH = 184
 
 const VIEWPORT_MARGIN = 16
 
@@ -30,7 +41,7 @@ const VIEWPORT_MARGIN = 16
  * sits inside Modal's `overflow-y-auto` body, cutting the option list off
  * after however many rows fit instead of floating above the modal.
  */
-export function Dropdown({ options, value, onChange, className, disabled, recentOptions, ...rest }: DropdownProps) {
+export function Dropdown({ options, value, onChange, className, disabled, recentOptions, compact, iconOnly, icon: Icon, ...rest }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -50,14 +61,15 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
     }
     top = Math.max(VIEWPORT_MARGIN, top)
 
-    let left = triggerRect.left
-    if (left + triggerRect.width > window.innerWidth - VIEWPORT_MARGIN) {
-      left = window.innerWidth - VIEWPORT_MARGIN - triggerRect.width
+    const width = compact || iconOnly ? Math.max(triggerRect.width, COMPACT_LIST_WIDTH) : triggerRect.width
+    let left = compact || iconOnly ? triggerRect.right - width : triggerRect.left
+    if (left + width > window.innerWidth - VIEWPORT_MARGIN) {
+      left = window.innerWidth - VIEWPORT_MARGIN - width
     }
     left = Math.max(VIEWPORT_MARGIN, left)
 
-    setPos({ top, left, width: triggerRect.width })
-  }, [])
+    setPos({ top, left, width })
+  }, [compact, iconOnly])
 
   useLayoutEffect(() => {
     if (!open) {
@@ -142,14 +154,22 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={rest['aria-label']}
+        aria-label={iconOnly ? `${rest['aria-label'] ?? 'Choose'}: ${value}` : rest['aria-label']}
+        title={iconOnly ? value : undefined}
         className={clsx(
-          'flex min-h-[44px] w-full min-w-[9rem] items-center justify-between gap-2 rounded-lg border border-app-border bg-white px-3 text-left text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-50',
+          iconOnly
+            ? 'flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50'
+            : compact
+            ? 'flex min-h-[40px] items-center gap-1.5 rounded-full border border-app-border bg-white px-3 text-sm font-medium text-slate-700 hover:border-slate-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-50'
+            : 'flex min-h-[44px] w-full min-w-[9rem] items-center justify-between gap-2 rounded-lg border border-app-border bg-white px-3 text-left text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-50',
           className
         )}
       >
-        <span className="truncate">{value}</span>
-        <ChevronDown size={15} className={clsx('shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />
+        {Icon && <Icon size={iconOnly ? 18 : 15} aria-hidden="true" className={clsx('shrink-0', !iconOnly && 'text-slate-500')} />}
+        {!iconOnly && <span className="truncate">{value}</span>}
+        {!iconOnly && (
+          <ChevronDown size={compact ? 14 : 15} className={clsx('shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />
+        )}
       </button>
       {open &&
         createPortal(

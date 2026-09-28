@@ -53,7 +53,8 @@ begin
       'public.delete_own_account()', 'public.mark_feedback_reply_seen(uuid)', 'public.find_profile_by_email(text)',
       'public.mark_recurring_item_paid(uuid,date)', 'public.set_account_opening_balance(text,numeric)', 'public.is_admin()',
       'public.set_account_details(text,text,numeric,integer,integer)', 'public.set_account_closed(text,boolean)',
-      'public.request_viewer_access(text)', 'public.convert_account_to_debit_card(text,text,text)'
+      'public.request_viewer_access(text)', 'public.convert_account_to_debit_card(text,text,text)',
+      'public.admin_overview()', 'public.admin_list_users()', 'public.admin_client_errors(integer)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then
@@ -495,6 +496,39 @@ begin
     end if;
   end;
 
+  -- Admin dashboard: every admin_* function refuses a non-admin, and only
+  -- admins can write announcements.
+  begin
+    perform public.admin_overview();
+    raise exception 'FAIL: QA15 called admin_overview';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.admin_list_users();
+    raise exception 'FAIL: QA15 listed users';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.admin_client_errors(30);
+    raise exception 'FAIL: QA15 read client errors';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.app_announcements (message) values ('sec-test');
+    raise exception 'FAIL: QA15 posted an announcement';
+  exception when insufficient_privilege then null;
+  end;
+  update public.app_announcements set message = 'hijack';
+  if found then raise exception 'FAIL: QA15 edited an announcement'; end if;
+
+  -- Loan details: all three or none.
+  begin
+    insert into public.recurring_items (owner_user_id, kind, name, category, amount, cadence, next_date, account, loan_amount)
+    values (me, 'recurring', 'sec-test loan', 'Other', 1, 'monthly', '2026-01-01', 'Cash', 1000);
+    raise exception 'FAIL: a recurring item with partial loan details was accepted';
+  exception when check_violation then null;
+  end;
+
   -- Integrity constraints.
   begin
     insert into public.transactions (owner_user_id, date, merchant, amount, type, account, fingerprint)
@@ -555,10 +589,13 @@ begin
   end if;
 end $$;
 
-do $$
+do $
 declare visible int; total int;
 begin
   if not public.is_admin() then raise exception 'FAIL: the admin is not is_admin()'; end if;
+  if (public.admin_overview() ->> 'users')::int < 1 then raise exception 'FAIL: admin_overview returned no users'; end if;
+  if not exists (select 1 from public.admin_list_users()) then raise exception 'FAIL: admin_list_users returned nothing'; end if;
+  insert into public.app_announcements (message) values ('sec-test announcement');
   select count(*) into visible from public.profiles;
   reset role;
   select count(*) into total from public.profiles;
@@ -578,6 +615,9 @@ begin
   end if;
   if has_table_privilege('anon', 'public.debit_cards', 'select') then
     raise exception 'FAIL: anon has SELECT on debit_cards';
+  end if;
+  if has_table_privilege('anon', 'public.app_announcements', 'select') then
+    raise exception 'FAIL: anon can read announcements';
   end if;
   if has_function_privilege('anon', 'public.convert_account_to_debit_card(text,text,text)', 'execute') then
     raise exception 'FAIL: anon can call convert_account_to_debit_card';

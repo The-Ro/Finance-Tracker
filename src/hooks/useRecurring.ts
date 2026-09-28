@@ -10,6 +10,27 @@ import type { Database, RecurringKind } from '@/types/database.types'
 
 export type RecurringItem = Database['public']['Tables']['recurring_items']['Row']
 
+/** Loan / EMI details as the form collects them; startMonth is YYYY-MM. */
+export interface RecurringLoanInput {
+  amount: number
+  tenureMonths: number
+  startMonth: string
+  /** Annual %, optional. */
+  interestRate: number | null
+}
+
+/** The three loan columns for an insert/update (all null when it isn't a loan). */
+function loanColumns(loan: RecurringLoanInput | null) {
+  return loan
+    ? {
+        loan_amount: loan.amount,
+        loan_tenure_months: loan.tenureMonths,
+        loan_start_date: `${loan.startMonth}-01`,
+        loan_interest_rate: loan.interestRate,
+      }
+    : { loan_amount: null, loan_tenure_months: null, loan_start_date: null, loan_interest_rate: null }
+}
+
 export function useRecurringItemsRaw() {
   const { userId } = useAuth()
   return useQuery({
@@ -96,6 +117,8 @@ export function useRecurringMutations() {
       cadence: RecurringItem['cadence']
       nextDate: string
       account?: string | null
+      /** Loan / EMI details -- all three or none (DB check). */
+      loan?: RecurringLoanInput | null
     }) => {
       const { error } = await supabase.from('recurring_items').insert({
         owner_user_id: userId!,
@@ -106,6 +129,7 @@ export function useRecurringMutations() {
         cadence: input.cadence,
         next_date: input.nextDate,
         account: input.account ?? null,
+        ...loanColumns(input.loan ?? null),
       })
       if (error) throw error
     },
@@ -121,9 +145,14 @@ export function useRecurringMutations() {
       next_date: string
       active: boolean
       account: string
+      /** null clears the loan details; undefined leaves them as they are. */
+      loan: RecurringLoanInput | null
     }>) => {
-      const { id, ...rest } = input
-      const { error } = await supabase.from('recurring_items').update(rest).eq('id', id)
+      const { id, loan, ...rest } = input
+      const { error } = await supabase
+        .from('recurring_items')
+        .update(loan === undefined ? rest : { ...rest, ...loanColumns(loan) })
+        .eq('id', id)
       if (error) throw error
     },
     onSuccess: invalidateAll,

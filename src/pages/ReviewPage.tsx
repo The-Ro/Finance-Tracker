@@ -42,7 +42,7 @@ export function ReviewPage() {
     const openingTotal = [...(openings?.values() ?? [])].reduce((sum, v) => sum + v, 0)
     return monthEndBalances(transactions, openingTotal, 6, todayISO())
   }, [transactions, openings])
-  const historyMax = Math.max(1, ...history.map((h) => Math.abs(h.total)))
+  const historyMax = Math.max(1, ...history.map((h) => Math.abs(h.total ?? 0)))
   const [month, setMonth] = useState(() => {
     const [y, m] = todayISO().split('-').map(Number)
     return { year: y, index: m - 1 }
@@ -177,21 +177,52 @@ export function ReviewPage() {
       <Card className="animate-fade-in-up p-5">
         <div className="mb-4 flex items-baseline justify-between gap-3">
           <h3 className="text-sm font-semibold text-slate-800">Balance over time</h3>
-          <span className="text-helper text-slate-500">All accounts, month end</span>
+          <span className="text-helper text-slate-500">Month end · tap a month to review it</span>
         </div>
-        <div className="flex h-36 items-end gap-3">
-          {history.map((h, i) => (
-            <div key={h.month} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
-              <span className="text-xs tabular-nums text-slate-500">{formatCompact(h.total)}</span>
-              <div
-                className={'animate-bar-rise w-full max-w-[44px] rounded-t-lg ' + (h.total < 0 ? 'bg-danger/70' : i === history.length - 1 ? 'bg-accent' : 'bg-accent/40')}
-                style={{ height: `${Math.max(4, (Math.abs(h.total) / historyMax) * 100)}%`, animationDelay: `${i * 70}ms` }}
-              />
-              <span className="text-xs font-medium text-slate-500">
-                {new Date(h.month + '-01T00:00:00').toLocaleDateString(undefined, { month: 'short' })}
-              </span>
-            </div>
-          ))}
+        {/* Each bar is a button: tapping a month reviews that month. Months
+            before the first logged transaction have no history (null) and
+            show a dashed stub instead of a made-up balance. */}
+        <div className="flex h-40 items-end gap-2 sm:gap-3">
+          {history.map((h, i) => {
+            const [hy, hm] = h.month.split('-').map(Number)
+            const selected = hy === month.year && hm - 1 === month.index
+            const monthShort = new Date(hy, hm - 1, 1).toLocaleDateString(undefined, { month: 'short' })
+            const monthLong = new Date(hy, hm - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+            return (
+              <button
+                key={h.month}
+                type="button"
+                onClick={() => setMonth({ year: hy, index: hm - 1 })}
+                aria-pressed={selected}
+                aria-label={`${monthLong}: ${h.total === null ? 'no history' : format(h.total)}`}
+                className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <span className={clsx('text-xs tabular-nums', selected ? 'font-semibold text-slate-900' : 'text-slate-500')}>
+                  {h.total === null ? '–' : formatCompact(h.total)}
+                </span>
+                {h.total === null ? (
+                  <div className="h-1 w-full max-w-[44px] rounded-full border border-dashed border-slate-300" />
+                ) : (
+                  <div
+                    className={clsx(
+                      'animate-bar-rise w-full max-w-[44px] rounded-t-lg transition-colors',
+                      h.total < 0
+                        ? selected
+                          ? 'bg-danger'
+                          : 'bg-danger/45 group-hover:bg-danger/70'
+                        : selected
+                          ? 'bg-accent dark:bg-accent-dark'
+                          : 'bg-accent/35 group-hover:bg-accent/60 dark:bg-accent-dark/40'
+                    )}
+                    style={{ height: `${Math.max(4, (Math.abs(h.total) / historyMax) * 100)}%`, animationDelay: `${i * 70}ms` }}
+                  />
+                )}
+                <span className={clsx('text-xs', selected ? 'font-semibold text-accent-dark' : 'font-medium text-slate-500')}>
+                  {monthShort}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </Card>
 

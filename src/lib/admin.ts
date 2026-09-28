@@ -10,8 +10,13 @@ import { useAuth } from '@/context/AuthContext'
  * there's intentionally no UI for it.
  */
 export function useIsAdmin(): boolean {
+  return useAdminStatus().isAdmin
+}
+
+/** useIsAdmin plus whether the answer is still loading -- for the /admin route guard. */
+export function useAdminStatus(): { isAdmin: boolean; loading: boolean } {
   const { userId } = useAuth()
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['is-admin', userId],
     enabled: !!userId,
     staleTime: 5 * 60_000,
@@ -21,5 +26,5 @@ export function useIsAdmin(): boolean {
       return data === true
     },
   })
-  return data === true
+  return { isAdmin: data === true, loading: !!userId && isLoading }
 }

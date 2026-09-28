@@ -16,6 +16,13 @@ import { groupAccounts } from '@/lib/accountGroups'
 import { debitCardsByAccount } from '@/lib/debitCards'
 import { formatShortDate, todayISO } from '@/lib/format'
 import { cardPagePath } from '@/components/cards/cardPath'
+import { utilizationTone, type UtilizationTone } from '@/lib/cardSummary'
+
+const UTILIZATION_TEXT: Record<UtilizationTone, string> = {
+  positive: 'text-positive',
+  caution: 'text-caution',
+  danger: 'text-danger',
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -120,25 +127,35 @@ export function AccountBalances() {
                     to={cardPagePath(name)}
                     className="-mx-2 flex flex-col gap-1.5 rounded-lg px-2 py-2.5 text-sm transition-colors hover:bg-slate-50"
                   >
+                    {/* Name with "% used" above the bar (coloured like the bar,
+                        same thresholds as the Credit cards card); under the
+                        bar, available / due on the left and owed on the right. */}
                     <div className="flex items-center justify-between gap-3">
                       <span className="flex min-w-0 items-center gap-2 text-slate-700">
                         <AccountKindIcon kind="credit_card" size={15} className="shrink-0 text-slate-400" />
                         <span className="truncate">{name}</span>
                       </span>
                       <span className="flex shrink-0 items-center gap-1">
-                        <span className={clsx('font-semibold tabular-nums', status.owed > 0 ? 'text-danger' : 'text-slate-900')}>
-                          {status.owed > 0 ? `${format(status.owed)} owed` : status.credit > 0 ? `${format(status.credit)} credit` : 'Nothing owed'}
-                        </span>
+                        {status.utilization !== null && (
+                          <span className={clsx('text-helper font-semibold tabular-nums', UTILIZATION_TEXT[utilizationTone(status.utilization)])}>
+                            {Math.round(status.utilization)}% used
+                          </span>
+                        )}
                         <ChevronRight size={15} className="text-slate-400" aria-hidden="true" />
                       </span>
                     </div>
                     {status.utilization !== null && (
-                      <ProgressBar percent={status.utilization} tone={status.utilization > 80 ? 'danger' : status.utilization > 50 ? 'caution' : 'positive'} />
+                      <ProgressBar percent={status.utilization} tone={utilizationTone(status.utilization)} />
                     )}
-                    <p className="text-helper text-slate-500">
-                      {status.available !== null ? `${format(status.available)} available` : 'Add a credit limit in Settings to see what’s available'}
-                      {status.bill && status.bill.due > 0 ? ` · ${format(status.bill.due)} due ${formatShortDate(status.bill.dueDate)}` : ''}
-                    </p>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="min-w-0 text-helper text-slate-500">
+                        {status.available !== null ? `${format(status.available)} available` : 'Add a credit limit in Settings to see what’s available'}
+                        {status.bill && status.bill.due > 0 ? ` · ${format(status.bill.due)} due ${formatShortDate(status.bill.dueDate)}` : ''}
+                      </p>
+                      <span className={clsx('shrink-0 font-semibold tabular-nums', status.owed > 0 ? 'text-danger' : 'text-slate-900')}>
+                        {status.owed > 0 ? `${format(status.owed)} owed` : status.credit > 0 ? `${format(status.credit)} credit` : 'Nothing owed'}
+                      </span>
+                    </div>
                   </Link>
                 </li>
               ))}

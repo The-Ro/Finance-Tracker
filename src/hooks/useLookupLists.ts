@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import type { CategoryKind } from '@/types/database.types'
-import { DEFAULT_ACCOUNT_KIND, type AccountDetails } from '@/lib/creditCards'
+import { DEFAULT_ACCOUNT_KIND, normalizeAccountKind, type AccountDetails } from '@/lib/creditCards'
 
 function useLookupList(table: 'accounts' | 'tags') {
   const { userId } = useAuth()
@@ -103,6 +103,16 @@ export function useSetAccountOpeningBalance() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
   })
 }
+/**
+ * Runs on every read, cached ones included: a cache restored from before a
+ * kind was renamed (1.7.0's 'bank' -> 'savings') still comes out valid.
+ * Module-level so TanStack keeps the result stable between renders.
+ */
+function withKnownKinds(details: Map<string, AccountDetails>): Map<string, AccountDetails> {
+  if ([...details.values()].every((d) => normalizeAccountKind(d.kind) === d.kind)) return details
+  return new Map([...details].map(([name, d]) => [name, { ...d, kind: normalizeAccountKind(d.kind) }]))
+}
+
 /** Every account's type and credit-card details (kind, limit, statement/due day). */
 export function useAccountDetails() {
   const { userId } = useAuth()
@@ -119,7 +129,7 @@ export function useAccountDetails() {
         data.map((r) => [
           r.name,
           {
-            kind: r.kind,
+            kind: normalizeAccountKind(r.kind),
             creditLimit: r.credit_limit != null ? Number(r.credit_limit) : null,
             statementDay: r.statement_day,
             dueDay: r.due_day,
@@ -128,6 +138,7 @@ export function useAccountDetails() {
         ])
       )
     },
+    select: withKnownKinds,
     staleTime: 30_000,
   })
 }

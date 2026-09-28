@@ -17,7 +17,7 @@ import { useMyTransactions, useEveryoneTransactions, useAccountBalances } from '
 import { useProfiles } from '@/hooks/useProfiles'
 import { useRecurringItemsRaw } from '@/hooks/useRecurring'
 import { useBudgets } from '@/hooks/useBudgets'
-import { useCardStatuses } from '@/hooks/useCards'
+import { useAccountKinds, useCardStatuses } from '@/hooks/useCards'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
 import { SortableSummaryCard } from '@/components/dashboard/SortableSummaryCard'
@@ -62,6 +62,39 @@ function useIsDesktop(): boolean {
     return () => query.removeEventListener('change', onChange)
   }, [])
   return matches
+}
+
+/** Sections shown side by side from lg up when both are visible (user request). */
+const SIDE_BY_SIDE: [DashboardSectionId, DashboardSectionId] = ['accountChart', 'accountBalances']
+
+/**
+ * The visible sections in the user's order. Savings accounts and Account
+ * balances share one row on desktop (stacked on phones), placed where the
+ * first of the two sits in the order and keeping their relative order.
+ */
+function renderSections(visible: DashboardSectionId[], sections: Record<DashboardSectionId, ReactNode>): ReactNode[] {
+  const paired = SIDE_BY_SIDE.every((id) => visible.includes(id))
+  const out: ReactNode[] = []
+  let pairPlaced = false
+  for (const id of visible) {
+    if (!paired || !SIDE_BY_SIDE.includes(id)) {
+      out.push(<div key={id}>{sections[id]}</div>)
+      continue
+    }
+    if (pairPlaced) continue
+    pairPlaced = true
+    const pair = visible.filter((v) => SIDE_BY_SIDE.includes(v))
+    out.push(
+      <div key="accounts-pair" className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        {pair.map((p) => (
+          <div key={p} className="min-w-0">
+            {sections[p]}
+          </div>
+        ))}
+      </div>
+    )
+  }
+  return out
 }
 
 function DashboardSkeleton() {
@@ -172,8 +205,17 @@ export function DashboardPage() {
 
   // Savings flow + "Saved this month": the user's own last six calendar
   // months (local dates), independent of the period filter -- otherwise
-  // "This month" would only ever have one point to plot.
-  const savingsRows = useMemo(() => monthlySavings(myTransactions.data ?? [], todayISO(), 6), [myTransactions.data])
+  // "This month" would only ever have one point to plot. Card spends count
+  // when the bill is paid (see monthlySavings), so it needs the card names.
+  const kinds = useAccountKinds()
+  const cardAccounts = useMemo(
+    () => new Set([...kinds].filter(([, kind]) => kind === 'credit_card').map(([name]) => name)),
+    [kinds]
+  )
+  const savingsRows = useMemo(
+    () => monthlySavings(myTransactions.data ?? [], todayISO(), 6, cardAccounts),
+    [myTransactions.data, cardAccounts]
+  )
   const savedThisMonth = useMemo(() => savingsHeadline(savingsRows), [savingsRows])
 
   if (settings.isLoading || myTransactions.isLoading) return <DashboardSkeleton />
@@ -339,23 +381,26 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Phones: greeting + customize on one row, the period below. From sm
-          it's one row: greeting ... period, customize (flex order swaps). */}
-      <div className="animate-fade-in-up flex flex-wrap items-center gap-x-2 gap-y-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="text-sm text-slate-500">{dateLabel}</p>
-          <h1 className="font-serif text-2xl font-semibold text-slate-900">{greeting}</h1>
-        </div>
-        <button
-          type="button"
-          aria-label="Customize dashboard"
-          onClick={() => setCustomizeOpen(true)}
-          className="order-2 flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 sm:order-3 sm:self-auto"
-        >
-          <SlidersHorizontal size={18} />
-        </button>
-        <div className="order-3 basis-full sm:order-2 sm:basis-auto">
-          <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+      {/* The date (with the chosen period after it) gets the full width; the
+          greeting shares its line with two small icons -- the period filter and
+          Customize -- so nothing crowds or hides the date. */}
+      <div className="animate-fade-in-up flex flex-col gap-1">
+        <p className="truncate text-sm text-slate-500">
+          {dateLabel} · {PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'All time'}
+        </p>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="min-w-0 font-serif text-2xl font-semibold text-slate-900">{greeting}</h1>
+          <div className="-mr-2 flex shrink-0 items-center">
+            <PeriodSelector iconOnly value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+            <button
+              type="button"
+              aria-label="Customize dashboard"
+              onClick={() => setCustomizeOpen(true)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -369,9 +414,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {order.filter((id) => !hidden.includes(id)).map((id) => (
-        <div key={id}>{sections[id]}</div>
-      ))}
+      {renderSections(order.filter((id) => !hidden.includes(id)), sections)}
 
       <CustomizeDashboardModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
     </div>

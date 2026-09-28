@@ -3,6 +3,7 @@ import {
   PERSISTED_CACHE_MAX_AGE_MS,
   cacheResetOnAuthChange,
   isRestorable,
+  PERSISTED_CACHE_VERSION,
   shouldPersistQueryKey,
 } from '@/lib/queryPersistence'
 import { EMPTY_TRANSACTION_FILTERS } from '@/lib/transactionSearch'
@@ -41,11 +42,14 @@ describe('cacheResetOnAuthChange', () => {
 })
 
 describe('isRestorable', () => {
-  const saved = { userId: 'u1', savedAt: 1_000, state: {} }
+  const saved = { version: PERSISTED_CACHE_VERSION, userId: 'u1', savedAt: 1_000, state: {} }
   it('restores only for the same user while fresh', () => {
     expect(isRestorable(saved, 'u1', 2_000)).toBe(true)
     expect(isRestorable(saved, 'u2', 2_000)).toBe(false)
     expect(isRestorable(saved, 'u1', 1_000 + PERSISTED_CACHE_MAX_AGE_MS + 1)).toBe(false)
     expect(isRestorable(undefined, 'u1', 2_000)).toBe(false)
+    // A cache saved by an older release (no or another version) is dropped.
+    expect(isRestorable({ ...saved, version: undefined }, 'u1', 2_000)).toBe(false)
+    expect(isRestorable({ ...saved, version: PERSISTED_CACHE_VERSION - 1 }, 'u1', 2_000)).toBe(false)
   })
 })

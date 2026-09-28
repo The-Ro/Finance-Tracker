@@ -7,6 +7,7 @@ import {
   dueDateAfter,
   isBankKind,
   isFundedAccount,
+  normalizeAccountKind,
   lastStatementDate,
   openingToOwed,
   owedToOpening,
@@ -95,6 +96,12 @@ describe('account kinds', () => {
     expect(isBankKind(undefined)).toBe(false)
     expect(isFundedAccount('current')).toBe(true)
     expect(isFundedAccount('credit_card')).toBe(false)
+  })
+  it('reads the old bank kind and anything unknown as savings', () => {
+    expect(normalizeAccountKind('bank')).toBe('savings')
+    expect(normalizeAccountKind(undefined)).toBe('savings')
+    expect(normalizeAccountKind('credit_card')).toBe('credit_card')
+    expect(normalizeAccountKind('current')).toBe('current')
   })
 })
 

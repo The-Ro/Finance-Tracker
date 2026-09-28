@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
-import { NAV_GROUPS, SETTINGS_NAV_ITEM, type NavGroup, type NavItem } from './navItems'
+import { NAV_GROUPS, type NavGroup, type NavItem } from './navItems'
 import { BrandMark } from '@/components/ui/BrandHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/context/AuthContext'
@@ -164,8 +164,8 @@ function DesktopSidebar() {
  * size as on login -- no colored bubble or pulsing animation behind it.
  * Open, it becomes a plain close (X) button and shows the same Money / Plan /
  * More sections as the desktop rail, two 44px rows per line from 360px wide so
- * the whole menu fits an iPhone screen; Settings fills the last group's spare
- * cell (on desktop it's the rail's footer instead).
+ * the whole menu fits an iPhone screen, headed by the coin and wordmark;
+ * Settings lives in the profile menu (on desktop, the rail footer too).
  */
 function FloatingMenu() {
   const [open, setOpen] = useState(false)
@@ -227,15 +227,22 @@ function FloatingMenu() {
           aria-label="Primary"
           className="animate-scale-in fixed left-[calc(1rem+env(safe-area-inset-left))] top-[calc(5rem+var(--safe-top))] z-40 flex max-h-[calc(100dvh_-_6rem_-_var(--safe-top)_-_env(safe-area-inset-bottom))] w-[min(21.5rem,calc(100vw_-_2rem))] flex-col gap-2 overflow-y-auto rounded-card border border-app-border bg-app-card p-3 shadow-card"
         >
-          <p className="px-2 text-sm font-semibold text-slate-900">
-            Ledge<span className="text-accent-dark">Eaze</span>
+          {/* Coin + wordmark heading the menu. Settings isn't listed here (user
+              request) -- it's in the profile menu at the top right. */}
+          {/* The full coin at 40px, same as the closed button and every other
+              in-app mark (the "sm" artwork is only for the favicon). */}
+          <p className="flex items-center gap-2 px-1 pb-1">
+            <BrandMark size="md" className="h-10 w-10" />
+            <span className="whitespace-nowrap font-serif text-xl font-semibold leading-tight text-slate-900">
+              Ledge<span className="text-accent-dark">Eaze</span>
+            </span>
           </p>
           {NAV_GROUPS.map((group, i) => (
             <NavSection
               key={group.label}
               group={group}
               index={i}
-              items={i === NAV_GROUPS.length - 1 ? [...group.items, SETTINGS_NAV_ITEM] : group.items}
+              items={group.items}
               rowClassName="min-h-[44px] gap-2.5 px-2.5"
               labelClassName="px-3 pb-0.5 pt-1"
               listClassName="grid grid-cols-1 gap-0.5 min-[360px]:grid-cols-2"

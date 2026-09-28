@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type TouchEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, CreditCard, ListFilter } from 'lucide-react'
 import clsx from 'clsx'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Dropdown } from '@/components/ui/Dropdown'
 import { useRecurringItemsRaw, useRecurringMutations, type RecurringItem } from '@/hooks/useRecurring'
 import { useAccountBalances } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
@@ -17,6 +18,14 @@ import { formatShortDate, todayISO } from '@/lib/format'
 import { cardPagePath } from '@/components/cards/cardPath'
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+/** How far ahead "Coming up" and the total look. */
+const WINDOW_OPTIONS = [7, 14, 30] as const
+type WindowDays = (typeof WINDOW_OPTIONS)[number]
+const windowLabel = (days: number) => `Next ${days} days`
+
+/** A horizontal swipe at least this long (px) on the calendar changes the month. */
+const SWIPE_MIN_PX = 50
 
 /**
  * Bill calendar: every active recurring item and subscription projected onto a
@@ -41,6 +50,10 @@ export function BillsPage() {
     return { year: y, index: m - 1 }
   })
   const [selected, setSelected] = useState(today)
+  const [windowDays, setWindowDays] = useState<WindowDays>(7)
+  // Which way the month grid slides in: 1 = next month (from the right), -1 = previous.
+  const [slide, setSlide] = useState<1 | -1 | 0>(0)
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
 
   const active = useMemo(() => items.filter((i) => i.active), [items])
   const grid = monthGrid(month.year, month.index)
@@ -60,7 +73,7 @@ export function BillsPage() {
     return map
   }, [active, cardBills, monthStart, monthEnd])
 
-  const weekEnd = addDaysISO(today, 6)
+  const weekEnd = addDaysISO(today, windowDays - 1)
   const dueSoon = useMemo(() => {
     const rows: { item: RecurringItem; date: string }[] = []
     for (const item of active) {
@@ -71,7 +84,7 @@ export function BillsPage() {
   }, [active, today, weekEnd])
   // Card bills due within the week (or already overdue) count toward the total.
   const cardDueSoon = cardBills.filter((b) => b.dueDate <= weekEnd)
-  const weekTotal = totalDueWithin(active, today, 7) + cardDueSoon.reduce((sum, b) => sum + b.due, 0)
+  const weekTotal = totalDueWithin(active, today, windowDays) + cardDueSoon.reduce((sum, b) => sum + b.due, 0)
 
   // Per-account: can the current balance cover everything due this week from it?
   const shortfalls = useMemo(() => {
@@ -82,11 +95,28 @@ export function BillsPage() {
   }, [dueSoon, balances, kinds])
 
   const selectedItems = selected >= monthStart && selected <= monthEnd ? byDate.get(selected) ?? [] : []
-  const shiftMonth = (delta: number) =>
+  const shiftMonth = (delta: 1 | -1) => {
+    setSlide(delta)
     setMonth(({ year, index }) => {
       const n = index + delta
       return { year: year + Math.floor(n / 12), index: ((n % 12) + 12) % 12 }
     })
+  }
+  // Swipe the calendar sideways to change month; a mostly-vertical move is a
+  // page scroll and is left alone.
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0]
+    touchStart.current = { x: t.clientX, y: t.clientY }
+  }
+  const onTouchEnd = (e: TouchEvent) => {
+    const start = touchStart.current
+    touchStart.current = null
+    if (!start) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) shiftMonth(dx < 0 ? 1 : -1)
+  }
   const monthLabel = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
   if (!isLoading && active.length === 0 && cardBills.length === 0) {
@@ -109,16 +139,31 @@ export function BillsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Bills" />
+      <PageHeader
+        title="Bills"
+        actions={
+          <Dropdown
+            compact
+            icon={ListFilter}
+            aria-label="How far ahead to look"
+            options={WINDOW_OPTIONS.map(windowLabel)}
+            value={windowLabel(windowDays)}
+            onChange={(e) => {
+              const days = WINDOW_OPTIONS.find((d) => windowLabel(d) === e.target.value)
+              if (days) setWindowDays(days)
+            }}
+          />
+        }
+      />
 
       <Card className="animate-fade-in-up flex flex-wrap items-center justify-between gap-3 border-brass/30 bg-brass-light p-5">
         <div>
-          <p className="text-helper font-semibold uppercase tracking-wide text-slate-600">Next 7 days</p>
+          <p className="text-helper font-semibold uppercase tracking-wide text-slate-600">{windowLabel(windowDays)}</p>
           <p className="font-serif text-3xl font-semibold text-slate-900">{format(weekTotal)} due</p>
         </div>
         <p className="text-sm text-slate-700">
           {dueSoon.length === 0 && cardDueSoon.length === 0
-            ? 'Nothing due this week.'
+            ? `Nothing due in the next ${windowDays} days.`
             : shortfalls.length === 0
               ? 'Your accounts cover everything due.'
               : `Not enough in ${shortfalls.join(', ')} to cover what's due.`}
@@ -146,6 +191,12 @@ export function BillsPage() {
               </button>
             </div>
           </div>
+          {/* Swipe left/right anywhere on the grid for the next/previous month. */}
+          <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} className="touch-pan-y select-none overflow-hidden">
+          <div
+            key={`${month.year}-${month.index}`}
+            className={clsx(slide === 1 && 'animate-slide-in-right', slide === -1 && 'animate-slide-in-left')}
+          >
           <div className="grid grid-cols-7 gap-1 text-center text-helper font-semibold text-slate-400">
             {WEEKDAYS.map((d, i) => (
               <span key={i}>{d}</span>
@@ -179,6 +230,8 @@ export function BillsPage() {
                 </button>
               )
             })}
+          </div>
+          </div>
           </div>
           {selectedItems.length > 0 && (
             <ul className="mt-3 flex flex-col gap-1 border-t border-app-border pt-3 text-sm">
@@ -227,7 +280,7 @@ export function BillsPage() {
             </ul>
           )}
           {dueSoon.length === 0 ? (
-            cardDueSoon.length === 0 && <p className="text-sm text-slate-500">Nothing due in the next 7 days.</p>
+            cardDueSoon.length === 0 && <p className="text-sm text-slate-500">Nothing due in the next {windowDays} days.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {dueSoon.map(({ item, date }) => {

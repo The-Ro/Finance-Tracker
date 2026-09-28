@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { APP_VERSION } from './whatsNew'
 
 /**
  * Best-effort crash report -- fire-and-forget, and must never throw or await
@@ -16,6 +17,7 @@ export function logClientError(error: Error, extra?: { componentStack?: string }
         stack: [error.stack, extra?.componentStack].filter(Boolean).join('\n\n').slice(0, 50000),
         url: window.location.href.slice(0, 4096),
         user_agent: navigator.userAgent.slice(0, 1024),
+        app_version: APP_VERSION,
       })
     } catch {
       // Logging the error failed too -- nothing more we can do client-side.

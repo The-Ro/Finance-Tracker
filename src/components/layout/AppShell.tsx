@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
+import { AnnouncementBanner } from './AnnouncementBanner'
 import { TopBar } from './TopBar'
 import { OfflineBanner } from './OfflineBanner'
 import { GlobalModalsProvider } from '@/context/GlobalModalsContext'
@@ -32,8 +33,9 @@ export function AppShell() {
         <Sidebar />
         <TopBar />
         <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 md:px-8 md:pb-8">
-          <div className="mb-4 empty:hidden">
+          <div className="mb-4 flex flex-col gap-3 empty:hidden">
             <OfflineBanner />
+            <AnnouncementBanner />
           </div>
           {/* Keying by the top-level path replays the fade-in-up animation on every
               page change; sub-pages (/settings/<section>) animate their own content

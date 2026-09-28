@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { CheckSquare, Pencil, Receipt, Search, SlidersHorizontal, Split, Trash2, X } from 'lucide-react'
+import { CheckSquare, ListFilter, Pencil, Receipt, Search, Split, Trash2, X } from 'lucide-react'
+import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
+import { CategoryIcon } from '@/components/ui/CategoryIcon'
+import { useAccountKinds } from '@/hooks/useCards'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
@@ -23,7 +26,7 @@ import type { TransactionScope } from './ScopeToggle'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 import { DEBIT_CARD_FILTER_PREFIX, hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import { debitCardLabel, type DebitCard } from '@/lib/debitCards'
-import { avatarTone, dayHeadingLabel, groupByDay, merchantInitial, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
+import { avatarTone, dayHeadingLabel, groupByDay, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
 
 const BULK_CATEGORY_PLACEHOLDER = 'Change category…'
 
@@ -46,6 +49,14 @@ const DESKTOP_GRID_MINE =
   'md:grid-cols-[28px_minmax(0,2fr)_128px_minmax(0,1fr)_112px_104px] xl:grid-cols-[28px_minmax(0,2fr)_150px_minmax(0,1fr)_minmax(0,1.4fr)_112px_104px]'
 const DESKTOP_GRID_EVERYONE =
   'md:grid-cols-[28px_32px_minmax(0,2fr)_128px_minmax(0,1fr)_112px_104px] xl:grid-cols-[28px_32px_minmax(0,2fr)_150px_minmax(0,1fr)_minmax(0,1.4fr)_112px_104px]'
+
+/** Square icon tool button (Filter, Select) -- same size everywhere they appear. */
+function iconToolClass(active: boolean) {
+  return clsx(
+    'flex h-11 w-11 items-center justify-center rounded-xl transition-colors',
+    active ? 'bg-accent-light text-accent-on-light' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+  )
+}
 
 function chipClass(active: boolean) {
   return clsx(
@@ -137,7 +148,10 @@ export function TransactionTable({
   // Shared viewers can't read another owner's cards, so an unknown card id just
   // falls back to showing the account.
   const cardsById = useMemo(() => new Map(debitCards.map((c) => [c.id, c])), [debitCards])
+  // Own accounts' kinds for the account tag's icon; a shared owner's account falls back to the bank icon.
+  const kinds = useAccountKinds()
   const ALL_ACCOUNTS = 'All accounts'
+  const ALL_TYPES = 'All types'
   // Accounts, then debit cards (as `debit:<id>`, filtered on debit_card_id); labels are what the Dropdown emits.
   const accountFilterOptions = useMemo(
     () => [
@@ -192,7 +206,9 @@ export function TransactionTable({
   const today = todayISO()
   const desktopGrid = scope === 'everyone' ? DESKTOP_GRID_EVERYONE : DESKTOP_GRID_MINE
   const showMobileCheckboxes = selectMode || selected.size > 0
-  const dropdownFilterCount = [filters.category, filters.account, filters.ownerId].filter(Boolean).length
+  // Type counts too: the green/red totals on the page set it, and Transfers is picked here.
+  const dropdownFilterCount = [filters.type, filters.category, filters.account, filters.ownerId].filter(Boolean).length
+  const typeLabel = filters.type === null ? ALL_TYPES : (QUICK_TYPE_CHIPS.find((c) => c.type === filters.type)?.label ?? ALL_TYPES)
 
   const clearSelection = () => {
     setSelected(new Set())
@@ -350,49 +366,75 @@ export function TransactionTable({
                   TONE_CLASSES[avatarTone(t.category, t.type)]
                 )}
               >
-                {merchantInitial(t.merchant)}
+                <CategoryIcon category={t.category} type={t.type} size={19} strokeWidth={2} />
               </span>
+              {/* Left: merchant, then category. Right: amount, then the account (or
+                  card) tag; the payment mode sits on the next line, right side -- grey text in one truncated
+                  line was easy to miss. */}
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
-                    {t.merchant}
-                  </span>
-                  {t.receipt &&
-                    (t.receipt_document_id ? (
-                      <button
-                        type="button"
-                        aria-label="View receipt"
-                        title="View receipt"
-                        onClick={() => handleViewReceipt(t.receipt_document_id!)}
-                        disabled={viewReceipt.isPending}
-                        className="-my-3 flex h-11 w-8 shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
-                      >
-                        <Receipt size={13} />
-                      </button>
-                    ) : (
-                      <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
-                    ))}
-                  {scope === 'everyone' && owner && (
-                    <Avatar avatar={owner.avatar} name={owner.displayName} size={18} className="shrink-0" />
-                  )}
+                <div className="flex min-w-0 items-baseline justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-1.5 self-center">
+                    <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
+                      {t.merchant}
+                    </span>
+                    {t.receipt &&
+                      (t.receipt_document_id ? (
+                        <button
+                          type="button"
+                          aria-label="View receipt"
+                          title="View receipt"
+                          onClick={() => handleViewReceipt(t.receipt_document_id!)}
+                          disabled={viewReceipt.isPending}
+                          className="-my-3 flex h-11 w-8 shrink-0 items-center justify-center text-slate-400 hover:text-accent-dark disabled:opacity-50"
+                        >
+                          <Receipt size={13} />
+                        </button>
+                      ) : (
+                        <Receipt size={13} className="shrink-0 text-slate-300" aria-label="Receipt noted, not attached" />
+                      ))}
+                    {scope === 'everyone' && owner && (
+                      <Avatar avatar={owner.avatar} name={owner.displayName} size={18} className="shrink-0" />
+                    )}
+                  </div>
+                  <div className={clsx('shrink-0 font-serif text-base font-semibold tabular-nums', amountTone)}>
+                    <span className="sr-only">{amountLabel} </span>
+                    {formatSigned(t.amount, t.type)}
+                  </div>
                 </div>
-                <span className="truncate text-helper text-slate-500" title={subline}>
-                  {subline}
-                </span>
-                {extraLine && (
-                  <span className="truncate text-helper text-slate-400" title={extraLine}>
-                    {extraLine}
+                {/* Category on the left; on the right, under the amount, the
+                    account (or card) as a small tag. */}
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <span className="min-w-0 truncate pt-0.5 text-helper text-slate-500">
+                    {t.type === 'transfer' ? 'Transfer' : t.category}
                   </span>
-                )}
-              </div>
-              <div className="shrink-0 text-right">
-                <div className={clsx('font-serif text-base font-semibold tabular-nums', amountTone)}>
-                  <span className="sr-only">{amountLabel} </span>
-                  {formatSigned(t.amount, t.type)}
+                  <div className="flex min-w-0 max-w-[65%] flex-col items-end gap-1" title={subline}>
+                    {t.original_currency && t.original_amount != null && (
+                      <span className="text-helper text-slate-400">{formatCurrencyAs(t.original_amount, t.original_currency)}</span>
+                    )}
+                    <div className="flex min-w-0 max-w-full items-center justify-end gap-1">
+                      <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+                        {card ? (
+                          <DebitCardIcon size={12} className="shrink-0 text-slate-500" />
+                        ) : (
+                          <AccountKindIcon kind={kinds.get(t.account)} size={12} className="shrink-0 text-slate-500" />
+                        )}
+                        <span className="truncate">{accountDisplay}</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                {t.original_currency && t.original_amount != null && (
-                  <div className="text-helper text-slate-400">
-                    {formatCurrencyAs(t.original_amount, t.original_currency)}
+                {/* Next line: remarks / #tags on the left, the payment mode on
+                    the right at the same level. */}
+                {(extraLine || t.payment_method) && (
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-helper text-slate-400" title={extraLine || undefined}>
+                      {extraLine}
+                    </span>
+                    {t.payment_method && (
+                      <span className="inline-flex shrink-0 items-center rounded-md bg-info-light px-1.5 py-0.5 text-xs font-medium text-info">
+                        via {t.payment_method}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -452,10 +494,10 @@ export function TransactionTable({
             )}
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm text-slate-600" title={accountDisplay}>
+            <div className="truncate text-sm font-medium text-slate-700" title={accountDisplay}>
               {accountDisplay}
             </div>
-            {methodNote && <div className="truncate text-helper text-slate-400">{methodNote}</div>}
+            {methodNote && <div className="truncate text-helper text-slate-500">{methodNote}</div>}
           </div>
           <div className="hidden min-w-0 xl:block">
             <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
@@ -487,10 +529,41 @@ export function TransactionTable({
             type="search"
             value={filters.search}
             onChange={(e) => setFilter({ search: e.target.value })}
-            placeholder="Search merchant, category, or tag"
+            placeholder="Search merchant, category, tag"
             aria-label="Search transactions"
             className="min-h-[44px] min-w-0 flex-1 bg-transparent text-sm focus:outline-none"
           />
+          {/* Phones: Filter and Select are icon buttons at the end of the
+              search box -- the one standard place for list tools. From md the
+              filters are always inline and every row has a checkbox. */}
+          <div className="-mr-1.5 flex shrink-0 items-center gap-0.5 md:hidden">
+            <button
+              type="button"
+              aria-label={dropdownFilterCount > 0 ? `Filters (${dropdownFilterCount} on)` : 'Filters'}
+              aria-expanded={filtersOpen}
+              aria-controls="transaction-dropdown-filters"
+              onClick={() => setFiltersOpen((o) => !o)}
+              className={clsx(iconToolClass(filtersOpen || dropdownFilterCount > 0), 'relative')}
+            >
+              <ListFilter size={18} aria-hidden="true" />
+              {dropdownFilterCount > 0 && (
+                <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold leading-none text-white">
+                  {dropdownFilterCount}
+                </span>
+              )}
+            </button>
+            {editableFiltered.length > 0 && (
+              <button
+                type="button"
+                aria-label={showMobileCheckboxes ? 'Done selecting' : 'Select transactions'}
+                aria-pressed={showMobileCheckboxes}
+                onClick={() => (showMobileCheckboxes ? clearSelection() : setSelectMode(true))}
+                className={iconToolClass(showMobileCheckboxes)}
+              >
+                <CheckSquare size={18} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
         {/* Category/account/person: always inline from md up, behind the
             "Filters" chip below on phones. */}
@@ -512,6 +585,12 @@ export function TransactionTable({
             />
           )}
           <Dropdown
+            options={QUICK_TYPE_CHIPS.map((c) => (c.type === null ? ALL_TYPES : c.label))}
+            value={typeLabel}
+            aria-label="Filter by type"
+            onChange={(e) => setFilter({ type: QUICK_TYPE_CHIPS.find((c) => c.label === e.target.value)?.type ?? null })}
+          />
+          <Dropdown
             options={['All categories', ...categories]}
             value={filters.category ?? 'All categories'}
             aria-label="Filter by category"
@@ -528,64 +607,24 @@ export function TransactionTable({
         </div>
       </div>
 
-      {/* Quick filters: type chips (filters.type), then Mine / Everyone when
-          there's someone else's activity to see. Scrolls sideways on phones. */}
-      <div className="scrollbar-none -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-0.5">
-        <div role="group" aria-label="Transaction type" className="flex gap-2">
-          {QUICK_TYPE_CHIPS.map((chip) => (
+      {/* Mine / Everyone, when there's someone else's activity to see. The type
+          filter moved to the page's green Money in / red Money out totals
+          (and Transfers to the Type filter). */}
+      {canChooseScope && onScopeChange && (
+        <div role="group" aria-label="Whose transactions" className="flex gap-2">
+          {(['mine', 'everyone'] as TransactionScope[]).map((sc) => (
             <button
-              key={chip.label}
+              key={sc}
               type="button"
-              aria-pressed={filters.type === chip.type}
-              onClick={() => setFilter({ type: chip.type })}
-              className={chipClass(filters.type === chip.type)}
+              aria-pressed={scope === sc}
+              onClick={() => onScopeChange(sc)}
+              className={chipClass(scope === sc)}
             >
-              {chip.label}
+              {sc === 'mine' ? 'Mine' : 'Everyone'}
             </button>
           ))}
         </div>
-        {canChooseScope && onScopeChange && (
-          <>
-            <span className="h-6 w-px shrink-0 bg-app-border" aria-hidden="true" />
-            <div role="group" aria-label="Whose transactions" className="flex gap-2">
-              {(['mine', 'everyone'] as TransactionScope[]).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  aria-pressed={scope === s}
-                  onClick={() => onScopeChange(s)}
-                  className={chipClass(scope === s)}
-                >
-                  {s === 'mine' ? 'Mine' : 'Everyone'}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-        <span className="h-6 w-px shrink-0 bg-app-border md:hidden" aria-hidden="true" />
-        <button
-          type="button"
-          aria-expanded={filtersOpen}
-          aria-controls="transaction-dropdown-filters"
-          onClick={() => setFiltersOpen((o) => !o)}
-          className={clsx(chipClass(filtersOpen || dropdownFilterCount > 0), 'md:hidden')}
-        >
-          <SlidersHorizontal size={15} aria-hidden="true" />
-          Filters
-          {dropdownFilterCount > 0 && <span className="tabular-nums">({dropdownFilterCount})</span>}
-        </button>
-        {editableFiltered.length > 0 && (
-          <button
-            type="button"
-            aria-pressed={showMobileCheckboxes}
-            onClick={() => (showMobileCheckboxes ? clearSelection() : setSelectMode(true))}
-            className={clsx(chipClass(showMobileCheckboxes), 'md:hidden')}
-          >
-            <CheckSquare size={15} aria-hidden="true" />
-            {showMobileCheckboxes ? 'Done' : 'Select'}
-          </button>
-        )}
-      </div>
+      )}
 
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/30 bg-accent-light px-3 py-2">
@@ -675,7 +714,10 @@ export function TransactionTable({
               const headingId = `tx-day-${group.date}`
               return (
                 <li key={group.date} aria-labelledby={headingId} className="border-t border-app-border first:border-t-0">
-                  <div className="sticky top-[calc(76px+var(--safe-top))] z-10 flex min-h-[40px] items-center justify-between gap-3 border-b border-app-border bg-slate-50 px-4 py-2 text-helper font-semibold uppercase tracking-wide text-slate-500">
+                  {/* A clearly darker band than the rows (slate-200; a lifted grey in dark
+                      mode, which has no slate-200 override) with dark text, so each day --
+                      Today, Yesterday, Mon 21 Sep -- stands out when scrolling. */}
+                  <div className="sticky top-[calc(76px+var(--safe-top))] z-10 flex min-h-[40px] items-center justify-between gap-3 border-b border-slate-300 bg-slate-200 px-4 py-2 text-helper font-bold uppercase tracking-wide text-slate-800 dark:border-[#454b59] dark:bg-[#3a3f4c]">
                     <h3 id={headingId}>{dayHeadingLabel(group.date, today)}</h3>
                     {group.net !== null && (
                       <span

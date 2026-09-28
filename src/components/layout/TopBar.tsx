@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { Bell, FileUp, Plus, LogOut, ChevronDown, Settings, MessageSquare, X } from 'lucide-react'
+import { Bell, FileUp, Plus, LogOut, ChevronDown, Settings, MessageSquare, ShieldCheck, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
@@ -170,6 +170,21 @@ export function TopBar() {
               >
                 <Settings size={15} /> Settings
               </NavLink>
+              {isAdmin && (
+                <NavLink
+                  role="menuitem"
+                  to="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    clsx(
+                      'flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium',
+                      isActive ? 'bg-accent-light text-accent-on-light' : 'text-slate-700 hover:bg-slate-50'
+                    )
+                  }
+                >
+                  <ShieldCheck size={15} /> Admin
+                </NavLink>
+              )}
               {/* Temporary shortcut while the notification-bell reply flow
                   is new -- makes it easy to find the feedback form itself,
                   not just the replies to it. Revisit whether this earns a

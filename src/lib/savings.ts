@@ -1,5 +1,9 @@
-// Savings flow (Home): what the user kept each month -- income minus spending.
-// Transfers move money between the user's own accounts, so they never count.
+// Savings flow (Home): what the user kept each month -- money that came into
+// and went out of their bank, cash and wallet accounts. A credit card spend
+// doesn't leave those accounts until the bill is paid, so card spends (and
+// refunds onto a card) are skipped and a transfer bank -> card counts as money
+// out instead; card spending is counted once, in the month it's paid. Other
+// transfers move money between the user's own accounts and never count.
 // Month keys come straight from the stored local calendar date (YYYY-MM-DD),
 // and month arithmetic is done on the numbers, never through toISOString().
 
@@ -7,6 +11,8 @@ interface SavingsTransaction {
   type: string
   date: string
   amount: number
+  account?: string
+  to_account?: string | null
 }
 
 export interface MonthSavings {
@@ -37,16 +43,32 @@ export function lastMonths(today: string, count: number): string[] {
   return out
 }
 
-/** Income, spending and savings for each of the last `count` months (oldest first). */
-export function monthlySavings(transactions: SavingsTransaction[], today: string, count = 6): MonthSavings[] {
+/**
+ * Money in, money out and savings for each of the last `count` months (oldest
+ * first). `cardAccounts` are the credit-card account names (see the note at
+ * the top); without it every income and expense counts.
+ */
+export function monthlySavings(
+  transactions: SavingsTransaction[],
+  today: string,
+  count = 6,
+  cardAccounts: ReadonlySet<string> = new Set()
+): MonthSavings[] {
   const months = lastMonths(today, count)
   const buckets = new Map(months.map((m) => [m, { income: 0, expense: 0 }]))
+  const isCard = (name: string | null | undefined) => !!name && cardAccounts.has(name)
   for (const t of transactions) {
-    if (t.type !== 'income' && t.type !== 'expense') continue
     const bucket = buckets.get(t.date.slice(0, 7))
     if (!bucket) continue
-    if (t.type === 'income') bucket.income += t.amount
-    else bucket.expense += t.amount
+    if (t.type === 'income') {
+      if (!isCard(t.account)) bucket.income += t.amount
+    } else if (t.type === 'expense') {
+      if (!isCard(t.account)) bucket.expense += t.amount
+    } else if (t.type === 'transfer') {
+      // Paying a card bill is money out; cash drawn from a card into a bank is money in.
+      if (isCard(t.to_account) && !isCard(t.account)) bucket.expense += t.amount
+      else if (isCard(t.account) && !isCard(t.to_account)) bucket.income += t.amount
+    }
   }
   return months.map((month) => {
     const { income, expense } = buckets.get(month)!

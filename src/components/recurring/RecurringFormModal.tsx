@@ -5,8 +5,10 @@ import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
-import { useRecurringMutations, type RecurringItem } from '@/hooks/useRecurring'
+import { useRecurringMutations, type RecurringItem, type RecurringLoanInput } from '@/hooks/useRecurring'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { todayISO } from '@/lib/format'
+import { emiFor, loanDetailsOf, loanMonthLabel, loanProgress, supportsLoanDetails } from '@/lib/loans'
 import type { Cadence, RecurringKind } from '@/types/database.types'
 
 const CADENCES: Cadence[] = ['weekly', 'biweekly', 'monthly', 'quarterly', 'half-yearly', 'annual']
@@ -36,7 +38,23 @@ interface RecurringFormModalProps {
   editing?: RecurringItem | null
 }
 
+/** What a month input gives: YYYY-MM. */
+const MONTH_KEY = /^\d{4}-\d{2}$/
+
+/** Loan fields of the form, from an item's stored loan details (strings, as the inputs hold them). */
+function loanFormState(item: RecurringItem | null | undefined) {
+  const loan = item ? loanDetailsOf(item) : null
+  return {
+    isLoan: loan !== null,
+    loanAmount: loan ? String(loan.amount) : '',
+    loanTenure: loan ? String(loan.tenureMonths) : '',
+    loanStart: loan?.startMonth ?? '',
+    loanRate: loan?.interestRate != null ? String(loan.interestRate) : '',
+  }
+}
+
 export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFormModalProps) {
+  const { format } = useFormatCurrency()
   // Recurring/subscription detection only ever runs over expense transactions
   // (see useRecurring.ts), so recurring/subscription items are expense-only too.
   const { expense: allExpenseCategories } = useCategories()
@@ -59,6 +77,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
     cadence: editing?.cadence ?? ('monthly' as Cadence),
     nextDate: editing?.next_date ?? todayISO(),
     account: editing?.account ?? '',
+    ...loanFormState(editing),
   }))
 
   // RecurringFormModal stays mounted across opens (RecurringLikePage just
@@ -75,6 +94,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
       cadence: editing?.cadence ?? ('monthly' as Cadence),
       nextDate: editing?.next_date ?? todayISO(),
       account: editing?.account ?? '',
+      ...loanFormState(editing),
     })
     setError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,6 +115,20 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
     // Required so "Mark as paid" always has somewhere to log the actual
     // expense transaction against -- see useRecurring.ts's markPaid.
     if (!form.account) return setError('Choose an account.')
+    let loan: RecurringLoanInput | null = null
+    if (form.isLoan) {
+      const loanAmount = Number(form.loanAmount)
+      const tenure = Number(form.loanTenure)
+      if (!supportsLoanDetails(form.cadence)) return setError('Loan details need a monthly (or longer) cadence.')
+      if (!Number.isFinite(loanAmount) || loanAmount <= 0) return setError('Enter the loan amount.')
+      if (!Number.isInteger(tenure) || tenure < 1 || tenure > 600) return setError('Enter the tenure in months (1 to 600).')
+      if (!MONTH_KEY.test(form.loanStart)) return setError('Choose the month of the first EMI.')
+      const rate = form.loanRate.trim() === '' ? null : Number(form.loanRate)
+      if (rate !== null && (!Number.isFinite(rate) || rate < 0 || rate > 100)) {
+        return setError('Enter the interest rate as a yearly % between 0 and 100, or leave it empty.')
+      }
+      loan = { amount: loanAmount, tenureMonths: tenure, startMonth: form.loanStart, interestRate: rate }
+    }
 
     try {
       if (editing) {
@@ -106,6 +140,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
           cadence: form.cadence,
           next_date: form.nextDate,
           account: form.account,
+          loan,
         })
       } else {
         await addManual.mutateAsync({
@@ -116,6 +151,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
           cadence: form.cadence,
           nextDate: form.nextDate,
           account: form.account,
+          loan,
         })
       }
       onClose()
@@ -125,6 +161,22 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
   }
 
   const saving = addManual.isPending || update.isPending
+  // Live "EMI x of y" preview while the loan fields are filled in.
+  const preview =
+    form.isLoan && Number(form.loanTenure) > 0 && MONTH_KEY.test(form.loanStart) && Number(form.amount) > 0
+      ? loanProgress(
+          { amount: Number(form.loanAmount) || 0, tenureMonths: Number(form.loanTenure), startMonth: form.loanStart },
+          Number(form.amount),
+          form.cadence,
+          form.nextDate || todayISO()
+        )
+      : null
+  // With amount, rate and tenure filled in, the EMI they imply -- offered as a
+  // one-tap fill for the Amount field (a bank's EMI can differ by a rupee or two).
+  const suggestedEmi =
+    form.isLoan && Number(form.loanAmount) > 0 && form.loanRate.trim() !== '' && Number(form.loanTenure) > 0
+      ? emiFor(Number(form.loanAmount), Number(form.loanRate), Number(form.loanTenure))
+      : null
 
   return (
     <Modal
@@ -191,6 +243,74 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
           />
           <p className="text-helper text-slate-400">Marking this paid logs an expense against this account.</p>
         </div>
+        {kind === 'recurring' && (
+          <div className="flex flex-col gap-3 rounded-xl border border-app-border p-3">
+            <label className="flex min-h-[32px] items-center gap-2 text-sm font-medium text-slate-800">
+              <input
+                type="checkbox"
+                checked={form.isLoan}
+                onChange={(e) => setForm((f) => ({ ...f, isLoan: e.target.checked }))}
+                className="h-4 w-4"
+              />
+              This is a loan / EMI
+            </label>
+            {form.isLoan && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label="Loan amount"
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    value={form.loanAmount}
+                    onChange={(e) => setForm((f) => ({ ...f, loanAmount: e.target.value }))}
+                  />
+                  <TextField
+                    label="Tenure (months)"
+                    type="number"
+                    step="1"
+                    min="1"
+                    max="600"
+                    value={form.loanTenure}
+                    onChange={(e) => setForm((f) => ({ ...f, loanTenure: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label="Interest rate (% a year)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    placeholder="Optional"
+                    value={form.loanRate}
+                    onChange={(e) => setForm((f) => ({ ...f, loanRate: e.target.value }))}
+                  />
+                  <TextField
+                    label="First EMI (month)"
+                    type="month"
+                    value={form.loanStart}
+                    onChange={(e) => setForm((f) => ({ ...f, loanStart: e.target.value }))}
+                  />
+                </div>
+                {suggestedEmi !== null && suggestedEmi > 0 && Math.abs(suggestedEmi - Number(form.amount)) >= 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, amount: suggestedEmi.toFixed(2) }))}
+                    className="-mx-1 w-fit rounded-md px-1 text-left text-helper font-medium text-accent-dark hover:underline"
+                  >
+                    EMI at {form.loanRate}% for {form.loanTenure} months ≈ {format(suggestedEmi)} · Use this amount
+                  </button>
+                )}
+                <p className="text-helper text-slate-500">
+                  {preview
+                    ? `${preview.paid} of ${preview.total} EMIs paid · ends ${loanMonthLabel(preview.endMonth)}${preview.interest > 0 ? ` · about ${format(preview.interest)} interest in all` : ''}`
+                    : 'EMIs due before the next date count as paid, so ones you paid before using LedgeEaze are included.'}
+                </p>
+              </>
+            )}
+          </div>
+        )}
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>

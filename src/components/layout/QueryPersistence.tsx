@@ -6,6 +6,7 @@ import { idbDelete, idbGet, idbSet } from '@/lib/idbStore'
 import {
   cacheResetOnAuthChange,
   isRestorable,
+  PERSISTED_CACHE_VERSION,
   shouldPersistQueryKey,
   type PersistedCache,
 } from '@/lib/queryPersistence'
@@ -88,7 +89,7 @@ export function QueryPersistence() {
       const state = dehydrate(queryClient, {
         shouldDehydrateQuery: (q) => q.state.status === 'success' && shouldPersistQueryKey(q.queryKey),
       })
-      const entry: PersistedCache<DehydratedState> = { userId, savedAt: Date.now(), state }
+      const entry: PersistedCache<DehydratedState> = { version: PERSISTED_CACHE_VERSION, userId, savedAt: Date.now(), state }
       idbSet(CACHE_KEY, entry).catch(() => {})
     }
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {

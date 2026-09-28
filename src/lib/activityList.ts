@@ -98,7 +98,7 @@ export function avatarTone(category: string | null | undefined, type: Transactio
   return CATEGORY_TONES[hash % CATEGORY_TONES.length]
 }
 
-/** Quick filter chips under the search box; each maps to `filters.type`. */
+/** Transaction types for the Type filter (the null entry is "All types"); each maps to `filters.type`. */
 export const QUICK_TYPE_CHIPS: { label: string; type: TransactionType | null }[] = [
   { label: 'All', type: null },
   { label: 'Money out', type: 'expense' },

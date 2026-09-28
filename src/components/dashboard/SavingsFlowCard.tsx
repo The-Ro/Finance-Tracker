@@ -23,8 +23,9 @@ interface SavingsFlowCardProps {
 }
 
 /**
- * "Savings flow": what the user kept each month (income minus spending,
- * transfers excluded) over the last six months, as a hand-drawn SVG line
+ * "Savings flow": what the user kept each month (monthlySavings: bank/cash
+ * money in minus money out, card spends counted when the bill is paid) over
+ * the last six months, as a hand-drawn SVG line
  * rather than a Recharts chart so it can follow the Motion spec's sequence:
  * the line draws itself in, the area fades in underneath, the points pop in
  * one after another (red outline for a month that spent more than it
@@ -69,7 +70,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-slate-800">Savings flow</h3>
           <p className="text-helper text-slate-500">
-            What you kept each month: income minus spending. Transfers never count.
+            What your bank and cash accounts kept each month. Card spends count when you pay the bill.
           </p>
         </div>
         {average.months > 0 && (

@@ -18,6 +18,7 @@ const SignupPage = lazy(() => import('@/pages/SignupPage').then((m) => ({ defaul
 const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const TransactionsPage = lazy(() => import('@/pages/TransactionsPage').then((m) => ({ default: m.TransactionsPage })))
 const RecurringPage = lazy(() => import('@/pages/RecurringPage').then((m) => ({ default: m.RecurringPage })))
 const SubscriptionsPage = lazy(() => import('@/pages/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
@@ -90,6 +91,7 @@ export default function App() {
                       <Route path="/rules" element={<RulesPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/settings/:section" element={<SettingsPage />} />
+                      <Route path="/admin" element={<AdminPage />} />
                     </Route>
                   </Route>
                 </Routes>

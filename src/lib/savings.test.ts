@@ -41,6 +41,40 @@ describe('monthlySavings', () => {
   })
 })
 
+describe('monthlySavings with credit cards', () => {
+  const cards = new Set(['Visa'])
+  const t = (type: string, date: string, amount: number, account: string, to_account: string | null = null) => ({
+    type,
+    date,
+    amount,
+    account,
+    to_account,
+  })
+  it('counts card spending when the bill is paid, not when the card is swiped', () => {
+    const rows = monthlySavings(
+      [
+        t('income', '2026-08-01', 1000, 'HDFC'),
+        t('expense', '2026-08-05', 300, 'Visa'), // card spend: not money out yet
+        t('expense', '2026-08-06', 100, 'HDFC'),
+        t('income', '2026-08-07', 40, 'Visa'), // refund onto the card: not money in
+        t('transfer', '2026-09-02', 260, 'HDFC', 'Visa'), // bill paid: money out
+        t('transfer', '2026-09-03', 500, 'HDFC', 'SBI'), // own accounts: ignored
+      ],
+      '2026-09-27',
+      2,
+      cards
+    )
+    expect(rows).toEqual([
+      { month: '2026-08', income: 1000, expense: 100, saved: 900 },
+      { month: '2026-09', income: 0, expense: 260, saved: -260 },
+    ])
+  })
+  it('counts every income and expense when no card accounts are given', () => {
+    const rows = monthlySavings([t('expense', '2026-09-05', 300, 'Visa')], '2026-09-27', 1)
+    expect(rows[0].expense).toBe(300)
+  })
+})
+
 describe('averageSaved', () => {
   it('averages from the first month with activity', () => {
     const rows = monthlySavings(

@@ -110,7 +110,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
           <EmptyState icon={Repeat} title="Nothing confirmed yet" description={emptyDescription} />
         ) : (
           <Card className="p-4">
-            <ul>
+            <ul className="flex flex-col gap-1.5">
               {confirmed.map((item) => (
                 <ConfirmedItemRow
                   key={item.id}

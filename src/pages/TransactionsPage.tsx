@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, AlertTriangle, Copy, Download } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, AlertTriangle, Check, Copy, Download } from 'lucide-react'
+import clsx from 'clsx'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import {
@@ -165,6 +166,10 @@ export function TransactionsPage() {
   // Exports the same scope+period-filtered set the header totals above are
   // computed from -- not the table's own search/type/category/account/person
   // filters, which are for narrowing what's browsed, not for scoping export.
+  // Green / red totals double as the type filter; tapping the active one clears it.
+  const toggleType = (type: 'income' | 'expense') =>
+    setFilters((f) => ({ ...f, type: f.type === type ? null : type }))
+
   const handleExport = () => {
     const ownerName =
       scope === 'everyone'
@@ -180,30 +185,42 @@ export function TransactionsPage() {
         title={
           <>
             Transactions
+            {/* Tap to show only money in / only money out (tap again for all). */}
             <div className="hidden w-fit items-center divide-x divide-app-border overflow-hidden rounded-full border border-app-border bg-white text-helper font-medium sm:inline-flex">
-              <span
-                title={`Credit -- ${formatSigned(totalCredit, 'income')} in this period`}
-                className="flex items-center gap-1 px-2.5 py-1 text-positive"
+              <button
+                type="button"
+                aria-pressed={filters.type === 'income'}
+                onClick={() => toggleType('income')}
+                title={`Credit -- ${formatSigned(totalCredit, 'income')} in this period. Tap to show only money in.`}
+                className={clsx(
+                  'flex items-center gap-1 px-2.5 py-1 text-positive transition-colors',
+                  filters.type === 'income' ? 'bg-positive-light font-bold' : 'hover:bg-positive-light/60'
+                )}
               >
                 <ArrowDownRight size={12} />
                 {formatCompact(totalCredit)}
-              </span>
-              <span
-                title={`Debit -- ${formatSigned(totalDebit, 'expense')} out this period`}
-                className="flex items-center gap-1 px-2.5 py-1 text-danger"
+              </button>
+              <button
+                type="button"
+                aria-pressed={filters.type === 'expense'}
+                onClick={() => toggleType('expense')}
+                title={`Debit -- ${formatSigned(totalDebit, 'expense')} out this period. Tap to show only money out.`}
+                className={clsx(
+                  'flex items-center gap-1 px-2.5 py-1 text-danger transition-colors',
+                  filters.type === 'expense' ? 'bg-danger-light font-bold' : 'hover:bg-danger-light/60'
+                )}
               >
                 <ArrowUpRight size={12} />
                 {formatCompact(totalDebit)}
-              </span>
+              </button>
             </div>
           </>
         }
         actions={
           <div className="flex w-full items-center gap-2 sm:w-auto">
-            {/* Phones: one row -- the period takes what's left (its trigger's 9rem
-                minimum is lifted here) and the two labelled buttons stay compact. */}
-            <div className="min-w-0 flex-1 sm:flex-none [&_button]:min-w-0 sm:[&_button]:min-w-[9rem]">
-              <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+            {/* The period is the same filter-icon pill as Home's. */}
+            <div className="mr-auto sm:mr-0">
+              <PeriodSelector compact value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
             </div>
             <Button
               variant="secondary"
@@ -231,26 +248,42 @@ export function TransactionsPage() {
         }
       />
 
-      {/* Phones: the credit/debit capsule becomes two tiles (same numbers). */}
-      <div className="animate-fade-in-up grid grid-cols-2 gap-3 sm:hidden">
-        <div className="flex min-w-0 flex-col gap-1 rounded-card bg-positive-light p-3.5">
-          <span className="flex items-center gap-1.5 text-helper font-bold text-positive">
-            <ArrowDownRight size={14} aria-hidden="true" />
-            Money in
-          </span>
-          <span className="truncate font-serif text-xl font-semibold tabular-nums text-slate-900" title={format(totalCredit)}>
-            {format(totalCredit)}
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1 rounded-card bg-danger-light p-3.5">
-          <span className="flex items-center gap-1.5 text-helper font-bold text-danger">
-            <ArrowUpRight size={14} aria-hidden="true" />
-            Money out
-          </span>
-          <span className="truncate font-serif text-xl font-semibold tabular-nums text-slate-900" title={format(totalDebit)}>
-            {format(totalDebit)}
-          </span>
-        </div>
+      {/* Phones: the credit/debit capsule becomes two tiles (same numbers). They
+          are the type filter too: tap green for money in only, red for money
+          out only, tap the selected one again for everything. */}
+      <div className="animate-fade-in-up grid grid-cols-2 gap-3 sm:hidden" role="group" aria-label="Show money in or money out">
+        {(
+          [
+            { type: 'income', label: 'Money in', total: totalCredit, Icon: ArrowDownRight, tone: 'text-positive', bg: 'bg-positive-light', ring: 'ring-positive' },
+            { type: 'expense', label: 'Money out', total: totalDebit, Icon: ArrowUpRight, tone: 'text-danger', bg: 'bg-danger-light', ring: 'ring-danger' },
+          ] as const
+        ).map(({ type, label, total, Icon, tone, bg, ring }) => {
+          const active = filters.type === type
+          const dimmed = filters.type !== null && !active
+          return (
+            <button
+              key={type}
+              type="button"
+              aria-pressed={active}
+              onClick={() => toggleType(type)}
+              className={clsx(
+                'flex min-w-0 flex-col gap-1 rounded-card p-3.5 text-left transition-all active:scale-[0.98]',
+                bg,
+                active && ['ring-2', ring],
+                dimmed && 'opacity-50'
+              )}
+            >
+              <span className={clsx('flex items-center gap-1.5 text-helper font-bold', tone)}>
+                <Icon size={14} aria-hidden="true" />
+                {label}
+                {active && <Check size={14} aria-hidden="true" className="ml-auto" />}
+              </span>
+              <span className="truncate font-serif text-xl font-semibold tabular-nums text-slate-900" title={format(total)}>
+                {format(total)}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {isCapped && (
