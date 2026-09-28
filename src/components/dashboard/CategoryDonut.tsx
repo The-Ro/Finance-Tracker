@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { PieChart as PieIcon } from 'lucide-react'
 import clsx from 'clsx'
@@ -18,8 +18,12 @@ interface CategoryDonutProps {
 
 const COLORS = ['#6558D3', '#2E7DE5', '#1E9E6B', '#E58A2E', '#C2410C', '#7C3AED', '#0EA5E9', '#DB2777', '#475569']
 
+/** Legend rows shown on phones before "Show all"; wider screens list every category. */
+const PHONE_LEGEND_ROWS = 5
+
 export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
   const { format } = useFormatCurrency()
+  const [showAll, setShowAll] = useState(false)
   const { accentHex, isDark } = useTheme()
   const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
 
@@ -107,22 +111,45 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
               its own (previously paired with the account chart in a 2-col grid),
               so an uncapped list stretches the row wide enough that
               justify-between pins the amount far away from the category name. */}
-          <ul className="flex w-full flex-col gap-2 sm:max-w-xs" aria-label="Category legend">
-            {data.map((entry, i) => (
-              <li key={entry.name} className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-2 text-slate-700">
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: COLORS[i % COLORS.length] }}
-                  />
-                  {entry.name}
-                </span>
-                <span className="text-helper text-slate-500">
-                  {format(entry.value)} · {entry.pct.toFixed(0)}%
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="flex w-full flex-col gap-2 sm:max-w-xs">
+            <ul className="flex flex-col gap-2" aria-label="Category legend">
+              {data.map((entry, i) => (
+                <li
+                  key={entry.name}
+                  className={clsx(
+                    'items-center justify-between gap-2 text-sm',
+                    !showAll && i >= PHONE_LEGEND_ROWS ? 'hidden sm:flex' : 'flex'
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2 text-slate-700">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                    />
+                    <span className="truncate">{entry.name}</span>
+                  </span>
+                  <span className="shrink-0 text-helper tabular-nums text-slate-500">
+                    {format(entry.value)} · {entry.pct.toFixed(0)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {data.length > PHONE_LEGEND_ROWS && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                aria-expanded={showAll}
+                className="-mx-2 flex min-h-[44px] items-center justify-between gap-2 rounded-lg px-2 text-sm font-medium text-accent-dark hover:bg-slate-100 sm:hidden"
+              >
+                <span>{showAll ? 'Show fewer' : `${data.length - PHONE_LEGEND_ROWS} more categories`}</span>
+                {!showAll && (
+                  <span className="text-helper font-normal tabular-nums text-slate-500">
+                    {format(data.slice(PHONE_LEGEND_ROWS).reduce((sum, d) => sum + d.value, 0))}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </Card>

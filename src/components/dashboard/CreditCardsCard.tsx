@@ -6,6 +6,7 @@ import { useCardStatuses, useClosedAccounts } from '@/hooks/useCards'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { cardLimitTotals, utilizationTone, type UtilizationTone } from '@/lib/cardSummary'
 import { formatShortDate } from '@/lib/format'
+import { cardPagePath } from '@/components/cards/cardPath'
 
 const BAR_CLASSES: Record<UtilizationTone, string> = {
   positive: 'bg-positive',
@@ -61,13 +62,15 @@ export function CreditCardsCard({ className }: { className?: string }) {
           if (limit === null) {
             return (
               <li key={name} className="flex flex-col gap-1 text-sm">
-                <span className="truncate font-semibold text-slate-800">{name}</span>
+                <Link to={cardPagePath(name)} className="truncate font-semibold text-slate-800 hover:text-accent-dark hover:underline">
+                  {name}
+                </Link>
                 <p className="text-helper text-slate-500">
                   <span className={clsx('font-semibold tabular-nums', status.owed > 0 ? 'text-danger' : 'text-slate-800')}>
                     {format(status.owed)}
                   </span>{' '}
                   owed ·{' '}
-                  <Link to="/settings#account-types" className="font-semibold text-accent-dark hover:underline">
+                  <Link to="/settings/accounts#account-types" className="font-semibold text-accent-dark hover:underline">
                     add a limit in Settings
                   </Link>
                   {dueText ? ` · ${dueText}` : ''}
@@ -81,7 +84,12 @@ export function CreditCardsCard({ className }: { className?: string }) {
           return (
             <li key={name} className="flex flex-col gap-1.5 text-sm">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 truncate font-semibold text-slate-800">{name}</span>
+                <Link
+                  to={cardPagePath(name)}
+                  className="min-w-0 truncate font-semibold text-slate-800 hover:text-accent-dark hover:underline"
+                >
+                  {name}
+                </Link>
                 <span className="shrink-0 tabular-nums text-slate-500">
                   <span className="font-semibold text-slate-900">{format(status.owed)}</span> / {format(limit)} ·{' '}
                   <span className={clsx('font-semibold', tone === 'danger' ? 'text-danger' : 'text-slate-900')}>{Math.round(percent)}%</span>

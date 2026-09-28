@@ -125,13 +125,16 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
       setOpen(false)
     }
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      setOpen(false)
     }
     document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
+    // Capture phase runs before a parent Modal's bubble-phase listener.
+    document.addEventListener('keydown', handleKeyDown, true)
     return () => {
       document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', handleKeyDown, true)
     }
   }, [open])
 

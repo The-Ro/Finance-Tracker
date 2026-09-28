@@ -5,20 +5,24 @@ import { Dropdown } from '@/components/ui/Dropdown'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { InlineCategoryEditor } from './InlineCategoryEditor'
 import { InlineTagEditor } from './InlineTagEditor'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Transaction } from '@/hooks/useTransactions'
 import { useDeleteTransaction, useBulkDeleteTransactions, useBulkUpdateTransactionCategory } from '@/hooks/useTransactions'
+import { useCategories } from '@/hooks/useLookupLists'
+import { useToast } from '@/context/ToastContext'
 import { useViewReceipt } from '@/hooks/useDocuments'
 import type { ProfileMap } from '@/hooks/useProfiles'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
-import { todayISO } from '@/lib/format'
+import { formatDate, todayISO } from '@/lib/format'
 import { formatCurrencyAs } from '@/lib/currency'
 import type { TransactionScope } from './ScopeToggle'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
-import { hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
+import { DEBIT_CARD_FILTER_PREFIX, hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
+import { debitCardLabel, type DebitCard } from '@/lib/debitCards'
 import { avatarTone, dayHeadingLabel, groupByDay, merchantInitial, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
 
 const BULK_CATEGORY_PLACEHOLDER = 'Change category…'
@@ -61,6 +65,8 @@ interface TransactionTableProps {
   profiles: ProfileMap
   categories: string[]
   accounts: string[]
+  /** The signed-in user's debit cards: rows paid with one show the card, and the account filter offers them. */
+  debitCards?: DebitCard[]
   /** Search + dropdown filters are owned by the page and applied server-side
    *  (so they reach the whole history, not just what's paged in); this table
    *  only renders the controls and whatever rows come back. */
@@ -83,6 +89,7 @@ export function TransactionTable({
   profiles,
   categories,
   accounts,
+  debitCards = [],
   filters,
   onFiltersChange,
   peopleOptions,
@@ -92,6 +99,7 @@ export function TransactionTable({
 }: TransactionTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null)
   // Phones: checkboxes only appear in "Select" mode (the desktop grid always
   // has its checkbox column); one swiped-open row at a time; the category/
   // account/person dropdowns sit behind a "Filters" disclosure.
@@ -104,6 +112,8 @@ export function TransactionTable({
   const { formatSigned } = useFormatCurrency()
   const { openEditEntry, openSplit } = useGlobalModals()
   const viewReceipt = useViewReceipt()
+  const { show } = useToast()
+  const { expense: expenseCategories, income: incomeCategories } = useCategories()
 
   const handleViewReceipt = (documentId: string) => {
     viewReceipt.mutate(documentId, {
@@ -112,7 +122,31 @@ export function TransactionTable({
   }
 
   const ALL_PEOPLE = 'Everyone'
-  const ownerName = peopleOptions.find((p) => p.id === filters.ownerId)?.name
+  // Labels are what the Dropdown emits, so two connections with the same
+  // display name get their email appended to keep the id lookup unambiguous.
+  const personLabels = useMemo(() => {
+    const nameCounts = new Map<string, number>()
+    for (const p of peopleOptions) nameCounts.set(p.name, (nameCounts.get(p.name) ?? 0) + 1)
+    return peopleOptions.map((p) => {
+      const email = profiles[p.id]?.email
+      return { id: p.id, label: (nameCounts.get(p.name) ?? 0) > 1 && email ? `${p.name} (${email})` : p.name }
+    })
+  }, [peopleOptions, profiles])
+  const ownerLabel = personLabels.find((p) => p.id === filters.ownerId)?.label
+
+  // Shared viewers can't read another owner's cards, so an unknown card id just
+  // falls back to showing the account.
+  const cardsById = useMemo(() => new Map(debitCards.map((c) => [c.id, c])), [debitCards])
+  const ALL_ACCOUNTS = 'All accounts'
+  // Accounts, then debit cards (as `debit:<id>`, filtered on debit_card_id); labels are what the Dropdown emits.
+  const accountFilterOptions = useMemo(
+    () => [
+      ...accounts.map((name) => ({ label: name, value: name })),
+      ...debitCards.map((card) => ({ label: `${debitCardLabel(card)} · debit card`, value: DEBIT_CARD_FILTER_PREFIX + card.id })),
+    ],
+    [accounts, debitCards]
+  )
+  const accountFilterLabel = accountFilterOptions.find((o) => o.value === filters.account)?.label ?? filters.account
   const filtersActive = hasActiveFilters(filters)
   const setFilter = (patch: Partial<TransactionFilters>) => onFiltersChange({ ...filters, ...patch })
 
@@ -165,11 +199,30 @@ export function TransactionTable({
     setSelectMode(false)
   }
 
+  // Transfers carry no category, and income/expense each have their own
+  // category list -- a mixed selection only gets categories valid for both.
+  const categorizableSelected = useMemo(
+    () => transactions.filter((t) => selected.has(t.id) && t.type !== 'transfer'),
+    [transactions, selected]
+  )
+  const bulkCategoryOptions = useMemo(() => {
+    const hasIncome = categorizableSelected.some((t) => t.type === 'income')
+    const hasExpense = categorizableSelected.some((t) => t.type === 'expense')
+    if (hasIncome && hasExpense) return expenseCategories.filter((c) => incomeCategories.includes(c))
+    if (hasIncome) return incomeCategories
+    if (hasExpense) return expenseCategories
+    return []
+  }, [categorizableSelected, expenseCategories, incomeCategories])
+  const skippedTransfers = selected.size - categorizableSelected.length
+
   const handleBulkCategoryChange = (category: string) => {
-    if (category === BULK_CATEGORY_PLACEHOLDER || selected.size === 0) return
+    if (category === BULK_CATEGORY_PLACEHOLDER || categorizableSelected.length === 0) return
     bulkUpdateCategory.mutate(
-      { ids: Array.from(selected), category },
-      { onSuccess: clearSelection }
+      { ids: categorizableSelected.map((t) => t.id), category },
+      {
+        onSuccess: clearSelection,
+        onError: () => show("Couldn't change the category. Try again.", { tone: 'error' }),
+      }
     )
   }
 
@@ -178,6 +231,18 @@ export function TransactionTable({
       onSuccess: () => {
         clearSelection()
         setConfirmBulkDelete(false)
+      },
+      onError: () => show("Couldn't delete those transactions. Try again.", { tone: 'error' }),
+    })
+  }
+
+  const handleConfirmDelete = () => {
+    if (!pendingDelete) return
+    deleteTransaction.mutate(pendingDelete.id, {
+      onSuccess: () => setPendingDelete(null),
+      onError: () => {
+        setPendingDelete(null)
+        show("Couldn't delete that transaction. Try again.", { tone: 'error' })
       },
     })
   }
@@ -188,7 +253,12 @@ export function TransactionTable({
     const amountTone = t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-danger' : 'text-slate-600'
     const amountClassName = 'text-sm font-serif font-semibold ' + amountTone
     const amountLabel = t.type === 'income' ? 'Credit' : t.type === 'expense' ? 'Debit' : 'Transfer'
-    const accountDisplay = t.type === 'transfer' && t.to_account ? `${t.account} → ${t.to_account}` : t.account
+    // Paid with a known debit card: name the card; its account moves to the desktop subline.
+    // Shared viewers can't read the owner's cards, so theirs fall back to the account.
+    const card = t.debit_card_id ? cardsById.get(t.debit_card_id) : undefined
+    const payer = card ? debitCardLabel(card) : t.account
+    const accountDisplay = t.type === 'transfer' && t.to_account ? `${payer} → ${t.to_account}` : payer
+    const methodNote = card ? `from ${t.account}` : t.payment_method ? `via ${t.payment_method}` : null
 
     const checkbox = editable && (
       <input
@@ -221,7 +291,7 @@ export function TransactionTable({
     const deleteButton = editable && (
       <button
         aria-label="Delete transaction"
-        onClick={() => deleteTransaction.mutate(t.id)}
+        onClick={() => setPendingDelete(t)}
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
       >
         <Trash2 size={14} />
@@ -243,12 +313,12 @@ export function TransactionTable({
               key: 'delete',
               label: 'Delete',
               icon: Trash2,
-              onSelect: () => deleteTransaction.mutate(t.id),
+              onSelect: () => setPendingDelete(t),
               className: 'bg-danger text-white dark:bg-danger-light dark:text-danger',
             },
           ]
         : []
-    const subline = [t.type === 'transfer' ? 'Transfer' : t.category, accountDisplay, t.payment_method ? `via ${t.payment_method}` : null]
+    const subline = [t.type === 'transfer' ? 'Transfer' : t.category, accountDisplay, card ? null : methodNote]
       .filter(Boolean)
       .join(' · ')
     const tagLine = t.tags.length ? t.tags.map((tag) => `#${tag}`).join(' ') : null
@@ -385,7 +455,7 @@ export function TransactionTable({
             <div className="truncate text-sm text-slate-600" title={accountDisplay}>
               {accountDisplay}
             </div>
-            {t.payment_method && <div className="truncate text-helper text-slate-400">via {t.payment_method}</div>}
+            {methodNote && <div className="truncate text-helper text-slate-400">{methodNote}</div>}
           </div>
           <div className="hidden min-w-0 xl:block">
             <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
@@ -433,11 +503,11 @@ export function TransactionTable({
         >
           {scope === 'everyone' && peopleOptions.length > 0 && (
             <Dropdown
-              options={[ALL_PEOPLE, ...peopleOptions.map((p) => p.name)]}
-              value={ownerName ?? ALL_PEOPLE}
+              options={[ALL_PEOPLE, ...personLabels.map((p) => p.label)]}
+              value={ownerLabel ?? ALL_PEOPLE}
               aria-label="Filter by person"
               onChange={(e) =>
-                setFilter({ ownerId: peopleOptions.find((p) => p.name === e.target.value)?.id ?? null })
+                setFilter({ ownerId: personLabels.find((p) => p.label === e.target.value)?.id ?? null })
               }
             />
           )}
@@ -448,10 +518,12 @@ export function TransactionTable({
             onChange={(e) => setFilter({ category: e.target.value === 'All categories' ? null : e.target.value })}
           />
           <Dropdown
-            options={['All accounts', ...accounts]}
-            value={filters.account ?? 'All accounts'}
-            aria-label="Filter by account"
-            onChange={(e) => setFilter({ account: e.target.value === 'All accounts' ? null : e.target.value })}
+            options={[ALL_ACCOUNTS, ...accountFilterOptions.map((o) => o.label)]}
+            value={accountFilterLabel ?? ALL_ACCOUNTS}
+            aria-label="Filter by account or card"
+            onChange={(e) =>
+              setFilter({ account: accountFilterOptions.find((o) => o.label === e.target.value)?.value ?? null })
+            }
           />
         </div>
       </div>
@@ -517,15 +589,22 @@ export function TransactionTable({
 
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/30 bg-accent-light px-3 py-2">
-          <span className="text-sm font-medium text-accent-on-light">{selected.size} selected</span>
+          <span className="text-sm font-medium text-accent-on-light">
+            {selected.size} selected
+            {skippedTransfers > 0 && categorizableSelected.length > 0 && (
+              <span className="font-normal"> · category skips {skippedTransfers} transfer{skippedTransfers === 1 ? '' : 's'}</span>
+            )}
+          </span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Dropdown
-              options={categories}
-              value={BULK_CATEGORY_PLACEHOLDER}
-              aria-label="Bulk change category"
-              disabled={bulkUpdateCategory.isPending}
-              onChange={(e) => handleBulkCategoryChange(e.target.value)}
-            />
+            {bulkCategoryOptions.length > 0 && (
+              <Dropdown
+                options={bulkCategoryOptions}
+                value={BULK_CATEGORY_PLACEHOLDER}
+                aria-label="Bulk change category"
+                disabled={bulkUpdateCategory.isPending}
+                onChange={(e) => handleBulkCategoryChange(e.target.value)}
+              />
+            )}
             <Button
               variant="danger"
               onClick={() => setConfirmBulkDelete(true)}
@@ -650,9 +729,26 @@ export function TransactionTable({
         }
       >
         <p className="text-sm text-slate-700">
-          Delete {selected.size} transaction{selected.size === 1 ? '' : 's'}? This can't be undone.
+          Delete {selected.size} transaction{selected.size === 1 ? '' : 's'}? Any splits on them are removed too. This
+          can't be undone.
         </p>
       </Modal>
+
+      <ConfirmDeleteModal
+        open={pendingDelete !== null}
+        title="Delete transaction"
+        pending={deleteTransaction.isPending}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+      >
+        {pendingDelete && (
+          <p>
+            Delete <span className="font-medium">{pendingDelete.merchant}</span> ({formatSigned(pendingDelete.amount, pendingDelete.type)},{' '}
+            {formatDate(pendingDelete.date)})?
+            {pendingDelete.type === 'expense' && ' Any split on it is removed too.'} This can't be undone.
+          </p>
+        )}
+      </ConfirmDeleteModal>
     </div>
   )
 }

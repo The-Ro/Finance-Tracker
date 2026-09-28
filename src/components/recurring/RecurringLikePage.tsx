@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Repeat } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, PageHeaderAction } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
+import { useToast } from '@/context/ToastContext'
 import { SuggestionCard } from './SuggestionCard'
 import { ConfirmedItemRow } from './ConfirmedItemRow'
 import { RecurringFormModal } from './RecurringFormModal'
@@ -30,6 +31,19 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
   const kinds = useAccountKinds()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<RecurringItem | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<RecurringItem | null>(null)
+  const { show } = useToast()
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return
+    remove.mutate(pendingDelete.id, {
+      onSuccess: () => setPendingDelete(null),
+      onError: () => {
+        setPendingDelete(null)
+        show("Couldn't delete that item. Try again.", { tone: 'error' })
+      },
+    })
+  }
 
   const totals = useMemo(() => {
     const activeConfirmed = confirmed.filter((c) => c.active)
@@ -57,14 +71,13 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
       <PageHeader
         title={title}
         actions={
-          <Button
+          <PageHeaderAction
+            label={addLabel}
             onClick={() => {
               setEditing(null)
               setModalOpen(true)
             }}
-          >
-            {addLabel}
-          </Button>
+          />
         }
       />
 
@@ -108,7 +121,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
                     setEditing(item)
                     setModalOpen(true)
                   }}
-                  onDelete={() => remove.mutate(item.id)}
+                  onDelete={() => setPendingDelete(item)}
                   onToggleActive={() => update.mutate({ id: item.id, active: !item.active })}
                   onMarkPaid={() => markPaid.mutate(item)}
                   markPaidPending={markPaid.isPending}
@@ -120,6 +133,18 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
       </div>
 
       <RecurringFormModal open={modalOpen} onClose={() => setModalOpen(false)} kind={kind} editing={editing} />
+      <ConfirmDeleteModal
+        open={pendingDelete !== null}
+        title={kind === 'subscription' ? 'Delete subscription' : 'Delete recurring payment'}
+        pending={remove.isPending}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+      >
+        <p>
+          Delete <span className="font-medium">{pendingDelete?.name}</span>? Past transactions stay; it just stops being
+          tracked. This can't be undone.
+        </p>
+      </ConfirmDeleteModal>
     </div>
   )
 }

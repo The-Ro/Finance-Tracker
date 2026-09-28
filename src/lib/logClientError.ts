@@ -9,12 +9,13 @@ export function logClientError(error: Error, extra?: { componentStack?: string }
   void (async () => {
     try {
       const { data } = await supabase.auth.getSession()
+      // Limits mirror client_errors_size_check; an over-long row would be rejected outright.
       await supabase.from('client_errors').insert({
         owner_user_id: data.session?.user.id ?? null,
-        message: error.message,
-        stack: [error.stack, extra?.componentStack].filter(Boolean).join('\n\n'),
-        url: window.location.href,
-        user_agent: navigator.userAgent,
+        message: String(error.message).slice(0, 5000),
+        stack: [error.stack, extra?.componentStack].filter(Boolean).join('\n\n').slice(0, 50000),
+        url: window.location.href.slice(0, 4096),
+        user_agent: navigator.userAgent.slice(0, 1024),
       })
     } catch {
       // Logging the error failed too -- nothing more we can do client-side.

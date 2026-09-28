@@ -6,6 +6,15 @@ describe('normalizeMerchant', () => {
     expect(normalizeMerchant('  BLUE-BOTTLE Coffee #4471 ')).toBe('blue bottle coffee')
     expect(normalizeMerchant('UBER *TRIP 88123456')).toBe('uber trip')
   })
+
+  it('keeps letters from any script and folds accents', () => {
+    expect(normalizeMerchant('スターバックス')).toBe('スターバックス')
+    expect(normalizeMerchant('Café Nero')).toBe('cafe nero')
+    expect(normalizeMerchant('Crème Brûlée #12')).toBe('creme brulee')
+    expect(normalizeMerchant('ＡＭＡＺＯＮ')).toBe('amazon')
+    expect(normalizeMerchant('बिग बाज़ार')).not.toBe('')
+    expect(merchantsSimilar('CAFÉ NERO', 'Cafe Nero')).toBe(true)
+  })
 })
 
 describe('merchantsSimilar', () => {

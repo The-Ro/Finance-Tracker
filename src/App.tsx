@@ -29,6 +29,7 @@ const GoalsPage = lazy(() => import('@/pages/GoalsPage').then((m) => ({ default:
 const DocumentsPage = lazy(() => import('@/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 const RulesPage = lazy(() => import('@/pages/RulesPage').then((m) => ({ default: m.RulesPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const CardPage = lazy(() => import('@/pages/CardPage').then((m) => ({ default: m.CardPage })))
 
 function RouteFallback() {
   return (
@@ -81,12 +82,14 @@ export default function App() {
                       <Route path="/subscriptions" element={<SubscriptionsPage />} />
                       <Route path="/budgets" element={<BudgetsPage />} />
                       <Route path="/bills" element={<BillsPage />} />
+                      <Route path="/cards/:account" element={<CardPage />} />
                       <Route path="/review" element={<ReviewPage />} />
                       <Route path="/shared" element={<SharedPage />} />
                       <Route path="/goals" element={<GoalsPage />} />
                       <Route path="/documents" element={<DocumentsPage />} />
                       <Route path="/rules" element={<RulesPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/settings/:section" element={<SettingsPage />} />
                     </Route>
                   </Route>
                 </Routes>

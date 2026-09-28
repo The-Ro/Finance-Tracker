@@ -21,7 +21,7 @@ export function SuggestionCard({ candidate, onKeep, onIgnore, busy }: Suggestion
           <p className="text-sm font-semibold text-slate-900">{candidate.merchant}</p>
           <span
             className={clsx(
-              'rounded-full px-2 py-0.5 text-[11px] font-medium',
+              'rounded-full px-2 py-0.5 text-xs font-medium',
               candidate.confidence === 'high' ? 'bg-positive-light text-positive' : 'bg-caution-light text-caution'
             )}
           >

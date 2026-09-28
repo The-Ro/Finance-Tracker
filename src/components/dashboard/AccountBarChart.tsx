@@ -1,92 +1,109 @@
 import { useMemo } from 'react'
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { BarChart3 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { PiggyBank } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/context/AuthContext'
 import { useAccountBalances, type Transaction } from '@/hooks/useTransactions'
+import { useAccountKinds, useClosedAccounts } from '@/hooks/useCards'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
-import { useTheme } from '@/context/ThemeContext'
-import { getChartTheme } from '@/lib/themeColors'
-import { axisTick, gridProps, seriesMotion, tooltipProps } from '@/lib/chartStyle'
+import { savingsAccountFlows } from '@/lib/savingsAccounts'
+import type { DateRange } from '@/lib/period'
 
 interface AccountBarChartProps {
-  /** Period-filtered -- used for the expense bar. Balance is all-time by
-   *  nature (a running total), so it's pulled separately via
-   *  useAccountBalances rather than derived from this same filtered set. */
+  /** Transactions for the whole history; `range` picks the period for in/out. */
   transactions: Transaction[]
+  range: DateRange
+  /** e.g. "This month" -- shown in the subtitle. */
+  periodLabel: string
 }
 
-const compactFormatter = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
-
-// Beyond this many accounts the chart gets cramped and the label rotation
-// stops helping -- show the busiest accounts and note how many are hidden.
-const MAX_ACCOUNTS_SHOWN = 8
-
-export function AccountBarChart({ transactions }: AccountBarChartProps) {
+/**
+ * Cash flow for savings accounts only: each account's balance, and how much
+ * came in and went out this period (transfers included -- moving money into
+ * savings is the point). Styled like the Review page's charts: accent bars
+ * that grow in, one readable row per account (works at phone width too).
+ */
+export function AccountBarChart({ transactions, range, periodLabel }: AccountBarChartProps) {
   const { userId } = useAuth()
-  const { format } = useFormatCurrency()
-  const { accentHex, isDark } = useTheme()
-  const colors = useMemo(() => getChartTheme(accentHex, isDark), [accentHex, isDark])
+  const { format, formatCompact } = useFormatCurrency()
   const balances = useAccountBalances(userId)
+  const kinds = useAccountKinds()
+  const closed = useClosedAccounts()
 
-  const { data, hiddenCount } = useMemo(() => {
-    const expenseByAccount = new Map<string, number>()
-    for (const t of transactions) {
-      if (t.type !== 'expense') continue
-      expenseByAccount.set(t.account, (expenseByAccount.get(t.account) ?? 0) + t.amount)
-    }
-    // Every account with either a balance (any transaction history at all)
-    // or expense activity this period gets a bar -- not just ones with
-    // period-scoped expense, since a balance-only account is still worth
-    // seeing here.
-    const accountNames = new Set([...balances.keys(), ...expenseByAccount.keys()])
-    const sorted = Array.from(accountNames)
-      .map((name) => ({ name, balance: balances.get(name) ?? 0, expense: expenseByAccount.get(name) ?? 0 }))
-      .sort((a, b) => Math.abs(b.balance) + b.expense - (Math.abs(a.balance) + a.expense))
-    return { data: sorted.slice(0, MAX_ACCOUNTS_SHOWN), hiddenCount: Math.max(0, sorted.length - MAX_ACCOUNTS_SHOWN) }
-  }, [transactions, balances])
+  const rows = useMemo(
+    () => savingsAccountFlows(transactions, balances, kinds, closed, range),
+    [transactions, balances, kinds, closed, range]
+  )
+  const scale = Math.max(1, ...rows.flatMap((r) => [r.moneyIn, r.moneyOut]))
+  const totalIn = rows.reduce((s, r) => s + r.moneyIn, 0)
+  const totalOut = rows.reduce((s, r) => s + r.moneyOut, 0)
 
   return (
     <Card className="p-5">
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-slate-800">Cash flow by account</h3>
-        <p className="text-helper text-slate-500">
-          Current balance against this period's spending, per account
-          {hiddenCount > 0 ? ` · ${hiddenCount} more not shown` : ''}.
-        </p>
-      </div>
-      {data.length === 0 ? (
-        <EmptyState icon={BarChart3} title="No activity yet" description="Add income or expense transactions to compare accounts." />
-      ) : (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ left: 4, right: 12, top: 8, bottom: 0 }} barGap={3} barCategoryGap="24%">
-              <CartesianGrid {...gridProps(colors)} />
-              <XAxis
-                dataKey="name"
-                tickLine={false}
-                axisLine={false}
-                height={28}
-                tick={axisTick(colors, 11)}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tick={axisTick(colors)}
-                tickFormatter={(v: number) => compactFormatter.format(v)}
-                width={44}
-              />
-              <Tooltip
-                formatter={(value: number) => format(value)}
-                {...tooltipProps(colors)}
-              />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: colors.tick }} />
-              <Bar dataKey="balance" name="Current balance" fill={colors.positive} fillOpacity={0.85} radius={[8, 8, 0, 0]} maxBarSize={28} {...seriesMotion(0)} />
-              <Bar dataKey="expense" name="Expense" fill={colors.danger} fillOpacity={0.85} radius={[8, 8, 0, 0]} maxBarSize={28} {...seriesMotion(1)} />
-            </BarChart>
-          </ResponsiveContainer>
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900">Savings accounts</h3>
+          <p className="text-helper text-slate-500">Balance, and money in and out · {periodLabel.toLowerCase()}</p>
         </div>
+        {rows.length > 0 && (
+          <div className="flex items-center gap-4 text-helper text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-accent dark:bg-accent-dark" />
+              In {formatCompact(totalIn)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-accent/40 dark:bg-accent-dark/50" />
+              Out {formatCompact(totalOut)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={PiggyBank}
+          title="No savings accounts yet"
+          description="Mark your bank accounts as Savings in Settings, Accounts, to track them here."
+          action={
+            <Link to="/settings/accounts" className="text-helper font-medium text-accent-dark hover:underline">
+              Open account settings
+            </Link>
+          }
+        />
+      ) : (
+        <ul className="stagger-rows flex flex-col gap-4">
+          {rows.map((r, i) => (
+            <li key={r.account} className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate text-sm font-semibold text-slate-800">{r.account}</span>
+                <span className={'shrink-0 font-serif text-lg font-semibold tabular-nums ' + (r.balance < 0 ? 'text-danger' : 'text-slate-900')}>
+                  {format(r.balance)}
+                </span>
+              </div>
+              {(['in', 'out'] as const).map((kind) => {
+                const value = kind === 'in' ? r.moneyIn : r.moneyOut
+                return (
+                  <div key={kind} className="flex items-center gap-3">
+                    <span className="w-8 shrink-0 text-helper text-slate-500">{kind === 'in' ? 'In' : 'Out'}</span>
+                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className={
+                          'animate-bar-grow h-full rounded-full ' +
+                          (kind === 'in' ? 'bg-accent dark:bg-accent-dark' : 'bg-accent/40 dark:bg-accent-dark/50')
+                        }
+                        style={{ width: `${value > 0 ? Math.max(2, (value / scale) * 100) : 0}%`, animationDelay: `${i * 80}ms` }}
+                      />
+                    </div>
+                    <span className="w-20 shrink-0 text-right text-helper font-medium tabular-nums text-slate-700">
+                      {formatCompact(value)}
+                    </span>
+                  </div>
+                )
+              })}
+            </li>
+          ))}
+        </ul>
       )}
     </Card>
   )

@@ -5,6 +5,8 @@
 export type TransactionType = 'expense' | 'income' | 'transfer'
 export type TransactionSource = 'manual' | 'csv'
 export type CategoryKind = 'expense' | 'income'
+/** Savings and current are both bank accounts; debit cards are separate (debit_cards table) and draw from one. */
+export type AccountKind = 'savings' | 'current' | 'credit_card' | 'cash' | 'wallet'
 export type PaymentMethod =
   | 'UPI'
   | 'Cash'
@@ -74,7 +76,7 @@ export interface Database {
           created_by: string | null
           created_at: string
           opening_balance: number
-          kind: 'bank' | 'credit_card' | 'cash' | 'wallet'
+          kind: AccountKind
           credit_limit: number | null
           statement_day: number | null
           due_day: number | null
@@ -82,6 +84,19 @@ export interface Database {
         }
         Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
+      }
+      debit_cards: {
+        Row: {
+          id: string
+          owner_user_id: string
+          name: string
+          last4: string | null
+          /** The savings/current account the card draws from (accounts.name). */
+          account: string
+          created_at: string
+        }
+        Insert: { owner_user_id: string; name: string; last4?: string | null; account: string }
+        Update: Partial<{ name: string; last4: string | null; account: string }>
       }
       tags: {
         Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string }
@@ -101,6 +116,8 @@ export interface Database {
           to_account: string | null
           remarks: string | null
           payment_method: PaymentMethod | null
+          /** Set when paid with a debit card; `account` is then that card's linked account. */
+          debit_card_id: string | null
           tags: string[]
           receipt: boolean
           receipt_document_id: string | null
@@ -123,6 +140,7 @@ export interface Database {
           to_account?: string | null
           remarks?: string | null
           payment_method?: PaymentMethod | null
+          debit_card_id?: string | null
           tags?: string[]
           receipt?: boolean
           receipt_document_id?: string | null
@@ -139,6 +157,7 @@ export interface Database {
           to_account: string | null
           remarks: string | null
           payment_method: PaymentMethod | null
+          debit_card_id: string | null
           amount: number
           date: string
           merchant: string
@@ -234,6 +253,8 @@ export interface Database {
           account: string | null
           active: boolean
           created_at: string
+          /** Maintained by the recurring_items_keep_anchor_day trigger; absent until that migration runs. */
+          anchor_day?: number | null
         }
         Insert: {
           id?: string
@@ -456,6 +477,15 @@ export interface Database {
       find_profile_by_email: {
         Args: { p_email: string }
         Returns: { id: string; display_name: string; email: string; avatar: string | null }[]
+      }
+      request_viewer_access: {
+        Args: { p_email: string }
+        Returns: undefined
+      }
+      /** Turns an account that was really a debit card into a debit card on p_linked_account, moving its transactions there. */
+      convert_account_to_debit_card: {
+        Args: { p_account: string; p_linked_account: string; p_last4: string | null }
+        Returns: { card_id: string; moved: number; removed_transfers: number }
       }
     }
   }

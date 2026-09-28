@@ -6,6 +6,8 @@ import type { Transaction } from '@/hooks/useTransactions'
 import type { ProfileMap } from '@/hooks/useProfiles'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate } from '@/lib/format'
+import { useDebitCards } from '@/hooks/useDebitCards'
+import { debitCardLabel } from '@/lib/debitCards'
 
 interface RecentActivityProps {
   title: string
@@ -17,6 +19,8 @@ interface RecentActivityProps {
 
 export function RecentActivity({ title, transactions, showOwner, profiles, emptyDescription }: RecentActivityProps) {
   const { formatSigned } = useFormatCurrency()
+  const { data: debitCards = [] } = useDebitCards()
+  const cardsById = new Map(debitCards.map((c) => [c.id, c]))
   const items = transactions.slice(0, 5)
 
   return (
@@ -28,6 +32,7 @@ export function RecentActivity({ title, transactions, showOwner, profiles, empty
         <ul className="stagger-rows flex flex-col gap-3">
           {items.map((t) => {
             const owner = profiles?.[t.owner_user_id]
+            const card = t.debit_card_id ? cardsById.get(t.debit_card_id) : undefined
             return (
               <li key={t.id} className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
@@ -35,7 +40,8 @@ export function RecentActivity({ title, transactions, showOwner, profiles, empty
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-slate-800">{t.merchant}</p>
                     <p className="truncate text-helper text-slate-500">
-                      {formatShortDate(t.date)} · {t.type === 'transfer' ? 'Transfer' : t.category} · {t.account}
+                      {formatShortDate(t.date)} · {t.type === 'transfer' ? 'Transfer' : t.category} ·{' '}
+                      {card ? debitCardLabel(card) : t.account}
                     </p>
                   </div>
                 </div>

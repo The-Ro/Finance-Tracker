@@ -61,7 +61,8 @@ export default {
       },
       fontSize: {
         body: ['15px', '22px'],
-        helper: ['12.5px', '18px'],
+        // 13px: the smallest text most screens use -- kept readable on phones.
+        helper: ['13px', '19px'],
       },
     },
   },

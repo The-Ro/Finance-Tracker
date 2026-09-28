@@ -70,7 +70,7 @@ export function SharingSettings() {
     setError(null)
     if (!found) return setError("Enter the person's email address and find them first.")
     try {
-      await sendRequest.mutateAsync(found.id)
+      await sendRequest.mutateAsync(found.email)
       clearFound()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send the request.')

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { Bell, Upload, Plus, LogOut, ChevronDown, Settings, MessageSquare, X } from 'lucide-react'
+import { Bell, FileUp, Plus, LogOut, ChevronDown, Settings, MessageSquare, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
@@ -56,16 +56,22 @@ export function TopBar() {
   }, [notifOpen])
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-[calc(76px+var(--safe-top))] items-center justify-end border-b border-app-border bg-white/95 px-4 pt-[var(--safe-top)] backdrop-blur md:px-8">
+    <header className="chrome-surface sticky top-0 z-20 flex min-h-[calc(76px+var(--safe-top))] items-center justify-end border-b border-app-border px-4 pt-[var(--safe-top)] md:px-8">
 
       <div className="flex items-center gap-2">
-        <Button variant="secondary" onClick={openImport} className="px-3 sm:px-4">
-          <Upload size={16} />
+        {/* Phones: one family of 44px circles (import, bell, avatar); sm+: labelled pills. */}
+        <button
+          type="button"
+          onClick={openImport}
+          aria-label="Import transactions from CSV"
+          className="press flex h-11 w-11 items-center justify-center gap-2 rounded-full border border-app-border bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto sm:px-4"
+        >
+          <FileUp size={18} aria-hidden="true" />
           <span className="hidden sm:inline">Import</span>
-        </Button>
-        <Button onClick={() => openAddEntry()} className="hidden px-3 sm:px-4 md:inline-flex">
+        </button>
+        <Button onClick={() => openAddEntry()} className="hidden h-11 rounded-full px-4 md:inline-flex">
           <Plus size={16} />
-          <span className="hidden sm:inline">Add entry</span>
+          <span>Add entry</span>
         </Button>
 
         <div className="relative" ref={notifRef}>
@@ -74,11 +80,11 @@ export function TopBar() {
             aria-haspopup="dialog"
             aria-expanded={notifOpen}
             aria-label="Sharing notifications"
-            className="press relative flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
+            className="press relative flex h-11 w-11 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
           >
-            <Bell size={17} />
+            <Bell size={18} aria-hidden="true" />
             {hasNotifications && (
-              <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
+              <span className="absolute right-2 top-2 flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 motion-safe:animate-ping" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
               </span>
@@ -91,7 +97,7 @@ export function TopBar() {
               // Fixed + viewport-relative insets on mobile so a 320px-wide panel anchored
               // to this small button doesn't blow past the left edge of a narrow screen;
               // sm+ has room to anchor it normally under the bell instead.
-              className="animate-scale-in fixed inset-x-4 top-[calc(76px+var(--safe-top))] z-30 flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[80vh] sm:w-96"
+              className="animate-scale-in fixed inset-x-4 top-[calc(76px+var(--safe-top))] z-30 flex max-h-[70dvh] flex-col gap-3 overflow-y-auto overscroll-contain rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[min(80vh,calc(100dvh_-_6rem))] sm:w-96"
             >
               <div className="flex items-center justify-between border-b border-app-border pb-2">
                 <h2 className="text-sm font-semibold text-slate-800">Notifications</h2>
@@ -120,7 +126,7 @@ export function TopBar() {
                 </div>
               )}
               <NavLink
-                to="/settings"
+                to="/settings/sharing"
                 onClick={() => setNotifOpen(false)}
                 className="block text-center text-helper font-medium text-accent-dark hover:underline"
               >
@@ -136,10 +142,10 @@ export function TopBar() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-label="Account menu"
-            className="press flex h-10 items-center gap-1.5 rounded-full border border-app-border bg-white px-2 pr-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="press flex h-11 w-11 items-center justify-center gap-1.5 rounded-full border border-app-border bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto sm:justify-start sm:pl-1.5 sm:pr-3"
           >
-            <Avatar avatar={avatar} name={displayName || email || '?'} size={28} />
-            <ChevronDown size={14} />
+            <Avatar avatar={avatar} name={displayName || email || '?'} size={32} />
+            <ChevronDown size={14} className="hidden sm:block" aria-hidden="true" />
           </button>
           {menuOpen && (
             <div
@@ -170,7 +176,7 @@ export function TopBar() {
                   permanent spot once that flow's been used for a while. */}
               <NavLink
                 role="menuitem"
-                to="/settings#feedback"
+                to="/settings/feedback"
                 onClick={() => setMenuOpen(false)}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
               >

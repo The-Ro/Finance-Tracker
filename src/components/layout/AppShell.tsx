@@ -35,8 +35,10 @@ export function AppShell() {
           <div className="mb-4 empty:hidden">
             <OfflineBanner />
           </div>
-          {/* Keying by path replays the fade-in-up animation on every navigation. */}
-          <div key={location.pathname} className="animate-fade-in-up">
+          {/* Keying by the top-level path replays the fade-in-up animation on every
+              page change; sub-pages (/settings/<section>) animate their own content
+              so the Settings sub-nav doesn't remount on each click. */}
+          <div key={location.pathname.split('/')[1]} className="animate-fade-in-up">
             <Outlet />
           </div>
         </main>

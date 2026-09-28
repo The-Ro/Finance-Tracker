@@ -7,6 +7,8 @@ export interface CsvColumnMapping {
   amount: string | null
   debit: string | null
   credit: string | null
+  /** expense/income (or debit/credit, Dr/Cr) per row -- e.g. this app's own export. */
+  type: string | null
   category: string | null
   account: string | null
 }
@@ -29,14 +31,46 @@ export function parseCsvFile(file: File): Promise<ParsedCsv> {
   })
 }
 
-const HEADER_HINTS: Record<keyof CsvColumnMapping, string[]> = {
-  date: ['date', 'transaction date', 'posted date'],
-  merchant: ['description', 'merchant', 'payee', 'name', 'details'],
-  amount: ['amount', 'value'],
-  debit: ['debit', 'withdrawal', 'money out'],
-  credit: ['credit', 'deposit', 'money in'],
-  category: ['category', 'type of expense'],
-  account: ['account', 'account name', 'card'],
+const DEBIT_TERMS = ['debit', 'debits', 'withdrawal', 'withdrawals', 'dr', 'money out', 'paid out']
+const CREDIT_TERMS = ['credit', 'credits', 'deposit', 'deposits', 'cr', 'money in', 'paid in']
+const AMOUNT_TERMS = ['amount', 'amt', 'value', 'sum']
+const MERCHANT_TERMS = ['description', 'merchant', 'payee', 'name', 'details', 'narration', 'particulars', 'memo']
+
+/** Header split into lowercase whole words, space-padded so phrase checks can't match mid-word. */
+function headerWords(header: string): string {
+  const words = header
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+  return ` ${words.join(' ')} `
+}
+
+function hasTerm(words: string, terms: string[]): boolean {
+  return terms.some((t) => words.includes(` ${t} `))
+}
+
+/**
+ * Which field a header most likely is, by whole words and in priority order --
+ * substring matching used to map "Value Date" to the amount, "Debit Amount" to
+ * a single signed amount (turning every debit into income) and "Account Name"
+ * to the merchant.
+ */
+function classifyHeader(header: string): keyof CsvColumnMapping | null {
+  const w = headerWords(header)
+  if (hasTerm(w, ['date'])) return 'date'
+  if (hasTerm(w, ['balance'])) return null
+  if (hasTerm(w, ['category', 'type of expense'])) return 'category'
+  if (hasTerm(w, ['account', 'card'])) return 'account'
+  const debit = hasTerm(w, DEBIT_TERMS)
+  const credit = hasTerm(w, CREDIT_TERMS)
+  if ((debit && credit) || hasTerm(w, ['type'])) return 'type'
+  if (debit) return 'debit'
+  if (credit) return 'credit'
+  if (hasTerm(w, AMOUNT_TERMS)) return 'amount'
+  if (hasTerm(w, MERCHANT_TERMS)) return 'merchant'
+  return null
 }
 
 export function detectColumnMapping(headers: string[]): CsvColumnMapping {
@@ -46,17 +80,21 @@ export function detectColumnMapping(headers: string[]): CsvColumnMapping {
     amount: null,
     debit: null,
     credit: null,
+    type: null,
     category: null,
     account: null,
   }
 
-  const lowerHeaders = headers.map((h) => ({ raw: h, lower: h.trim().toLowerCase() }))
-
-  for (const key of Object.keys(HEADER_HINTS) as (keyof CsvColumnMapping)[]) {
-    const hints = HEADER_HINTS[key]
-    const match = lowerHeaders.find((h) => hints.some((hint) => h.lower === hint || h.lower.includes(hint)))
-    if (match) mapping[key] = match.raw
+  // A "Value Date" (settlement date) is only used when there's no transaction date.
+  const ordered = [...headers].sort(
+    (a, b) => Number(hasTerm(headerWords(a), ['value'])) - Number(hasTerm(headerWords(b), ['value']))
+  )
+  for (const header of ordered) {
+    const field = classifyHeader(header)
+    if (field && !mapping[field]) mapping[field] = header
   }
+
+  if (mapping.debit && mapping.credit) mapping.amount = null
 
   return mapping
 }
@@ -70,48 +108,90 @@ export function isMappingAmbiguous(mapping: CsvColumnMapping): boolean {
   return false
 }
 
-function normalizeDate(raw: string): string | null {
-  const trimmed = raw.trim()
-  // Already ISO.
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
-  // Two 1-2-digit numbers plus a 4-digit year, separated by /, -, or . --
-  // covers MM/DD/YYYY (US), DD/MM/YYYY (UK/EU/India), and DD.MM.YYYY.
-  const dateMatch = trimmed.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/)
-  if (dateMatch) {
-    const [, a, b, yyyy] = dateMatch
-    const aNum = Number(a)
-    const bNum = Number(b)
-    // Only swap when the format is unambiguous -- one of the two numbers is
-    // >12 and so can't possibly be a month, meaning it must be the day. When
-    // both are <=12 (e.g. "03/04/2026") there's no way to tell from the
-    // string alone, so this keeps assuming MM/DD/YYYY as before rather than
-    // guessing a "better" default that could just as easily be wrong.
-    let month = a
-    let day = b
-    if (aNum > 12 && bNum <= 12) {
-      month = b
-      day = a
-    }
-    return `${yyyy}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-  }
-  // JS parses a non-ISO date-only string like "January 5, 2026" as local
-  // midnight, so pulling it back out has to read the same Date object's
-  // local fields -- toISOString() would convert to UTC first and could
-  // shift the date by a day depending on the importing user's timezone.
-  const parsed = new Date(trimmed)
-  if (!Number.isNaN(parsed.getTime())) return toLocalISODate(parsed)
-  return null
+export type DayMonthOrder = 'mdy' | 'dmy'
+
+const NUMERIC_DATE = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2}|\d{4})$/
+const DAY_MONTHNAME_YEAR = /^(\d{1,2})[\s\-/.]+([A-Za-z]{3,9})\.?[\s\-/.,]+(\d{2}|\d{4})$/
+const MONTHNAME_DAY_YEAR = /^([A-Za-z]{3,9})\.?[\s\-/.]+(\d{1,2})(?:st|nd|rd|th)?,?[\s\-/.]+(\d{2}|\d{4})$/
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+function fullYear(y: string): number {
+  return y.length === 2 ? 2000 + Number(y) : Number(y)
 }
 
-/** Strips currency symbols (only $ and , were handled before -- now any
- *  non-digit/separator character, covering ₹/€/£/¥ etc.), treats a
- *  parenthesized amount as negative ("(123.45)", a common bank-export
- *  convention for debits), and disambiguates US (1,234.56) vs European
- *  (1.234,56) thousands/decimal separators by treating whichever of '.'/','
- *  appears LAST as the decimal point. Returns NaN if nothing numeric-looking
- *  is left, same as a failed `Number()` call would have before. */
-function parseAmount(raw: string): number {
-  let s = raw.trim()
+function monthFromName(name: string): number {
+  return MONTHS.indexOf(name.slice(0, 3).toLowerCase()) + 1
+}
+
+/**
+ * Decides day/month order once for the whole file: a file is either US
+ * (MM/DD) or day-first (DD/MM), never both. Any row whose first number is >12
+ * proves day-first; any whose second is >12 proves month-first. When every
+ * row is ambiguous (both <=12) there's no signal, so MM/DD stays the default.
+ */
+export function detectDayMonthOrder(values: string[]): DayMonthOrder {
+  let dmy = 0
+  let mdy = 0
+  for (const v of values) {
+    const m = v?.trim().match(NUMERIC_DATE)
+    if (!m) continue
+    const a = Number(m[1])
+    const b = Number(m[2])
+    if (a > 12 && b <= 12) dmy++
+    else if (b > 12 && a <= 12) mdy++
+  }
+  return dmy > mdy ? 'dmy' : 'mdy'
+}
+
+function isoIfValid(year: number, month: number, day: number): string | null {
+  if (month < 1 || month > 12 || day < 1) return null
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  if (day > daysInMonth) return null
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+/** A real calendar date as ISO, or null (unparseable, or impossible like Feb 30). */
+function normalizeDate(raw: string, order: DayMonthOrder): string | null {
+  const trimmed = raw.trim()
+  const yearFirst = trimmed.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/)
+  if (yearFirst) return isoIfValid(Number(yearFirst[1]), Number(yearFirst[2]), Number(yearFirst[3]))
+
+  const numeric = trimmed.match(NUMERIC_DATE)
+  if (numeric) {
+    const [, a, b, y] = numeric
+    return order === 'dmy'
+      ? isoIfValid(fullYear(y), Number(b), Number(a))
+      : isoIfValid(fullYear(y), Number(a), Number(b))
+  }
+
+  // "05-Mar-26", "5 March 2026", "Mar 5, 26" -- common in bank exports, and
+  // a two-digit year is one new Date() can't be trusted with.
+  const dmy = trimmed.match(DAY_MONTHNAME_YEAR)
+  if (dmy && monthFromName(dmy[2]) > 0) return isoIfValid(fullYear(dmy[3]), monthFromName(dmy[2]), Number(dmy[1]))
+  const mdy = trimmed.match(MONTHNAME_DAY_YEAR)
+  if (mdy && monthFromName(mdy[1]) > 0) return isoIfValid(fullYear(mdy[3]), monthFromName(mdy[1]), Number(mdy[2]))
+
+  // Text dates ("5 Mar 2026", "March 5, 2026"). JS parses a date-only string
+  // like this as local midnight, so it's read back through local fields --
+  // toISOString() would convert to UTC and could shift it by a day. JS also
+  // rolls "30 Feb" over into March and invents a year for "Mar 5", so a year
+  // must be present and the parsed day must be one of the numbers written.
+  if (!/\b\d{4}\b/.test(trimmed)) return null
+  const parsed = new Date(trimmed)
+  if (Number.isNaN(parsed.getTime())) return null
+  const numbers = (trimmed.match(/\d+/g) ?? []).map(Number)
+  if (!numbers.includes(parsed.getDate())) return null
+  return toLocalISODate(parsed)
+}
+
+/** Strips currency symbols/codes, treats a parenthesized amount, a minus
+ *  before or after the number (ASCII or Unicode −) and a "DR" marker as
+ *  negative, and disambiguates US (1,234.56) vs European (1.234,56)
+ *  separators by treating whichever of '.'/',' appears LAST as the decimal
+ *  point; a lone comma with 1-2 digits after it ("12,5") is a decimal too.
+ *  Returns NaN if nothing numeric-looking is left. */
+export function parseAmount(raw: string): number {
+  let s = raw.trim().replace(/−/g, '-')
   if (!s) return NaN
 
   let negative = false
@@ -120,10 +200,23 @@ function parseAmount(raw: string): number {
     negative = true
     s = parenMatch[1].trim()
   }
-  if (s.startsWith('-')) {
-    negative = true
-    s = s.slice(1)
+
+  const suffix = s.match(/(dr|cr)\.?$/i)
+  if (suffix && suffix.index !== undefined && (suffix.index === 0 || !/\p{L}/u.test(s[suffix.index - 1]))) {
+    if (suffix[1].toLowerCase() === 'dr') negative = true
+    s = s.slice(0, suffix.index).trim()
   }
+  const prefix = s.match(/^(dr|cr)\.?(?!\p{L})/iu)
+  if (prefix) {
+    if (prefix[1].toLowerCase() === 'dr') negative = true
+    s = s.slice(prefix[0].length).trim()
+  }
+
+  const firstDigit = s.search(/\d/)
+  if (firstDigit === -1) return NaN
+  // Letters between digit groups ("01 Mar 2026") means this isn't an amount.
+  if (/\d[^\d]*\p{L}[^\d]*\d/u.test(s)) return NaN
+  if (s.slice(0, firstDigit).includes('-') || /-\s*$/.test(s)) negative = true
 
   s = s.replace(/[^0-9.,]/g, '')
 
@@ -132,16 +225,31 @@ function parseAmount(raw: string): number {
   if (lastDot !== -1 && lastComma !== -1) {
     s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '')
   } else if (lastComma !== -1) {
-    // Only a comma present -- treat it as the decimal point when exactly 2
-    // digits follow it (e.g. "1234,56"), otherwise as a thousands separator
-    // (e.g. "1,234").
+    const commaCount = s.split(',').length - 1
     const digitsAfter = s.length - lastComma - 1
-    s = digitsAfter === 2 ? s.replace(',', '.') : s.replace(/,/g, '')
+    s = commaCount === 1 && (digitsAfter === 1 || digitsAfter === 2) ? s.replace(',', '.') : s.replace(/,/g, '')
+  } else if (lastDot !== -1 && s.indexOf('.') !== lastDot) {
+    // "1.234.567" -- more than one dot can only be thousands separators.
+    s = s.replace(/\./g, '')
   }
 
   const num = Number(s)
   if (!Number.isFinite(num)) return NaN
   return negative ? -num : num
+}
+
+type RowType = 'expense' | 'income' | 'transfer'
+
+const EXPENSE_TYPES = new Set(['expense', 'debit', 'dr', 'd', 'withdrawal', 'moneyout', 'out'])
+const INCOME_TYPES = new Set(['income', 'credit', 'cr', 'c', 'deposit', 'moneyin', 'in'])
+
+function parseRowType(raw: string | undefined): RowType | null {
+  const v = (raw ?? '').trim().toLowerCase().replace(/[^a-z]/g, '')
+  if (!v) return null
+  if (v === 'transfer') return 'transfer'
+  if (EXPENSE_TYPES.has(v)) return 'expense'
+  if (INCOME_TYPES.has(v)) return 'income'
+  return null
 }
 
 export interface NormalizedCsvRow {
@@ -155,7 +263,12 @@ export interface NormalizedCsvRow {
 
 export interface CsvNormalizeResult {
   ok: NormalizedCsvRow[]
+  /** Every row not imported, including the two breakdowns below. */
   skipped: number
+  /** Rows whose date was present but isn't a real calendar date (e.g. 31/02/2026). */
+  invalidDates: number
+  /** Transfer rows (e.g. from this app's own export) -- import only brings in expenses and income. */
+  transfers: number
 }
 
 export function normalizeCsvRows(
@@ -167,51 +280,60 @@ export function normalizeCsvRows(
 ): CsvNormalizeResult {
   const categoryLookup = new Map(knownCategories.map((c) => [c.toLowerCase(), c]))
   const accountLookup = new Map(knownAccounts.map((a) => [a.toLowerCase(), a]))
+  const dateColumn = mapping.date
+  const order = detectDayMonthOrder(dateColumn ? rows.map((r) => r[dateColumn] ?? '') : [])
   const ok: NormalizedCsvRow[] = []
   let skipped = 0
+  let invalidDates = 0
+  let transfers = 0
+
+  const fromAmountColumn = (row: Record<string, string>, typeHint: RowType | null) => {
+    if (!mapping.amount) return null
+    const raw = row[mapping.amount]?.trim()
+    const num = raw ? parseAmount(raw) : NaN
+    if (!Number.isFinite(num) || num === 0) return null
+    const type: 'expense' | 'income' =
+      typeHint === 'expense' || typeHint === 'income' ? typeHint : num < 0 ? 'expense' : 'income'
+    return { amount: Math.abs(num), type }
+  }
+
+  const fromDebitCredit = (row: Record<string, string>) => {
+    const debitRaw = mapping.debit ? row[mapping.debit]?.trim() : ''
+    const creditRaw = mapping.credit ? row[mapping.credit]?.trim() : ''
+    const debit = debitRaw ? parseAmount(debitRaw) : NaN
+    const credit = creditRaw ? parseAmount(creditRaw) : NaN
+    // Some banks write debits as negatives in the Debit column -- still a debit.
+    if (Number.isFinite(debit) && debit !== 0) return { amount: Math.abs(debit), type: 'expense' as const }
+    if (Number.isFinite(credit) && credit !== 0) return { amount: Math.abs(credit), type: 'income' as const }
+    return null
+  }
+
+  const preferDebitCredit = !!mapping.debit && !!mapping.credit
 
   for (const row of rows) {
-    const dateRaw = mapping.date ? row[mapping.date] : ''
+    const dateRaw = dateColumn ? row[dateColumn]?.trim() : ''
     const merchantRaw = mapping.merchant ? row[mapping.merchant] : ''
-    const date = dateRaw ? normalizeDate(dateRaw) : null
+    const date = dateRaw ? normalizeDate(dateRaw, order) : null
     const merchant = merchantRaw?.trim()
 
+    if (dateRaw && !date) invalidDates++
     if (!date || !merchant) {
       skipped++
       continue
     }
 
-    let amount: number | null = null
-    let type: 'expense' | 'income' | null = null
-
-    if (mapping.amount) {
-      const raw = row[mapping.amount]?.trim()
-      const num = raw ? parseAmount(raw) : NaN
-      if (!Number.isFinite(num) || num === 0) {
-        skipped++
-        continue
-      }
-      amount = Math.abs(num)
-      type = num < 0 ? 'expense' : 'income'
-    } else {
-      const debitRaw = mapping.debit ? row[mapping.debit]?.trim() : ''
-      const creditRaw = mapping.credit ? row[mapping.credit]?.trim() : ''
-      const debit = debitRaw ? parseAmount(debitRaw) : NaN
-      const credit = creditRaw ? parseAmount(creditRaw) : NaN
-
-      if (Number.isFinite(debit) && debit > 0) {
-        amount = Math.abs(debit)
-        type = 'expense'
-      } else if (Number.isFinite(credit) && credit > 0) {
-        amount = Math.abs(credit)
-        type = 'income'
-      } else {
-        skipped++
-        continue
-      }
+    const typeHint = mapping.type ? parseRowType(row[mapping.type]) : null
+    if (typeHint === 'transfer') {
+      transfers++
+      skipped++
+      continue
     }
 
-    if (amount === null || type === null || !Number.isFinite(amount) || amount <= 0) {
+    const parsed = preferDebitCredit
+      ? (fromDebitCredit(row) ?? fromAmountColumn(row, typeHint))
+      : (fromAmountColumn(row, typeHint) ?? fromDebitCredit(row))
+
+    if (!parsed || !Number.isFinite(parsed.amount) || parsed.amount <= 0) {
       skipped++
       continue
     }
@@ -222,8 +344,8 @@ export function normalizeCsvRows(
     const rawAccount = mapping.account ? row[mapping.account]?.trim() : ''
     const account = (rawAccount && accountLookup.get(rawAccount.toLowerCase())) || fallbackAccount
 
-    ok.push({ date, merchant, amount, type, category, account })
+    ok.push({ date, merchant, amount: parsed.amount, type: parsed.type, category, account })
   }
 
-  return { ok, skipped }
+  return { ok, skipped, invalidDates, transfers }
 }

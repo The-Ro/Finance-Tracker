@@ -15,6 +15,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     to_account: null,
     remarks: null,
     payment_method: null,
+    debit_card_id: null,
     tags: [],
     receipt: false,
     receipt_document_id: null,

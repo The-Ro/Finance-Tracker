@@ -66,7 +66,7 @@ export function DocumentVaultList() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium capitalize text-slate-600">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600">
                 {doc.status}
               </span>
               <button

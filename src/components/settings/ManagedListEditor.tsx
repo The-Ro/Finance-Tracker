@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { Check, Trash2 } from 'lucide-react'
+import { Check, Trash2, X } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/context/ToastContext'
@@ -251,7 +251,7 @@ export function ManagedListEditor({ title, items, onAdd, onRemove }: ManagedList
                       isSelected ? 'text-accent-on-light' : 'text-slate-400'
                     )}
                   >
-                    <Trash2 size={13} />
+                    <X size={14} strokeWidth={2.25} />
                   </button>
                 )}
               </li>

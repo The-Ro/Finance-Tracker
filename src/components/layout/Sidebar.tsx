@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
-import { NAV_GROUPS, type NavGroup } from './navItems'
+import { NAV_GROUPS, SETTINGS_NAV_ITEM, type NavGroup, type NavItem } from './navItems'
 import { BrandMark } from '@/components/ui/BrandHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/context/AuthContext'
@@ -15,7 +15,7 @@ import '@/styles/sidebar.css'
  *   sections, the signed-in user and Settings at the bottom). AppShell pads
  *   the rest of the page past it.
  * - below lg: FloatingMenu -- the brand mark sits fixed at the top-left and
- *   opens the same grouped nav list as a floating card.
+ *   opens the same grouped nav, plus Settings, as a floating card.
  */
 export function Sidebar() {
   return (
@@ -31,18 +31,24 @@ export function Sidebar() {
 /**
  * One labelled section ("Money", "Plan", "More"). The small uppercase label
  * also names the group for screen readers (role="group" + aria-labelledby).
- * `index` staggers the sections' rise-in (sidebar.css).
+ * `index` staggers the sections' rise-in (sidebar.css). `rowClassName` sets
+ * each row's size and padding; `listClassName` lays the rows out (e.g. the
+ * phone menu's two-column grid).
  */
 function NavSection({
   group,
   index,
+  items = group.items,
   rowClassName,
   labelClassName,
+  listClassName = 'flex flex-col gap-0.5',
 }: {
   group: NavGroup
   index: number
+  items?: NavItem[]
   rowClassName: string
   labelClassName: string
+  listClassName?: string
 }) {
   const labelId = useId()
   return (
@@ -54,29 +60,31 @@ function NavSection({
     >
       <p
         id={labelId}
-        className={clsx('text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500', labelClassName)}
+        className={clsx('text-xs font-bold uppercase tracking-[0.12em] text-slate-500', labelClassName)}
       >
         {group.label}
       </p>
-      {group.items.map(({ to, label, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/'}
-          className={({ isActive }) =>
-            clsx(
-              'sidebar-row flex shrink-0 items-center gap-3 rounded-xl px-3 text-sm',
-              rowClassName,
-              isActive
-                ? 'bg-accent-light font-semibold text-accent-on-light'
-                : 'font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            )
-          }
-        >
-          <Icon size={18} aria-hidden="true" className="sidebar-row-icon shrink-0" />
-          <span className="truncate">{label}</span>
-        </NavLink>
-      ))}
+      <div className={listClassName}>
+        {items.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              clsx(
+                'sidebar-row flex min-w-0 shrink-0 items-center rounded-xl text-sm',
+                rowClassName,
+                isActive
+                  ? 'bg-accent-light font-semibold text-accent-on-light'
+                  : 'font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              )
+            }
+          >
+            <Icon size={18} aria-hidden="true" className="sidebar-row-icon shrink-0" />
+            <span className="truncate">{label}</span>
+          </NavLink>
+        ))}
+      </div>
     </div>
   )
 }
@@ -107,7 +115,7 @@ function DesktopSidebar() {
             key={group.label}
             group={group}
             index={i}
-            rowClassName="min-h-10"
+            rowClassName="min-h-10 gap-3 px-3"
             labelClassName={clsx('px-3 pb-0.5', i === 0 ? 'pt-1.5' : 'pt-2')}
           />
         ))}
@@ -155,7 +163,9 @@ function DesktopSidebar() {
  * pages (plus the wordmark at sm+) sitting directly on the page, at the same
  * size as on login -- no colored bubble or pulsing animation behind it.
  * Open, it becomes a plain close (X) button and shows the same Money / Plan /
- * More sections as the desktop rail (44px rows here -- touch targets).
+ * More sections as the desktop rail, two 44px rows per line from 360px wide so
+ * the whole menu fits an iPhone screen; Settings fills the last group's spare
+ * cell (on desktop it's the rail's footer instead).
  */
 function FloatingMenu() {
   const [open, setOpen] = useState(false)
@@ -191,7 +201,7 @@ function FloatingMenu() {
         aria-haspopup="true"
         aria-expanded={open}
         className={clsx(
-          'press fixed left-4 top-[calc(1rem+var(--safe-top))] z-40 flex items-center [@media(hover:hover)]:hover:scale-105',
+          'press fixed left-[calc(1rem+env(safe-area-inset-left))] top-[calc(1rem+var(--safe-top))] z-40 flex items-center [@media(hover:hover)]:hover:scale-105',
           open
             ? 'h-12 w-12 justify-center rounded-full bg-slate-900/85 text-white shadow-card'
             : 'min-h-[44px] gap-2'
@@ -201,9 +211,11 @@ function FloatingMenu() {
           <X size={18} />
         ) : (
           <>
-            {/* 36px, so the flourish-less small artwork. */}
-            <BrandMark size="sm" />
-            <span className="hidden whitespace-nowrap font-serif text-sm font-semibold text-slate-900 sm:inline">
+            {/* Same full coin and wordmark as the desktop rail; the name only
+                drops out on phones narrower than 340px, where it would crowd
+                the header buttons. */}
+            <BrandMark size="md" className="h-10 w-10" />
+            <span className="whitespace-nowrap font-serif text-xl font-semibold leading-tight text-slate-900 max-[339px]:hidden">
               Ledge<span className="text-accent-dark">Eaze</span>
             </span>
           </>
@@ -213,7 +225,7 @@ function FloatingMenu() {
       {open && (
         <nav
           aria-label="Primary"
-          className="animate-scale-in fixed left-4 top-[calc(5rem+var(--safe-top))] z-40 flex max-h-[calc(100dvh-6rem-var(--safe-top))] w-60 flex-col gap-2 overflow-y-auto rounded-card border border-app-border bg-app-card p-3 shadow-card"
+          className="animate-scale-in fixed left-[calc(1rem+env(safe-area-inset-left))] top-[calc(5rem+var(--safe-top))] z-40 flex max-h-[calc(100dvh_-_6rem_-_var(--safe-top)_-_env(safe-area-inset-bottom))] w-[min(21.5rem,calc(100vw_-_2rem))] flex-col gap-2 overflow-y-auto rounded-card border border-app-border bg-app-card p-3 shadow-card"
         >
           <p className="px-2 text-sm font-semibold text-slate-900">
             Ledge<span className="text-accent-dark">Eaze</span>
@@ -223,8 +235,10 @@ function FloatingMenu() {
               key={group.label}
               group={group}
               index={i}
-              rowClassName="min-h-[44px]"
+              items={i === NAV_GROUPS.length - 1 ? [...group.items, SETTINGS_NAV_ITEM] : group.items}
+              rowClassName="min-h-[44px] gap-2.5 px-2.5"
               labelClassName="px-3 pb-0.5 pt-1"
+              listClassName="grid grid-cols-1 gap-0.5 min-[360px]:grid-cols-2"
             />
           ))}
         </nav>

@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { useRules, type Rule } from '@/hooks/useRules'
-import { Button } from '@/components/ui/Button'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, PageHeaderAction } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -42,14 +41,13 @@ export function RulesPage() {
       <PageHeader
         title="Rules"
         actions={
-          <Button
+          <PageHeaderAction
+            label="New rule"
             onClick={() => {
               setEditing(null)
               setModalOpen(true)
             }}
-          >
-            Create rule
-          </Button>
+          />
         }
       />
 

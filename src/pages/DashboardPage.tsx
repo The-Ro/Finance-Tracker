@@ -19,7 +19,6 @@ import { useRecurringItemsRaw } from '@/hooks/useRecurring'
 import { useBudgets } from '@/hooks/useBudgets'
 import { useCardStatuses } from '@/hooks/useCards'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
-import { PageHeader } from '@/components/ui/PageHeader'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
 import { SortableSummaryCard } from '@/components/dashboard/SortableSummaryCard'
 import { SavingsFlowCard } from '@/components/dashboard/SavingsFlowCard'
@@ -35,7 +34,7 @@ import { MonthSpendingCard } from '@/components/dashboard/MonthSpendingCard'
 import { CustomizeDashboardModal } from '@/components/dashboard/CustomizeDashboardModal'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { resolvePeriod, resolvePriorPeriod, isWithinRange } from '@/lib/period'
+import { resolvePeriod, resolvePriorPeriod, isWithinRange, PERIOD_OPTIONS } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { firstName, greetingFor } from '@/lib/home'
 import { monthlySavings, savingsHeadline } from '@/lib/savings'
@@ -222,14 +221,14 @@ export function DashboardPage() {
           settings.data?.netWorthConfigured ? (
             <>
               Assets minus liabilities ·{' '}
-              <Link to="/settings#net-worth" className="font-medium text-accent-dark hover:underline">
+              <Link to="/settings/net-worth" className="font-medium text-accent-dark hover:underline">
                 Edit
               </Link>
             </>
           ) : (
             <>
               Add your assets and liabilities in{' '}
-              <Link to="/settings#net-worth" className="font-medium text-accent-dark hover:underline">
+              <Link to="/settings/net-worth" className="font-medium text-accent-dark hover:underline">
                 Settings
               </Link>
               .
@@ -279,7 +278,8 @@ export function DashboardPage() {
     summary: (
       <DndContext sensors={summaryCardSensors} collisionDetection={closestCenter} onDragEnd={handleSummaryCardDragEnd}>
         <SortableContext items={visibleSummaryCardOrder} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Two tiles a row on phones too; an odd one out spans the row. */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 [&>*:last-child:nth-child(odd)]:col-span-2 xl:[&>*:last-child:nth-child(odd)]:col-span-1">
             {visibleSummaryCardOrder.map((id) => (
               <SortableSummaryCard key={id} id={id} label={SUMMARY_CARD_LABELS[id]}>
                 {summaryCards[id]}
@@ -301,7 +301,13 @@ export function DashboardPage() {
     // each rendered full-width (rather than paired in a 2-col grid) since
     // Customize can now put something else between them.
     categoryChart: <CategoryDonut transactions={inPeriod} income={income} />,
-    accountChart: <AccountBarChart transactions={inPeriod} />,
+    accountChart: (
+      <AccountBarChart
+        transactions={myTransactions.data ?? []}
+        range={range}
+        periodLabel={PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'This period'}
+      />
+    ),
     accountBalances: <AccountBalances />,
     activity: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -333,24 +339,24 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="animate-fade-in-up flex flex-col gap-1">
-        <p className="text-sm text-slate-500">{dateLabel}</p>
-        <PageHeader
-          title={
-            <>
-              {greeting}
-              <button
-                type="button"
-                aria-label="Customize dashboard"
-                onClick={() => setCustomizeOpen(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <SlidersHorizontal size={16} />
-              </button>
-            </>
-          }
-          actions={<PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />}
-        />
+      {/* Phones: greeting + customize on one row, the period below. From sm
+          it's one row: greeting ... period, customize (flex order swaps). */}
+      <div className="animate-fade-in-up flex flex-wrap items-center gap-x-2 gap-y-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className="text-sm text-slate-500">{dateLabel}</p>
+          <h1 className="font-serif text-2xl font-semibold text-slate-900">{greeting}</h1>
+        </div>
+        <button
+          type="button"
+          aria-label="Customize dashboard"
+          onClick={() => setCustomizeOpen(true)}
+          className="order-2 flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 sm:order-3 sm:self-auto"
+        >
+          <SlidersHorizontal size={18} />
+        </button>
+        <div className="order-3 basis-full sm:order-2 sm:basis-auto">
+          <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+        </div>
       </div>
 
       <HomeTiles balances={balances} saved={savedThisMonth} />

@@ -74,32 +74,43 @@ export function GoalCard({ goal, onEdit, onDelete, onAddMoney }: GoalCardProps) 
 
   return (
     <Card className="card-interactive flex h-full flex-col gap-3 p-4">
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-3.5">
         <GoalRing percent={percent} reached={reached} label={`${goal.name} progress`} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="truncate text-[15px] font-bold text-slate-900">{goal.name}</p>
+          <div className="flex items-start justify-between gap-1">
+            <p className="truncate pt-1 text-[15px] font-bold text-slate-900">{goal.name}</p>
+            <div className="-mr-2.5 -mt-1.5 flex shrink-0">
+              <button
+                type="button"
+                aria-label={`Edit ${goal.name}`}
+                onClick={onEdit}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <Pencil size={15} />
+              </button>
+              <button
+                type="button"
+                aria-label={`Delete ${goal.name}`}
+                onClick={onDelete}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          </div>
           <p className="text-sm tabular-nums text-slate-600">
-            {format(animatedCurrent)} of {format(goal.target_amount)}
+            <span className="font-semibold text-slate-900">{format(animatedCurrent)}</span>{' '}
+            <span className="whitespace-nowrap">of {format(goal.target_amount)}</span>
           </p>
           <p className="text-helper">{paceLine}</p>
         </div>
-        <button
-          type="button"
-          aria-label={`Add money to ${goal.name}`}
-          onClick={onAddMoney}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-border text-slate-700 transition-colors hover:bg-slate-100 active:scale-[0.97]"
-        >
-          <Plus size={18} strokeWidth={2.2} />
-        </button>
       </div>
 
-      {goal.note && <p className="text-helper italic text-slate-500">{goal.note}</p>}
-
-      <div className="-mb-2 -mr-2 mt-auto flex items-center justify-between gap-2">
+      <div className="mt-auto flex items-center justify-between gap-3">
         {reached ? (
           <span
             className={clsx(
-              'inline-flex items-center gap-1.5 rounded-full bg-brass-light px-2.5 py-1 text-helper font-semibold text-slate-900',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brass-light px-2.5 py-1 text-helper font-semibold text-slate-900',
               popBadge && 'animate-pop-in'
             )}
           >
@@ -107,27 +118,19 @@ export function GoalCard({ goal, onEdit, onDelete, onAddMoney }: GoalCardProps) 
             Goal reached
           </span>
         ) : (
-          <span />
+          <p className="min-w-0 text-helper italic text-slate-500">{goal.note}</p>
         )}
-        <div className="flex">
-          <button
-            type="button"
-            aria-label={`Edit ${goal.name}`}
-            onClick={onEdit}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <Pencil size={15} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Delete ${goal.name}`}
-            onClick={onDelete}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-danger-light hover:text-danger"
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label={`Add money to ${goal.name}`}
+          onClick={onAddMoney}
+          className="press inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-xl border border-app-border px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+        >
+          <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+          Add money
+        </button>
       </div>
+      {reached && goal.note && <p className="-mt-1 text-helper italic text-slate-500">{goal.note}</p>}
     </Card>
   )
 }

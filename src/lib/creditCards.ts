@@ -1,12 +1,25 @@
 import { addDaysISO } from '@/lib/billCalendar'
+import type { AccountKind } from '@/types/database.types'
 
-export type AccountKind = 'bank' | 'credit_card' | 'cash' | 'wallet'
+export type { AccountKind }
+
+/** The kind an account has when nothing says otherwise (new and seeded bank accounts). */
+export const DEFAULT_ACCOUNT_KIND: AccountKind = 'savings'
+
+/** Display order for pickers and settings. */
+export const ACCOUNT_KINDS: AccountKind[] = ['savings', 'current', 'credit_card', 'cash', 'wallet']
 
 export const ACCOUNT_KIND_LABELS: Record<AccountKind, string> = {
-  bank: 'Bank',
+  savings: 'Savings account',
+  current: 'Current account',
   credit_card: 'Credit card',
   cash: 'Cash',
   wallet: 'Wallet',
+}
+
+/** Savings and current accounts are the bank accounts; only these can have debit cards. */
+export function isBankKind(kind: AccountKind | undefined): boolean {
+  return kind === 'savings' || kind === 'current'
 }
 
 export interface AccountDetails {
@@ -18,7 +31,7 @@ export interface AccountDetails {
   closed?: boolean
 }
 
-interface FlowTransaction {
+export interface FlowTransaction {
   type: string
   date: string
   amount: number
@@ -160,6 +173,100 @@ export function cashAndCardDebt(
 /** True when money leaving this account can't exceed what's there (not a credit card). */
 export function isFundedAccount(kind: AccountKind | undefined): boolean {
   return kind !== 'credit_card'
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+/** A card's stored opening balance from a positive "amount owed today" (negative = the card is in credit). */
+export function owedToOpening(owed: number): number {
+  const opening = round2(-owed)
+  return opening === 0 ? 0 : opening
+}
+
+/** The positive "amount owed" for a card's stored opening balance (negative when the card was in credit). */
+export function openingToOwed(opening: number): number {
+  const owed = round2(-opening)
+  return owed === 0 ? 0 : owed
+}
+
+export type StatementStatus = 'paid' | 'partly paid' | 'unpaid' | 'upcoming'
+
+export interface StatementSummary {
+  statementDate: string
+  dueDate: string
+  /** Owed at the end of the statement date (never negative). */
+  statementBalance: number
+  /** Paid into the card after the statement date, up to the due date (or today, if that's sooner). */
+  paidByDue: number
+  /**
+   * paid: nothing was owed, or payments by the due date covered it.
+   * upcoming: not fully paid yet, but the due date hasn't passed.
+   * partly paid / unpaid: the due date passed with some / no payment.
+   */
+  status: StatementStatus
+}
+
+/** Money coming into the card (payments and refunds), excluding spends. */
+function inflowOn(account: string, t: FlowTransaction): number {
+  return t.type !== 'expense' && effectOn(account, t) > 0 ? t.amount : 0
+}
+
+/**
+ * The card's last `count` statements, newest first (the first is the one
+ * cardStatus().bill describes). Empty without both a statement and a due day.
+ * Statement days past a month's end clamp to its last day (31 -> 28 Feb).
+ */
+export function statementHistory(
+  account: string,
+  opening: number,
+  transactions: FlowTransaction[],
+  details: AccountDetails,
+  today: string,
+  count = 6
+): StatementSummary[] {
+  const { statementDay, dueDay } = details
+  if (!statementDay || !dueDay) return []
+  const [y, m] = lastStatementDate(statementDay, today).split('-').map(Number)
+  const out: StatementSummary[] = []
+  for (let k = 0; k < count; k++) {
+    const statementDate = dayOfMonth(y, m - 1 - k, statementDay)
+    const dueDate = dueDateAfter(statementDate, dueDay)
+    const statementBalance = Math.max(0, -balanceAt(account, opening, transactions, statementDate))
+    const paidUntil = dueDate < today ? dueDate : today
+    let paid = 0
+    for (const t of transactions) {
+      if (t.date > statementDate && t.date <= paidUntil) paid += inflowOn(account, t)
+    }
+    const paidByDue = round2(paid)
+    const covered = statementBalance === 0 || paidByDue >= statementBalance - 0.005
+    const status: StatementStatus = covered
+      ? 'paid'
+      : dueDate >= today
+        ? 'upcoming'
+        : paidByDue > 0
+          ? 'partly paid'
+          : 'unpaid'
+    out.push({ statementDate, dueDate, statementBalance, paidByDue, status })
+  }
+  return out
+}
+
+/**
+ * Card spends since the last statement date -- they go on the next bill.
+ * Null without a statement day (there's no statement to be "after").
+ */
+export function unbilled<T extends FlowTransaction>(
+  account: string,
+  transactions: readonly T[],
+  details: AccountDetails,
+  today: string
+): { since: string; transactions: T[]; total: number } | null {
+  if (!details.statementDay) return null
+  const since = lastStatementDate(details.statementDay, today)
+  const spends = transactions
+    .filter((t) => t.type === 'expense' && t.account === account && t.date > since && t.date <= today)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+  return { since, transactions: spends, total: round2(spends.reduce((sum, t) => sum + t.amount, 0)) }
 }
 
 /** Days until an ISO date from `today` (negative when past). */

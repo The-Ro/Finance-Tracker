@@ -1,4 +1,5 @@
 import { normalizeMerchant } from '@/lib/merchant'
+import { todayISO } from '@/lib/format'
 import type { Cadence, RecurringKind } from '@/types/database.types'
 
 export interface DetectableTransaction {
@@ -76,29 +77,41 @@ function addDays(iso: string, days: number): string {
   return dt.toISOString().slice(0, 10)
 }
 
-function addMonthsPreserveDay(iso: string, months: number): string {
+function addMonthsPreserveDay(iso: string, months: number, day?: number): string {
   const [y, m, d] = iso.split('-').map(Number)
   const target = new Date(Date.UTC(y, m - 1 + months, 1))
   const lastDayOfTargetMonth = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate()
-  target.setUTCDate(Math.min(d, lastDayOfTargetMonth))
+  target.setUTCDate(Math.min(day ?? d, lastDayOfTargetMonth))
   return target.toISOString().slice(0, 10)
 }
 
-export function nextDateForCadence(lastDate: string, cadence: Cadence): string {
+/**
+ * The n-th occurrence after `anchor` (n = 0 is the anchor itself). Always
+ * measured from the anchor, never by stepping from the previous occurrence --
+ * stepping from an already-clamped date made a 31st-of-the-month bill drift
+ * to the 28th for good (Jan 31 -> Feb 28 -> Mar 28 -> ...). `dayOfMonth`
+ * overrides the anchor's own day for month-based cadences, for when the
+ * anchor is itself a clamped date (Feb 28 standing in for the 31st).
+ */
+export function nthDateForCadence(anchor: string, cadence: Cadence, n: number, dayOfMonth?: number): string {
   switch (cadence) {
     case 'weekly':
-      return addDays(lastDate, 7)
+      return addDays(anchor, 7 * n)
     case 'biweekly':
-      return addDays(lastDate, 14)
+      return addDays(anchor, 14 * n)
     case 'monthly':
-      return addMonthsPreserveDay(lastDate, 1)
+      return addMonthsPreserveDay(anchor, n, dayOfMonth)
     case 'quarterly':
-      return addMonthsPreserveDay(lastDate, 3)
+      return addMonthsPreserveDay(anchor, 3 * n, dayOfMonth)
     case 'half-yearly':
-      return addMonthsPreserveDay(lastDate, 6)
+      return addMonthsPreserveDay(anchor, 6 * n, dayOfMonth)
     case 'annual':
-      return addMonthsPreserveDay(lastDate, 12)
+      return addMonthsPreserveDay(anchor, 12 * n, dayOfMonth)
   }
+}
+
+export function nextDateForCadence(lastDate: string, cadence: Cadence): string {
+  return nthDateForCadence(lastDate, cadence, 1)
 }
 
 function monthlyEquivalent(amount: number, cadence: Cadence): number {
@@ -132,12 +145,14 @@ function hasRecurringHint(normalizedMerchant: string, category: string, tags: st
 /**
  * Detects recurring/subscription candidates from a single user's own expense
  * transactions. Never auto-confirms -- callers decide what to do with the result
- * (show a "Keep" / "Ignore" suggestion).
+ * (show a "Keep" / "Ignore" suggestion). A pattern that has missed two of its
+ * own cycles (e.g. a subscription cancelled months ago) isn't suggested.
  */
 export function detectRecurringCandidates(
   transactions: DetectableTransaction[],
   alreadyConfirmedNormalizedMerchants: Set<string>,
-  dismissedPatternKeys: Set<string>
+  dismissedPatternKeys: Set<string>,
+  today: string = todayISO()
 ): RecurringCandidate[] {
   const groups = new Map<string, DetectableTransaction[]>()
   for (const txn of transactions) {
@@ -162,6 +177,9 @@ export function detectRecurringCandidates(
     const medianInterval = median(intervals)
     const cadence = classifyCadence(medianInterval)
     if (!cadence) continue
+
+    const lastDate = uniqueDates[uniqueDates.length - 1]
+    if (nthDateForCadence(lastDate, cadence, 2) < today) continue
 
     const amounts = txns.map((t) => t.amount)
     const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length
@@ -202,7 +220,7 @@ export function detectRecurringCandidates(
       confidence,
       averageAmount: avgAmount,
       monthlyEquivalent: monthlyEquivalent(avgAmount, cadence),
-      nextDate: nextDateForCadence(uniqueDates[uniqueDates.length - 1], cadence),
+      nextDate: nextDateForCadence(lastDate, cadence),
       kind: isSubscription ? 'subscription' : 'recurring',
       account: mostRecentTxn.account,
     })

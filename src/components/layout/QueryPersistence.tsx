@@ -3,7 +3,12 @@ import { dehydrate, hydrate, useQueryClient, type DehydratedState } from '@tanst
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import { idbDelete, idbGet, idbSet } from '@/lib/idbStore'
-import { isRestorable, shouldPersistQueryKey, type PersistedCache } from '@/lib/queryPersistence'
+import {
+  cacheResetOnAuthChange,
+  isRestorable,
+  shouldPersistQueryKey,
+  type PersistedCache,
+} from '@/lib/queryPersistence'
 
 const CACHE_KEY = 'query-cache'
 const SAVE_THROTTLE_MS = 2_000
@@ -15,8 +20,9 @@ const SAVE_THROTTLE_MS = 2_000
  * mutations made offline just wait (TanStack pauses them) and only go through
  * if the tab is still open when the connection comes back.
  *
- * Scoped to one user: a saved cache is only restored for the same userId, and
- * both the in-memory and saved cache are wiped as soon as the user signs out.
+ * Scoped to one user: a saved cache is only restored for the same userId, the
+ * in-memory cache is wiped whenever the user changes, and the saved cache is
+ * deleted whenever auth resolves to nobody (see cacheResetOnAuthChange).
  * hydrate() never overwrites a query with older data, so a restore that lands
  * after a fresh fetch is harmless.
  */
@@ -25,19 +31,16 @@ export function QueryPersistence() {
   const { userId, loading } = useAuth()
   const previousUserId = useRef<string | null>(null)
 
-  // Restore / wipe on sign-in and sign-out.
+  // Restore / wipe on sign-in, sign-out and account switches.
   useEffect(() => {
     if (loading) return
     const previous = previousUserId.current
     previousUserId.current = userId
 
-    if (!userId) {
-      if (previous) {
-        queryClient.clear()
-        idbDelete(CACHE_KEY).catch(() => {})
-      }
-      return
-    }
+    const reset = cacheResetOnAuthChange(previous, userId)
+    if (reset.clearMemory) queryClient.clear()
+    if (reset.deleteSaved) idbDelete(CACHE_KEY).catch(() => {})
+    if (!userId) return
 
     let cancelled = false
     idbGet<PersistedCache<DehydratedState>>(CACHE_KEY)

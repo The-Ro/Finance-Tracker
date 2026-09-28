@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { balanceAt, cardStatus, cashAndCardDebt, daysUntil, dueDateAfter, lastStatementDate } from './creditCards'
+import {
+  balanceAt,
+  cardStatus,
+  cashAndCardDebt,
+  daysUntil,
+  dueDateAfter,
+  isBankKind,
+  isFundedAccount,
+  lastStatementDate,
+  openingToOwed,
+  owedToOpening,
+  statementHistory,
+  unbilled,
+  type FlowTransaction,
+} from './creditCards'
 
 const card = 'HDFC Pixel Card'
 const tx = [
@@ -63,12 +77,80 @@ describe('cashAndCardDebt', () => {
       ['ICICI Card', 200],
     ])
     const kinds = new Map([
-      ['HDFC Bank', 'bank' as const],
+      ['HDFC Bank', 'savings' as const],
       ['Cash', 'cash' as const],
       [card, 'credit_card' as const],
       ['ICICI Card', 'credit_card' as const],
     ])
     expect(cashAndCardDebt(balances, kinds)).toEqual({ cash: 10700, cardDebt: 1150, net: 9550 })
+  })
+})
+
+describe('account kinds', () => {
+  it('treats savings and current as bank accounts, and only cards as unfunded', () => {
+    expect(isBankKind('savings')).toBe(true)
+    expect(isBankKind('current')).toBe(true)
+    expect(isBankKind('credit_card')).toBe(false)
+    expect(isBankKind('cash')).toBe(false)
+    expect(isBankKind(undefined)).toBe(false)
+    expect(isFundedAccount('current')).toBe(true)
+    expect(isFundedAccount('credit_card')).toBe(false)
+  })
+})
+
+describe('owed <-> opening balance', () => {
+  it('stores a positive amount owed as a negative opening balance, and back', () => {
+    expect(owedToOpening(12862.4)).toBe(-12862.4)
+    expect(openingToOwed(-12862.4)).toBe(12862.4)
+    expect(owedToOpening(-200)).toBe(200) // card in credit
+    expect(Object.is(owedToOpening(0), 0)).toBe(true)
+    expect(Object.is(openingToOwed(0), 0)).toBe(true)
+  })
+})
+
+describe('statementHistory', () => {
+  it('lists statements newest first with paid / upcoming status', () => {
+    const history = statementHistory(card, 0, tx, details, '2026-09-27', 3)
+    expect(history.map((s) => s.statementDate)).toEqual(['2026-09-12', '2026-08-12', '2026-07-12'])
+    // 12 Sep: owes 900, due 2 Oct, nothing paid yet -> upcoming.
+    expect(history[0]).toEqual({ statementDate: '2026-09-12', dueDate: '2026-10-02', statementBalance: 900, paidByDue: 0, status: 'upcoming' })
+    // 12 Aug: owed 0 (the 20 Aug spend came after) -> nothing to pay.
+    expect(history[1]).toMatchObject({ statementBalance: 0, status: 'paid' })
+  })
+
+  it('marks past statements paid, partly paid or unpaid by what came in before the due date', () => {
+    const spend = [{ type: 'expense', date: '2026-07-05', amount: 1000, account: card, to_account: null }]
+    const late = [...spend, { type: 'transfer', date: '2026-08-10', amount: 1000, account: 'HDFC Bank', to_account: card }]
+    const part = [...spend, { type: 'transfer', date: '2026-07-30', amount: 400, account: 'HDFC Bank', to_account: card }]
+    const full = [...spend, { type: 'transfer', date: '2026-08-02', amount: 1000, account: 'HDFC Bank', to_account: card }]
+    const july = (t: FlowTransaction[]) => statementHistory(card, 0, t, details, '2026-09-27', 3)[2]
+    expect(july(spend)).toMatchObject({ statementDate: '2026-07-12', dueDate: '2026-08-02', statementBalance: 1000, paidByDue: 0, status: 'unpaid' })
+    expect(july(late).status).toBe('unpaid') // paid after the 2 Aug due date
+    expect(july(part)).toMatchObject({ paidByDue: 400, status: 'partly paid' })
+    expect(july(full)).toMatchObject({ paidByDue: 1000, status: 'paid' })
+  })
+
+  it('clamps a 31st statement day to each month end', () => {
+    const endOfMonth = { ...details, statementDay: 31, dueDay: 20 }
+    const history = statementHistory(card, 0, [], endOfMonth, '2026-03-15', 4)
+    expect(history.map((s) => s.statementDate)).toEqual(['2026-02-28', '2026-01-31', '2025-12-31', '2025-11-30'])
+    expect(history.map((s) => s.dueDate)).toEqual(['2026-03-20', '2026-02-20', '2026-01-20', '2025-12-20'])
+  })
+
+  it('is empty without statement and due days', () => {
+    expect(statementHistory(card, 0, tx, { ...details, dueDay: null }, '2026-09-27')).toEqual([])
+  })
+})
+
+describe('unbilled', () => {
+  it('lists card spends after the last statement, newest first', () => {
+    const u = unbilled(card, tx, details, '2026-09-27')
+    expect(u?.since).toBe('2026-09-12')
+    expect(u?.transactions.map((t) => t.date)).toEqual(['2026-09-20'])
+    expect(u?.total).toBe(250)
+  })
+  it('is null without a statement day', () => {
+    expect(unbilled(card, tx, { ...details, statementDay: null }, '2026-09-27')).toBeNull()
   })
 })
 

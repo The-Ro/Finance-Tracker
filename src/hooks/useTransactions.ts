@@ -6,7 +6,7 @@ import { buildFingerprint } from '@/lib/fingerprint'
 import { applyRules, type SimpleRule } from '@/lib/rules'
 import { calculateAccountBalances } from '@/lib/accountBalances'
 import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
-import { buildSearchOrFilter, type TransactionFilters } from '@/lib/transactionSearch'
+import { buildSearchOrFilter, parseAccountFilter, type TransactionFilters } from '@/lib/transactionSearch'
 import type { DateRange } from '@/lib/period'
 import type { Database, PaymentMethod, TransactionType } from '@/types/database.types'
 
@@ -22,6 +22,8 @@ export interface NewTransactionInput {
   toAccount?: string | null
   remarks?: string | null
   paymentMethod?: PaymentMethod | null
+  /** Paid with this debit card: `account` must be the card's linked account; payment method becomes 'Debit card'. */
+  debitCardId?: string | null
   tags: string[]
   receipt: boolean
   receiptDocumentId?: string | null
@@ -36,6 +38,17 @@ export interface ForeignAmount {
   rate: number
 }
 
+/**
+ * A debit-card payment always records 'Debit card' as its method (the database
+ * enforces the same). debit_card_id is only sent when set or explicitly cleared
+ * (null), so plain entries don't depend on the column existing yet.
+ */
+function debitCardColumns(debitCardId: string | null | undefined, paymentMethod: PaymentMethod | null | undefined) {
+  if (debitCardId) return { debit_card_id: debitCardId, payment_method: 'Debit card' as const }
+  if (debitCardId === null) return { debit_card_id: null, payment_method: paymentMethod ?? null }
+  return { payment_method: paymentMethod ?? null }
+}
+
 function foreignColumns(foreign: ForeignAmount | null | undefined) {
   return foreign
     ? { original_currency: foreign.currency, original_amount: foreign.amount, fx_rate: foreign.rate }
@@ -44,13 +57,24 @@ function foreignColumns(foreign: ForeignAmount | null | undefined) {
 
 const DUPLICATE_CODE = '23505'
 
+/** The transactions_debit_card trigger's errors, in words the entry form can show. */
+function debitCardError(error: { code?: string; message: string }): Error | null {
+  if (!/debit card/i.test(error.message)) return null
+  if (error.code === '23503') return new Error('That debit card no longer exists. Pick another card or account.')
+  if (error.code === '23514') {
+    return /spending and transfers/i.test(error.message)
+      ? new Error('Income can’t be paid with a debit card. Pick an account instead.')
+      : new Error('That debit card draws from a different account. Pick the card again.')
+  }
+  return null
+}
+
 /** Thrown instead of a plain Error on a fingerprint collision, so callers
  *  (AddEntryModal) can offer a "Save anyway" retry instead of just failing --
- *  the fingerprint is date+merchant+amount+account only (no category, see
- *  fingerprint.ts), so two genuinely different transactions that happen to
- *  share all four (e.g. two same-day, same-amount purchases at the same
- *  merchant, logged under different categories) collide here even though
- *  neither is actually a duplicate. */
+ *  the fingerprint has no category (see fingerprint.ts), so two genuinely
+ *  different transactions (e.g. two same-day, same-amount purchases at the
+ *  same merchant, logged under different categories) collide here even
+ *  though neither is actually a duplicate. */
 export class DuplicateTransactionError extends Error {
   constructor() {
     super('This looks like a duplicate of a transaction you already logged.')
@@ -67,11 +91,74 @@ function withDuplicateOverride(fingerprint: string, allowDuplicate: boolean | un
   return allowDuplicate ? `${fingerprint}|dup-${crypto.randomUUID().slice(0, 8)}` : fingerprint
 }
 
-/** Both transaction queries below cap out at this many rows -- there's no
- *  pagination yet, so a list that hits the cap is silently missing older
- *  rows. Exported so a page rendering the list can warn when its data hit
- *  it exactly (the one observable signal a plain `.limit()` gives you). */
+// Not anchored to the end: the fingerprint migration appended |income / |transfer|… after existing overrides.
+const DUPLICATE_OVERRIDE_SUFFIX = /\|dup-[0-9a-f]{8}(?=\||$)/
+
+function sameAccountName(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase()
+}
+
+/**
+ * An edit keeps the row's stored fingerprint unless a field that identifies
+ * the transaction (date, amount, type, accounts) changed -- tidying a
+ * CSV-imported row's merchant must not stop a re-import of the same statement
+ * from recognising it. When it is recomputed, a "Save anyway" suffix carries
+ * over so the row can't suddenly collide with the one it was saved beside.
+ */
+function fingerprintForUpdate(
+  existing: Pick<Transaction, 'date' | 'amount' | 'type' | 'account' | 'to_account' | 'fingerprint'>,
+  input: UpdateTransactionInput & { allowDuplicate?: boolean }
+): string {
+  const sameIdentity =
+    existing.date === input.date &&
+    Number(existing.amount).toFixed(2) === input.amount.toFixed(2) &&
+    existing.type === input.type &&
+    sameAccountName(existing.account, input.account) &&
+    sameAccountName(existing.to_account, input.toAccount)
+  if (sameIdentity && existing.fingerprint) return existing.fingerprint
+
+  const canonical = buildFingerprint({
+    date: input.date,
+    merchant: input.merchant,
+    amount: input.amount,
+    account: input.account,
+    type: input.type,
+    toAccount: input.toAccount ?? null,
+  })
+  const override = existing.fingerprint?.match(DUPLICATE_OVERRIDE_SUFFIX)?.[0]
+  return override ? canonical + override : withDuplicateOverride(canonical, input.allowDuplicate)
+}
+
+/** Both full-set transaction queries below stop at this many rows, so a list
+ *  that hits the cap is missing older rows. Exported so a page rendering the
+ *  list can warn when its data hit it exactly. */
 export const TRANSACTIONS_QUERY_LIMIT = 5000
+
+/** Supabase's API returns at most 1,000 rows per request by default (the
+ *  project's "Max rows" setting), whatever `.limit()` asks for -- so the
+ *  full-set queries fetch in chunks of this size. */
+const FULL_FETCH_CHUNK_SIZE = 1000
+
+async function fetchAllTransactions(ownerUserId?: string): Promise<Transaction[]> {
+  const rows: Transaction[] = []
+  while (rows.length < TRANSACTIONS_QUERY_LIMIT) {
+    const from = rows.length
+    const to = Math.min(from + FULL_FETCH_CHUNK_SIZE, TRANSACTIONS_QUERY_LIMIT) - 1
+    let query = supabase.from('transactions').select('*')
+    if (ownerUserId) query = query.eq('owner_user_id', ownerUserId)
+    // `id` breaks ties so chunks never overlap or skip rows (a CSV import
+    // gives a whole batch the same created_at).
+    const { data, error } = await query
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+    if (error) throw error
+    rows.push(...data)
+    if (data.length < to - from + 1) break
+  }
+  return rows
+}
 
 function invalidateTransactionQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['transactions'] })
@@ -81,33 +168,14 @@ export function useMyTransactions(userId: string | null) {
   return useQuery({
     queryKey: ['transactions', 'mine', userId],
     enabled: !!userId,
-    queryFn: async (): Promise<Transaction[]> => {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('owner_user_id', userId!)
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(TRANSACTIONS_QUERY_LIMIT)
-      if (error) throw error
-      return data
-    },
+    queryFn: () => fetchAllTransactions(userId!),
   })
 }
 
 export function useEveryoneTransactions() {
   return useQuery({
     queryKey: ['transactions', 'everyone'],
-    queryFn: async (): Promise<Transaction[]> => {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(TRANSACTIONS_QUERY_LIMIT)
-      if (error) throw error
-      return data
-    },
+    queryFn: () => fetchAllTransactions(),
   })
 }
 
@@ -130,13 +198,16 @@ async function fetchTransactionsPage(params: {
   query = query.lte('date', range.end)
   if (filters.type) query = query.eq('type', filters.type)
   if (filters.category) query = query.eq('category', filters.category)
-  if (filters.account) query = query.eq('account', filters.account)
+  const accountFilter = parseAccountFilter(filters.account)
+  if (accountFilter && 'debitCardId' in accountFilter) query = query.eq('debit_card_id', accountFilter.debitCardId)
+  else if (accountFilter) query = query.eq('account', accountFilter.account)
   const searchFilter = buildSearchOrFilter(filters.search)
   if (searchFilter) query = query.or(searchFilter)
 
   const { data, error } = await query
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
     .range(from, from + TRANSACTIONS_PAGE_SIZE - 1)
   if (error) throw error
   return data
@@ -207,6 +278,8 @@ export function useAddTransaction() {
           merchant: input.merchant,
           amount: input.amount,
           account: input.account,
+          type: input.type,
+          toAccount: input.toAccount ?? null,
         }),
         input.allowDuplicate
       )
@@ -223,7 +296,7 @@ export function useAddTransaction() {
           account: input.account,
           to_account: input.toAccount ?? null,
           remarks: input.remarks?.trim() || null,
-          payment_method: input.paymentMethod ?? null,
+          ...debitCardColumns(input.debitCardId || undefined, input.paymentMethod),
           tags,
           receipt: input.receipt,
           receipt_document_id: input.receiptDocumentId ?? null,
@@ -238,7 +311,7 @@ export function useAddTransaction() {
         if (error.code === DUPLICATE_CODE) {
           throw new DuplicateTransactionError()
         }
-        throw error
+        throw debitCardError(error) ?? error
       }
       return data
     },
@@ -257,6 +330,8 @@ export interface UpdateTransactionInput {
   toAccount?: string | null
   remarks?: string | null
   paymentMethod?: PaymentMethod | null
+  /** undefined leaves the stored debit card alone; null clears it; an id sets it (see NewTransactionInput). */
+  debitCardId?: string | null
   tags: string[]
   foreign?: ForeignAmount | null
 }
@@ -265,15 +340,13 @@ export function useUpdateTransaction() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: UpdateTransactionInput & { allowDuplicate?: boolean }) => {
-      const fingerprint = withDuplicateOverride(
-        buildFingerprint({
-          date: input.date,
-          merchant: input.merchant,
-          amount: input.amount,
-          account: input.account,
-        }),
-        input.allowDuplicate
-      )
+      const { data: existing, error: readError } = await supabase
+        .from('transactions')
+        .select('date, amount, type, account, to_account, fingerprint')
+        .eq('id', input.id)
+        .single()
+      if (readError) throw readError
+      const fingerprint = fingerprintForUpdate(existing, input)
 
       const { error } = await supabase
         .from('transactions')
@@ -286,7 +359,7 @@ export function useUpdateTransaction() {
           account: input.account,
           to_account: input.toAccount ?? null,
           remarks: input.remarks?.trim() || null,
-          payment_method: input.paymentMethod ?? null,
+          ...debitCardColumns(input.debitCardId, input.paymentMethod),
           tags: input.tags,
           fingerprint,
           ...foreignColumns(input.foreign),
@@ -297,7 +370,7 @@ export function useUpdateTransaction() {
         if (error.code === DUPLICATE_CODE) {
           throw new DuplicateTransactionError()
         }
-        throw error
+        throw debitCardError(error) ?? error
       }
     },
     onSuccess: () => invalidateTransactionQueries(queryClient),
@@ -413,6 +486,8 @@ export function useBulkImportTransactions() {
             merchant: row.merchant,
             amount: row.amount,
             account: row.account,
+            type: row.type,
+            toAccount: null,
           }),
         }
       })

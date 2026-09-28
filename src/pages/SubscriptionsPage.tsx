@@ -5,7 +5,7 @@ export function SubscriptionsPage() {
     <RecurringLikePage
       kind="subscription"
       title="Subscriptions"
-      addLabel="Add subscription"
+      addLabel="New subscription"
       emptyDescription="Subscriptions you confirm (streaming, software, memberships) will show up here."
     />
   )

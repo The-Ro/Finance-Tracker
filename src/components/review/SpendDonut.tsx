@@ -93,7 +93,7 @@ export function SpendDonut({ segments, centerValue, formatAmount }: SpendDonutPr
           })}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[11px] text-slate-500">Spent</span>
+          <span className="text-xs text-slate-500">Spent</span>
           <span className="font-serif text-xl font-semibold tabular-nums text-slate-900">{centerValue}</span>
         </div>
       </div>

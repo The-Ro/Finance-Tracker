@@ -1,8 +1,9 @@
 # LedgeEaze
 
 A multi-user personal finance tracker. Every signed-up user manages their own transactions,
-budgets, goals, recurring payments, subscriptions, documents, and rules — everything is
-private by default. **Transactions** are the one thing that can be shared: approve someone
+accounts and cards, budgets, goals, recurring payments, subscriptions, documents, and rules —
+everything is private by default. Savings/current accounts, debit cards (each drawing from one
+of those accounts) and credit cards (with limits, bills and statements) are kept separate. **Transactions** are the one thing that can be shared: approve someone
 in Settings → Sharing and they get read-only access to yours (or request access to theirs).
 
 Built as an installable Progressive Web App (PWA): it works on iOS and Android by adding

@@ -24,21 +24,28 @@ export function SummaryCard({ label, value, numericValue, format, valueClassName
   const displayValue = numericValue !== undefined && format ? format(animated) : value
 
   return (
-    <Card className={clsx('flex flex-col gap-3 p-5', highlight && 'border-accent/30 bg-accent-light')}>
+    <Card className={clsx('flex h-full flex-col gap-2 p-4 sm:gap-3 sm:p-5', highlight && 'border-accent/30 bg-accent-light')}>
       <span
         className={clsx(
-          'text-helper font-medium uppercase tracking-wide',
+          'pr-6 text-helper font-medium uppercase tracking-wide',
           highlight ? 'text-accent-on-light/80' : 'text-slate-500'
         )}
       >
         {label}
       </span>
-      <span className={clsx('font-serif text-2xl font-semibold tabular-nums text-slate-900', valueClassName)}>
+      {/* Half-width tiles on phones: smaller figure, and a very large amount
+          wraps rather than spilling out of the tile. */}
+      <span
+        className={clsx(
+          'font-serif text-lg font-semibold tabular-nums text-slate-900 [overflow-wrap:anywhere] sm:text-2xl',
+          valueClassName
+        )}
+      >
         {displayValue}
       </span>
       <div
         className={clsx(
-          'border-t pt-2 text-helper',
+          'mt-auto border-t pt-2 text-helper',
           highlight ? 'border-accent/20 text-accent-on-light/70' : 'border-app-border text-slate-500'
         )}
       >

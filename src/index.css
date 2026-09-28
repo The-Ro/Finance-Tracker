@@ -223,6 +223,14 @@
     height: 100%;
   }
 
+  /* viewport-fit=cover lets content run under the notch / Dynamic Island
+     when an iPhone is turned sideways; keep in-flow content (and the sticky
+     TopBar) clear of it. Fixed elements add these insets themselves. */
+  #root {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
   html {
     /* Belt-and-suspenders for the modal scroll-lock: html has no other
        background of its own, so any transient gap while the scrollbar
@@ -272,6 +280,38 @@
   ::selection {
     @apply bg-accent-light text-accent-on-light;
   }
+
+  /* Keyboard focus ring in the accent (instead of the browser's square blue
+     one); outline follows border-radius. Components with their own
+     `focus:outline-none` + ring keep theirs -- utilities beat this layer. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent-dark));
+    outline-offset: 2px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+/* Header + bottom tab bar surface. Opaque by default so page text never shows
+   through the tab labels; frosted (iOS-style) only where the browser can
+   actually blur what's behind it -- a translucent bar without the blur just
+   lets the content underneath read through. */
+.chrome-surface {
+  background-color: rgb(var(--app-card));
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .chrome-surface {
+    background-color: rgb(var(--app-card) / 0.86);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+.chrome-surface-bottom {
+  box-shadow: 0 -6px 20px rgba(16, 16, 40, 0.06);
+}
+.dark .chrome-surface-bottom {
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35);
 }
 
 @layer utilities {
@@ -583,8 +623,13 @@ button {
 .dark .text-slate-500 {
   color: #94a3b8;
 }
+/* Readability: slate-400 on white is ~2.6:1 and was used for real text (dates,
+   hints, captions). Darkened to ~4.4:1 in light mode; brightened in dark. */
+:root:not(.dark) .text-slate-400 {
+  color: #6f7a8b;
+}
 .dark .text-slate-400 {
-  color: #64748b;
+  color: #8390a3;
 }
 .dark .text-red-500 {
   color: #f87171;
@@ -624,8 +669,11 @@ button {
    14-15px by design (text-sm / inherited body size), so on touch viewports
    only, force 16px regardless of whichever size utility a given input
    happens to carry -- !important is deliberate here since this has to beat
-   arbitrary per-component text-size classes, not just the base layer. */
-@media (max-width: 767px) {
+   arbitrary per-component text-size classes, not just the base layer.
+   (pointer: coarse) covers phones in landscape, which are wider than 767px.
+   .amount-input opts out Add entry's big amount, which is already larger
+   than 16px and would otherwise be shrunk. */
+@media (max-width: 767px), (pointer: coarse) {
   input:not(.amount-input),
   select,
   textarea {

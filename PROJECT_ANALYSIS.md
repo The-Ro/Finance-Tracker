@@ -43,7 +43,7 @@ There is no custom application server, server-side rendering, background worker,
 - The browser is an untrusted client. RLS and database constraints—not hidden UI controls—are the authorization boundary.
 - `src/types/database.types.ts`, `supabase/schema.sql`, and `supabase/policies.sql` are maintained manually and must change together.
 - Recurring items do not advance automatically. Their next dates only move when the user marks an item paid.
-- Account balances are derived from recorded transactions; there is no opening-balance model.
+- Account balances are derived from each account's opening balance plus recorded transactions (opening balances were added after this analysis; see CLAUDE.md).
 
 ## Security and privacy assessment
 
@@ -86,9 +86,9 @@ Areas requiring ongoing verification:
 | Priority | Finding | Impact | Recommended direction |
 |---|---|---|---|
 | P1 | Transaction queries in `useTransactions.ts` use `.limit(5000)` with no pagination or user warning. | Older rows silently disappear from transaction views, dashboards, budgets, balances, exports, and recurrence detection once a user exceeds the limit. | Add paginated/infinite transaction fetching for the table; use purpose-built aggregate/range queries for dashboard calculations, or clearly constrain product retention. |
-| P1 | `markPaid` inserts a transaction and then separately updates `recurring_items.next_date`. | A network failure after the insert leaves a real expense logged but the item still overdue; retrying may confuse users. | Replace this sequence with a narrow `SECURITY DEFINER` RPC that validates ownership and performs both writes atomically. |
+| P1 | ~~`markPaid` inserts a transaction and then separately updates `recurring_items.next_date`.~~ **Resolved:** the `mark_recurring_item_paid` RPC does both atomically. | A network failure after the insert leaves a real expense logged but the item still overdue; retrying may confuse users. | Replace this sequence with a narrow `SECURITY DEFINER` RPC that validates ownership and performs both writes atomically. |
 | P2 | First-load bundles remain large despite route splitting. | Slower first interaction on mobile networks; dashboard/chart code is likely responsible for much of the weight. | Inspect the bundle, lazy-load charts/customization UI, and split shared vendor code deliberately where profiling confirms a benefit. |
-| P2 | No opening-balance model. | Displayed balances and transfer overdraft hints can diverge from a user's actual bank balance. | Add an opening balance/date to accounts, or permit a clearly labelled opening-balance transaction. |
+| P2 | ~~No opening-balance model.~~ **Resolved:** `accounts.opening_balance`, set per account in Settings → Accounts & cards (credit cards as an amount owed). | Displayed balances and transfer overdraft hints could diverge from a user's actual bank balance. | Done. |
 | P3 | Recurrence progression is entirely manual. | Users may accumulate overdue items and miss reminders if they do not open the app. | Keep this behaviour if intentional; otherwise add explicit notifications/background scheduling only after defining the desired delivery and privacy model. |
 
 ## Recommended delivery sequence

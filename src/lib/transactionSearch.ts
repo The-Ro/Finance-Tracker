@@ -18,6 +18,16 @@ export const EMPTY_TRANSACTION_FILTERS: TransactionFilters = {
   ownerId: null,
 }
 
+/** The account filter can also name a debit card, as `debit:<card id>` (filters on debit_card_id), so saved filters keep working unchanged. */
+export const DEBIT_CARD_FILTER_PREFIX = 'debit:'
+
+export function parseAccountFilter(value: string | null): { account: string } | { debitCardId: string } | null {
+  if (!value) return null
+  return value.startsWith(DEBIT_CARD_FILTER_PREFIX)
+    ? { debitCardId: value.slice(DEBIT_CARD_FILTER_PREFIX.length) }
+    : { account: value }
+}
+
 export function hasActiveFilters(f: TransactionFilters): boolean {
   return !!f.search.trim() || !!f.type || !!f.category || !!f.account || !!f.ownerId
 }

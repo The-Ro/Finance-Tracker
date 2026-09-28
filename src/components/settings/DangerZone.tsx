@@ -15,6 +15,7 @@ export function DangerZone() {
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [done, setDone] = useState(false)
+  const [eraseError, setEraseError] = useState<string | null>(null)
   const eraseData = useEraseMyData()
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -31,9 +32,14 @@ export function DangerZone() {
   const canConfirmDelete = deleteConfirmText.trim().toUpperCase() === DELETE_ACCOUNT_CONFIRMATION_TEXT
 
   const handleErase = async () => {
-    await eraseData.mutateAsync()
-    setDone(true)
-    setConfirmText('')
+    setEraseError(null)
+    try {
+      await eraseData.mutateAsync()
+      setDone(true)
+      setConfirmText('')
+    } catch (err) {
+      setEraseError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    }
   }
 
   const handleDelete = async () => {
@@ -54,7 +60,8 @@ export function DangerZone() {
       </div>
       <p className="text-helper text-slate-600">
         Permanently erase everything in your LedgeEaze account - transactions, budgets, goals, recurring
-        items, subscriptions, documents, and rules. This never affects anyone else's data.
+        items, subscriptions, documents, and rules. Your accounts, categories and starting balances are
+        kept. This never affects anyone else's data.
       </p>
       <div>
         <Button variant="danger" onClick={() => setModalOpen(true)}>
@@ -78,6 +85,7 @@ export function DangerZone() {
           setModalOpen(false)
           setDone(false)
           setConfirmText('')
+          setEraseError(null)
         }}
         title="Erase all my data"
         footer={
@@ -95,13 +103,15 @@ export function DangerZone() {
       >
         {done ? (
           <InlineMessage tone="success">
-            Your data has been erased. LedgeEaze is back to a fresh, empty state for your account.
+            Your data has been erased. Your accounts, categories and starting balances are still there -
+            change them in Financial setup if you want a completely fresh start.
           </InlineMessage>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-slate-700">
-              This deletes your database records and stored file copies in LedgeEaze. It does not delete
-              anything from Google Drive or any other service.
+              This deletes your transactions, budgets, goals, recurring items, rules, documents and their
+              stored files in LedgeEaze. Your accounts, categories and starting balances are kept. It does
+              not delete anything from Google Drive or any other service.
             </p>
             <p className="text-sm text-slate-700">
               Type <span className="font-mono font-semibold">{WIPE_CONFIRMATION_TEXT}</span> to confirm.
@@ -115,6 +125,7 @@ export function DangerZone() {
               spellCheck={false}
               className="min-h-[44px] rounded-lg border border-app-border bg-white px-3 text-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
             />
+            {eraseError && <InlineMessage tone="error">{eraseError}</InlineMessage>}
           </div>
         )}
       </Modal>

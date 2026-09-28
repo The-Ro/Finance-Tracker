@@ -122,13 +122,13 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
 export function BrandHeader({ tagline = false }: BrandHeaderProps) {
   return (
     <div className="flex items-center gap-2.5">
-      <BrandMark size="sm" />
+      <BrandMark size="md" className="h-10 w-10" />
       <div className="flex flex-col gap-0">
         <span className="font-serif text-xl font-semibold leading-tight text-slate-900">
           Ledge<span className="text-accent-dark">Eaze</span>
         </span>
         {tagline && (
-          <p className="text-[10px] font-medium uppercase leading-tight tracking-wider text-slate-400">
+          <p className="text-[11px] font-medium uppercase leading-tight tracking-wider text-slate-400">
             Effortless money management
           </p>
         )}

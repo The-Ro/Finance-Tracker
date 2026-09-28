@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { PERSISTED_CACHE_MAX_AGE_MS, isRestorable, shouldPersistQueryKey } from '@/lib/queryPersistence'
+import {
+  PERSISTED_CACHE_MAX_AGE_MS,
+  cacheResetOnAuthChange,
+  isRestorable,
+  shouldPersistQueryKey,
+} from '@/lib/queryPersistence'
 import { EMPTY_TRANSACTION_FILTERS } from '@/lib/transactionSearch'
 
 const range = { start: null, end: '2026-09-26' }
@@ -15,6 +20,23 @@ describe('shouldPersistQueryKey', () => {
     expect(
       shouldPersistQueryKey(['transactions', 'everyone-paginated', { ...EMPTY_TRANSACTION_FILTERS, search: 'coffee' }, range])
     ).toBe(false)
+  })
+})
+
+describe('cacheResetOnAuthChange', () => {
+  it('keeps everything on first sign-in and while the same user stays', () => {
+    expect(cacheResetOnAuthChange(null, 'u1')).toEqual({ clearMemory: false, deleteSaved: false })
+    expect(cacheResetOnAuthChange('u1', 'u1')).toEqual({ clearMemory: false, deleteSaved: false })
+  })
+
+  it('clears memory when a different user replaces the previous one', () => {
+    expect(cacheResetOnAuthChange('u1', 'u2')).toEqual({ clearMemory: true, deleteSaved: false })
+  })
+
+  it('deletes the saved copy whenever nobody is signed in', () => {
+    expect(cacheResetOnAuthChange('u1', null)).toEqual({ clearMemory: true, deleteSaved: true })
+    // Launch with an expired session: no previous user, but the blob must still go.
+    expect(cacheResetOnAuthChange(null, null)).toEqual({ clearMemory: false, deleteSaved: true })
   })
 })
 

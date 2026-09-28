@@ -42,9 +42,10 @@ export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps
 
   const handleSubmit = async () => {
     setError(null)
-    const limitNum = Number(limit)
+    // Number('') is 0, so a blank field has to be rejected explicitly.
+    const limitNum = limit.trim() === '' ? NaN : Number(limit)
     if (!category) return setError('Choose a category.')
-    if (!Number.isFinite(limitNum) || limitNum < 0) return setError('Enter a valid monthly limit.')
+    if (!Number.isFinite(limitNum) || limitNum <= 0) return setError('Enter a monthly limit greater than zero.')
 
     try {
       if (editing) {

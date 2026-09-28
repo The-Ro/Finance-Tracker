@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import type { CategoryKind } from '@/types/database.types'
-import type { AccountDetails } from '@/lib/creditCards'
+import { DEFAULT_ACCOUNT_KIND, type AccountDetails } from '@/lib/creditCards'
 
 function useLookupList(table: 'accounts' | 'tags') {
   const { userId } = useAuth()
@@ -70,6 +70,21 @@ export function useAccountOpeningBalances() {
         .eq('owner_user_id', userId!)
       if (error) throw error
       return new Map(data.map((r) => [r.name, Number(r.opening_balance)]))
+    },
+    staleTime: 30_000,
+  })
+}
+
+/** accounts.created_by per name: null for the banks seeded at signup, the user's id for accounts they added. */
+export function useAccountCreatedBy() {
+  const { userId } = useAuth()
+  return useQuery({
+    queryKey: ['accounts', userId, 'created-by'],
+    enabled: !!userId,
+    queryFn: async (): Promise<Map<string, string | null>> => {
+      const { data, error } = await supabase.from('accounts').select('name, created_by').eq('owner_user_id', userId!)
+      if (error) throw error
+      return new Map(data.map((r) => [r.name, r.created_by]))
     },
     staleTime: 30_000,
   })
@@ -144,6 +159,49 @@ export function useSetAccountClosed() {
     mutationFn: async ({ account, closed }: { account: string; closed: boolean }) => {
       const { error } = await supabase.rpc('set_account_closed', { p_account: account, p_closed: closed })
       if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts', userId] })
+      queryClient.invalidateQueries({ queryKey: ['debit_cards'] })
+    },
+  })
+}
+
+/**
+ * Adds an account and sets it up in one go: kind + card details (only when not
+ * the default savings account) and opening balance (only when non-zero), via
+ * the same narrow RPCs as editing. `opening` uses the stored sign -- for a
+ * credit card pass owedToOpening(owed).
+ */
+export function useAddAccount() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ name, details, opening = 0 }: { name: string; details: AccountDetails; opening?: number }) => {
+      if (!userId) throw new Error('Not signed in')
+      const trimmed = name.trim()
+      if (!trimmed) throw new Error('Name cannot be empty')
+      const { error } = await supabase.from('accounts').insert({ name: trimmed, owner_user_id: userId, created_by: userId })
+      if (error) {
+        if (error.code === '23505') throw new Error('You already have an account with that name.')
+        throw error
+      }
+      const hasDetails =
+        details.kind !== DEFAULT_ACCOUNT_KIND || details.creditLimit != null || details.statementDay != null || details.dueDay != null
+      if (hasDetails) {
+        const { error: detailsError } = await supabase.rpc('set_account_details', {
+          p_account: trimmed,
+          p_kind: details.kind,
+          p_credit_limit: details.creditLimit,
+          p_statement_day: details.statementDay,
+          p_due_day: details.dueDay,
+        })
+        if (detailsError) throw detailsError
+      }
+      if (opening !== 0) {
+        const { error: openingError } = await supabase.rpc('set_account_opening_balance', { p_account: trimmed, p_amount: opening })
+        if (openingError) throw openingError
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
   })

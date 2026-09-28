@@ -106,7 +106,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                     strokeWidth={1}
                     strokeDasharray="4 5"
                   />
-                  <text x={width} y={geometry.zeroY - 6} textAnchor="end" className="fill-slate-400 text-[11px]">
+                  <text x={width} y={geometry.zeroY - 6} textAnchor="end" className="fill-slate-400 text-xs">
                     {format(0)}
                   </text>
                   {geometry.area && <path d={geometry.area} fill={`url(#${gradientId})`} className="dash-area" />}
@@ -145,7 +145,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                   className="dash-tip pointer-events-none absolute flex flex-col items-center rounded-xl border border-app-border bg-app-card px-3 py-1.5 shadow-card"
                   style={{ right: Math.max(0, width - last.x - 16), top: Math.max(0, last.y - 50) }}
                 >
-                  <span className="text-[11px] leading-tight text-slate-500">{monthName(current.month, 'long')}</span>
+                  <span className="text-xs leading-tight text-slate-500">{monthName(current.month, 'long')}</span>
                   <span
                     className={clsx(
                       'font-serif text-sm font-bold leading-tight tabular-nums',

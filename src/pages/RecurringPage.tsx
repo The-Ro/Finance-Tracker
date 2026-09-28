@@ -5,7 +5,7 @@ export function RecurringPage() {
     <RecurringLikePage
       kind="recurring"
       title="Recurring"
-      addLabel="Add recurring payment"
+      addLabel="New recurring payment"
       emptyDescription="Recurring bills you confirm (rent, utilities, loans) will show up here."
     />
   )

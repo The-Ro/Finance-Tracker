@@ -74,7 +74,7 @@ export function ThemeSettings() {
         <div className="theme-preview flex items-center gap-4 rounded-2xl border border-app-border bg-accent-light p-4">
           <BrandMark size="md" className="h-16 w-16" />
           <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-on-light opacity-80">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-accent-on-light opacity-80">
               Total balance
             </span>
             <span className="truncate font-serif text-2xl font-semibold text-accent-on-light sm:text-3xl">

@@ -6,7 +6,7 @@ export function ProtectedRoute() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-app-bg">
+      <div className="flex h-dvh items-center justify-center bg-app-bg">
         <div className="text-sm text-slate-500">Loading LedgeEaze…</div>
       </div>
     )

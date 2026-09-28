@@ -9,14 +9,19 @@
  * rewritten either -- normalization is only ever a derived, in-memory key.
  */
 
-/** Lowercases and strips punctuation, trailing store numbers ("#1234") and
- *  long reference numbers (6+ digits). */
+/** Lowercases, folds accents ("Café" -> "cafe") and full-width forms, and
+ *  strips punctuation, trailing store numbers ("#1234") and long reference
+ *  numbers (6+ digits). Letters in any script are kept, so a merchant written
+ *  in Japanese or Devanagari doesn't normalize to nothing. */
 export function normalizeMerchant(raw: string): string {
   return raw
     .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .normalize('NFC')
     .trim()
     .replace(/#\s*\d+\s*$/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
     .replace(/\b\d{6,}\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

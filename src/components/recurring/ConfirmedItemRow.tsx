@@ -53,7 +53,7 @@ export function ConfirmedItemRow({
         <p className="truncate text-helper text-slate-500">
           {item.category} · {item.cadence} ·{' '}
           {isOverdue ? (
-            <span className="inline-flex items-center rounded-full bg-app-card px-2 py-0.5 text-[11px] font-semibold text-caution">
+            <span className="inline-flex items-center rounded-full bg-app-card px-2 py-0.5 text-xs font-semibold text-caution">
               Overdue since {formatShortDate(item.next_date)}
             </span>
           ) : (

@@ -24,9 +24,10 @@ type Step = 'pick' | 'map' | 'result'
 const FIELD_LABELS: { key: keyof CsvColumnMapping; label: string; required?: boolean }[] = [
   { key: 'date', label: 'Date', required: true },
   { key: 'merchant', label: 'Merchant / description', required: true },
-  { key: 'amount', label: 'Amount (single signed column)' },
+  { key: 'amount', label: 'Amount (signed, or with a Type column)' },
   { key: 'debit', label: 'Debit / withdrawal column' },
   { key: 'credit', label: 'Credit / deposit column' },
+  { key: 'type', label: 'Type: expense/income, Dr/Cr (optional)' },
   { key: 'category', label: 'Category (optional)' },
   { key: 'account', label: 'Account (optional)' },
 ]
@@ -38,6 +39,7 @@ export function CsvImportModal({ open, onClose }: CsvImportModalProps) {
   const [fallbackAccount, setFallbackAccount] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<BulkImportResult | null>(null)
+  const [skipDetail, setSkipDetail] = useState({ invalidDates: 0, transfers: 0 })
 
   const { data: accounts = [] } = useAccounts()
   const { data: categories = [] } = useCategories()
@@ -50,6 +52,7 @@ export function CsvImportModal({ open, onClose }: CsvImportModalProps) {
     setMapping(null)
     setError(null)
     setResult(null)
+    setSkipDetail({ invalidDates: 0, transfers: 0 })
   }
 
   const handleClose = () => {
@@ -90,7 +93,14 @@ export function CsvImportModal({ open, onClose }: CsvImportModalProps) {
       return
     }
 
-    const { ok, skipped } = normalizeCsvRows(parsed.rows, mapping, fallbackAccount, categories, accounts)
+    const { ok, skipped, invalidDates, transfers } = normalizeCsvRows(
+      parsed.rows,
+      mapping,
+      fallbackAccount,
+      categories,
+      accounts
+    )
+    setSkipDetail({ invalidDates, transfers })
     try {
       const res = await bulkImport.mutateAsync({
         rows: ok,
@@ -179,6 +189,22 @@ export function CsvImportModal({ open, onClose }: CsvImportModalProps) {
               <div className="text-helper text-slate-500">Skipped</div>
             </div>
           </div>
+          {(skipDetail.invalidDates > 0 || skipDetail.transfers > 0) && (
+            <ul className="flex flex-col gap-1 text-helper text-slate-500">
+              {skipDetail.invalidDates > 0 && (
+                <li>
+                  {skipDetail.invalidDates} row{skipDetail.invalidDates === 1 ? '' : 's'} skipped because the date
+                  isn't a real calendar date.
+                </li>
+              )}
+              {skipDetail.transfers > 0 && (
+                <li>
+                  {skipDetail.transfers} transfer{skipDetail.transfers === 1 ? '' : 's'} skipped. Import only brings in
+                  expenses and income, so add transfers from New entry.
+                </li>
+              )}
+            </ul>
+          )}
           <div className="flex justify-end">
             <Button onClick={handleClose}>Done</Button>
           </div>

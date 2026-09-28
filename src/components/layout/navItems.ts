@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ChartPie,
   Users,
+  Settings,
   type LucideIcon,
 } from 'lucide-react'
 import { groupNavItems, type NavGroupOf } from '@/lib/navGroups'
@@ -20,8 +21,7 @@ export interface NavItem {
   icon: LucideIcon
 }
 
-// Settings lives only in the profile menu (TopBar), not in the main nav.
-// Full list -- shown in the Sidebar's expanded menu.
+// Full list -- shown in the Sidebar (grouped via NAV_GROUPS below).
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Home', icon: LayoutDashboard },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
@@ -47,6 +47,10 @@ export const NAV_GROUPS: NavGroup[] = groupNavItems(NAV_ITEMS, [
   { label: 'Plan', paths: ['/budgets', '/goals', '/recurring', '/subscriptions'] },
   { label: 'More', paths: ['/shared', '/documents', '/rules'] },
 ])
+
+// Filling the phone menu's last group; the desktop rail's footer (avatar +
+// "Settings") and the TopBar profile menu also link here.
+export const SETTINGS_NAV_ITEM: NavItem = { to: '/settings', label: 'Settings', icon: Settings }
 
 // The phone bottom nav: Home, Activity, Review, Bills (plus the centre Add
 // button in BottomNav) -- the day-to-day loop. Everything else (Recurring, Subscriptions, Goals, Shared, ...) stays one

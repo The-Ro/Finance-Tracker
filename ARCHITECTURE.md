@@ -76,14 +76,25 @@ Every table (except `client_errors`, which is intentionally anonymous-friendly) 
   and `transactions_select_own_or_approved` in `supabase/policies.sql` are the enforcement;
   if you're auditing "who can see what," those two policies are the whole answer.)
 - **`viewer_access`** is both the request and, once approved, the standing grant — one row,
-  a `status` of `pending`/`approved`, either side can delete it (cancel/decline/revoke).
-- **`profiles`** (display name, avatar, email) is also readable by anyone (needed to render
-  another user's name/avatar next to their shared transactions).
-- Everything else — `budgets`, `goals`, `recurring_items`, `dismissed_patterns`, `documents`,
-  `rules`, `user_settings`, `feedback` — is strictly own-only for every operation.
+  a `status` of `pending`/`approved`/`paused`, either side can delete it (cancel/decline/revoke).
+  Requests are created only through the `request_viewer_access(p_email)` RPC (exact email).
+- **`profiles`** (display name, avatar, email) is readable only by yourself, people you share a
+  `viewer_access` row or a split with, and admins — it is not a user directory. `email` isn't
+  user-editable; it mirrors `auth.users`.
+- **`documents`** are own-only, except that an approved viewer can read a document (and its
+  file) that is attached as the receipt of a transaction they can see.
+- **`transaction_splits`** are readable by both people on the split; only the payer writes, and
+  only `settled_at` can change after creation.
+- Everything else — `budgets`, `goals`, `recurring_items`, `dismissed_patterns`, `rules`,
+  `user_settings`, `feedback`, `debit_cards` — is strictly own-only for every operation.
 - **`categories`/`accounts`/`tags`** are per-user lookup lists (composite PK
-  `(owner_user_id, name)`), seeded with sensible defaults on signup (`handle_new_user()`) but
-  fully editable — a user can rename their world without touching anyone else's.
+  `(owner_user_id, name)`), seeded with sensible defaults on signup (`handle_new_user()`).
+  Accounts have a `kind` — `savings`, `current`, `credit_card`, `cash` or `wallet` — plus an
+  opening balance and, for credit cards only, limit/statement day/due day, all changed only
+  through narrow RPCs (`set_account_details`, `set_account_opening_balance`); there is no
+  UPDATE policy, so accounts can't be renamed out from under their transactions.
+- **`debit_cards`** are separate from accounts: each card (name, last 4 digits) belongs to one
+  savings/current account and spends with it come out of that account.
 
 A `transactions` row can be `expense`, `income`, or `transfer` (between two of the owner's own
 accounts). `category` is nullable specifically for transfers — a transfer isn't spending or
@@ -93,6 +104,11 @@ account missing that exact category row. Every place that aggregates by category
 the category donut, recurring detection) filters to `type = 'expense'` first, so the null
 never needs to be specially handled downstream.
 
+A transaction paid with a debit card keeps `account` = the card's linked account and adds
+`debit_card_id` (a trigger enforces both and forces `payment_method = 'Debit card'`), so
+balances never need to know about cards. Paying a credit-card bill is a `transfer` from a bank
+account to the card account, never an expense — otherwise the spending is counted twice.
+
 ## Auth & security model
 
 - Email/password auth via Supabase Auth; email confirmation is required before first sign-in.
@@ -101,12 +117,11 @@ never needs to be specially handled downstream.
   sync if the auth email changes. `delete_own_account()` is a `SECURITY DEFINER` RPC,
   callable only by `authenticated`, that self-deletes via `auth.uid()` — every table's
   `owner_user_id` FK is `on delete cascade`, so this one call wipes a user's data entirely.
-- All four `SECURITY DEFINER` functions (the three above plus `rls_auto_enable()`, an event
-  trigger that auto-enables RLS on any newly created table as a safety net) have `EXECUTE`
-  explicitly revoked from `PUBLIC` — Postgres grants it by default on function creation,
-  which had left three purely-internal trigger functions callable as public
-  `/rest/v1/rpc/*` endpoints for no reason (harmless, since they only work in their
-  trigger/event-trigger context, but needless surface).
+- Every `SECURITY DEFINER` function has `EXECUTE` revoked from `public` and `anon` (Postgres
+  and Supabase grant it by default), and trigger-only functions from `authenticated` too;
+  CLAUDE.md's "RLS / access patterns" section keeps the current list. `rls_auto_enable()`
+  exists only on projects where Supabase created it, so the SQL files guard every reference
+  to it. `supabase/tests/security_regression.sql` re-checks all of this after any change.
 - The anon key in `.env.local` is meant to be public (see the comment in `.env.example`) —
   it identifies the project, it isn't a secret. RLS is what actually protects data, which is
   why every table has it enabled and every policy change has to be treated as a security
@@ -143,15 +158,14 @@ never needs to be specially handled downstream.
 
 ## Known trade-offs / things not to assume
 
-- **No opening-balance concept.** Account "balances" (used for the live overdraft hint on
-  transfers) are derived purely by summing logged transaction history — there is no way to
-  tell the app "this account already had ₹50,000 before I started tracking." A freshly-added
-  account with real-world funds will show as having ₹0 until enough history accumulates.
+- **Balances are derived, not live.** An account's balance is its opening balance ("balance
+  today" when it was set up; for a credit card, minus the amount owed) plus logged
+  transactions. There's no bank feed, so it only matches the bank if everything is logged.
 - **No server-side validation beyond RLS/constraints.** Anything that isn't enforced by a
   Postgres `check` constraint or RLS policy (e.g. amount formatting, date sanity) is only
   validated in the React form. This is fine given the single-client-type, low-stakes nature
   of the app, but it means a raw API call bypassing the UI could insert malformed-but-allowed
   data.
-- **The service worker precaches the whole built bundle** (`generateSW` mode). A deploy is
-  "live" for new visitors immediately, but existing open tabs update on their next reload,
-  not instantly — see OPERATIONS.md for what that means for rollouts.
+- **The service worker precaches the whole built bundle** (`generateSW` mode,
+  `registerType: 'prompt'`). A deploy is live for new visitors immediately; open tabs show a
+  "new version available" banner and only reload when the user taps it — see OPERATIONS.md.

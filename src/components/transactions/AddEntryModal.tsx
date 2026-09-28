@@ -7,8 +7,12 @@ import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { TagsField } from './TagsField'
-import { AccountChips } from './AccountChips'
+import { AccountChips, type ChipGroup, type ChipOption } from './AccountChips'
+import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
+import { useDebitCards } from '@/hooks/useDebitCards'
+import { useAccountsInUse } from '@/hooks/useAccountsInUse'
+import { debitCardLabel } from '@/lib/debitCards'
 import {
   useAddTransaction,
   useUpdateTransaction,
@@ -21,7 +25,7 @@ import {
 } from '@/hooks/useTransactions'
 import { useDocuments, type DocumentRow } from '@/hooks/useDocuments'
 import { useRules } from '@/hooks/useRules'
-import { useAccountKinds, useCardStatuses } from '@/hooks/useCards'
+import { useAccountKinds, useCardStatuses, useClosedAccounts } from '@/hooks/useCards'
 import { useApprovedConnections, useSplitMutations } from '@/hooks/useSplits'
 import { useProfiles } from '@/hooks/useProfiles'
 import { suggestCategory } from '@/lib/smartCategory'
@@ -63,6 +67,8 @@ const EMPTY_STATE = {
   category: 'Needs review',
   account: '',
   toAccount: '',
+  /** Set when paying with a debit card; `account` is then that card's linked account. */
+  debitCardId: '',
   remarks: '',
   paymentMethod: '' as PaymentMethod | '',
   tags: [] as string[],
@@ -74,6 +80,9 @@ const EMPTY_STATE = {
 }
 
 const CURRENCY_CODES = SUPPORTED_CURRENCIES.map((c) => c.code)
+
+const ACCOUNT_KEY = 'account:'
+const DEBIT_KEY = 'debit:'
 
 export function AddEntryModal({ open, onClose, transaction, initialType = 'expense', prefill }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
@@ -109,6 +118,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const accountBalances = useAccountBalances(userId)
   const { data: myTransactions } = useMyTransactions(userId)
   const accountKinds = useAccountKinds()
+  const closedAccounts = useClosedAccounts()
   const cardStatuses = useCardStatuses()
   const connections = useApprovedConnections()
   const { data: profiles = {} } = useProfiles()
@@ -137,14 +147,23 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const saving =
     addTransaction.isPending || updateTransaction.isPending || documents.upload.isPending || createSplit.isPending
 
+  const { data: debitCards = [], isSuccess: debitCardsLoaded } = useDebitCards()
+  const { inUse, ready: usageReady } = useAccountsInUse()
+  const cardsById = useMemo(() => new Map(debitCards.map((c) => [c.id, c])), [debitCards])
+  const selectedCard = form.debitCardId ? cardsById.get(form.debitCardId) : undefined
+
   // A new entry starts on the most recently used account (the first chip),
   // falling back to the first account in the list.
-  const defaultAccount = recentAccounts.find((a) => accounts.includes(a)) ?? accounts[0] ?? ''
+  const defaultAccount =
+    recentAccounts.find((a) => accounts.includes(a) && !closedAccounts.has(a)) ??
+    accounts.find((a) => !closedAccounts.has(a)) ??
+    accounts[0] ??
+    ''
 
   // Account chips: recent first, then the full list (custom accounts
   // included). Transfer's From/To rows exclude each other's current pick --
   // picking the same account on both sides isn't a valid transfer.
-  const fromAccountOptions = useMemo(
+  const fromOrdered = useMemo(
     () =>
       orderAccountOptions(accounts, recentAccounts, {
         exclude: isTransfer ? form.toAccount : undefined,
@@ -152,10 +171,100 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       }),
     [accounts, recentAccounts, isTransfer, form.toAccount, form.account]
   )
-  const toAccountOptions = useMemo(
+  const toOrdered = useMemo(
     () => orderAccountOptions(accounts, recentAccounts, { exclude: form.account, selected: form.toAccount }),
     [accounts, recentAccounts, form.account, form.toAccount]
   )
+
+  // Seeded-but-never-used banks sit behind "+N more"; closed accounts are left
+  // out entirely. Whatever this entry already points at always stays visible.
+  const keepVisible = useMemo(
+    () => new Set([form.account, form.toAccount, transaction?.account ?? '', transaction?.to_account ?? ''].filter(Boolean)),
+    [form.account, form.toAccount, transaction]
+  )
+  const isVisibleAccount = (name: string) =>
+    keepVisible.has(name) || (!closedAccounts.has(name) && (!usageReady || inUse.has(name)))
+  const isTuckedAccount = (name: string) => !isVisibleAccount(name) && !closedAccounts.has(name)
+  const toVisible = toOrdered.filter(isVisibleAccount)
+
+  // Most recently used debit cards first; a card on a closed account only shows
+  // if this entry already uses it.
+  const orderedDebitCards = useMemo(() => {
+    const rank = new Map<string, number>()
+    for (const t of myTransactions ?? []) if (t.debit_card_id && !rank.has(t.debit_card_id)) rank.set(t.debit_card_id, rank.size)
+    return debitCards
+      .filter((c) => !closedAccounts.has(c.account) || c.id === form.debitCardId || c.id === transaction?.debit_card_id)
+      .sort(
+        (a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name)
+      )
+  }, [debitCards, myTransactions, closedAccounts, form.debitCardId, transaction])
+
+  const accountChip = (name: string): ChipOption => ({
+    key: ACCOUNT_KEY + name,
+    label: name,
+    icon: <AccountKindIcon kind={accountKinds.get(name)} size={14} className="shrink-0" />,
+  })
+  const accountGroups = (ordered: string[], debit: typeof debitCards): ChipGroup[] => {
+    const isCredit = (name: string) => accountKinds.get(name) === 'credit_card'
+    const shown = ordered.filter(isVisibleAccount)
+    const tucked = ordered.filter(isTuckedAccount)
+    return [
+      {
+        id: 'accounts',
+        label: 'Accounts',
+        options: shown.filter((n) => !isCredit(n)).map(accountChip),
+        more: tucked.filter((n) => !isCredit(n)).map(accountChip),
+      },
+      {
+        id: 'debit',
+        label: 'Debit cards',
+        options: debit.map((card) => ({
+          key: DEBIT_KEY + card.id,
+          label: debitCardLabel(card),
+          icon: <DebitCardIcon size={14} className="shrink-0" />,
+        })),
+      },
+      {
+        id: 'credit',
+        label: 'Credit cards',
+        options: shown.filter(isCredit).map(accountChip),
+        more: tucked.filter(isCredit).map(accountChip),
+      },
+    ]
+  }
+  // Income can't come in on a debit card; a transfer can go out on one (ATM
+  // withdrawal) unless the card draws from the account it's going to.
+  const fromGroups = accountGroups(
+    fromOrdered,
+    form.type === 'income' ? [] : orderedDebitCards.filter((c) => !isTransfer || c.account !== form.toAccount)
+  )
+  const toGroups = accountGroups(toOrdered, [])
+  const fromValue = selectedCard ? DEBIT_KEY + selectedCard.id : ACCOUNT_KEY + form.account
+
+  const pickFrom = (key: string) => {
+    if (key.startsWith(DEBIT_KEY)) {
+      const card = cardsById.get(key.slice(DEBIT_KEY.length))
+      if (!card) return
+      setForm((f) => ({
+        ...f,
+        account: card.account,
+        debitCardId: card.id,
+        paymentMethod: 'Debit card',
+        toAccount: f.toAccount === card.account ? '' : f.toAccount,
+      }))
+      return
+    }
+    const account = key.slice(ACCOUNT_KEY.length)
+    setForm((f) => ({
+      ...f,
+      account,
+      debitCardId: '',
+      // 'Debit card' came with the card chip (or can't apply to a credit card); drop it with the card.
+      paymentMethod:
+        f.paymentMethod === 'Debit card' && (f.debitCardId || accountKinds.get(account) === 'credit_card') ? '' : f.paymentMethod,
+      toAccount: f.toAccount === account ? '' : f.toAccount,
+    }))
+  }
 
   const amountNum = Number(form.amount)
 
@@ -233,11 +342,12 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.type])
 
+  const firstToAccount = toVisible[0] ?? toOrdered[0]
   useEffect(() => {
-    if (isTransfer && !form.toAccount && toAccountOptions.length > 0) {
-      setForm((f) => ({ ...f, toAccount: toAccountOptions[0] }))
+    if (isTransfer && !form.toAccount && firstToAccount) {
+      setForm((f) => ({ ...f, toAccount: firstToAccount }))
     }
-  }, [isTransfer, form.toAccount, toAccountOptions])
+  }, [isTransfer, form.toAccount, firstToAccount])
 
   // A cash account has no "how" -- the payment method fields (UPI/card/net
   // banking/etc.) all describe moving money through a bank, which doesn't
@@ -265,7 +375,9 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     ...EMPTY_STATE,
     date: todayISO(),
     type: initialType,
-    category: expenseCategories[0] ?? 'Needs review',
+    // The type-change effect above doesn't fire when reopening on the same
+    // type, so the default has to come from the list for the type opened with.
+    category: (initialType === 'income' ? incomeCategories : expenseCategories)[0] ?? 'Needs review',
     account: defaultAccount,
     ...(prefill?.merchant ? { merchant: prefill.merchant } : {}),
     ...(prefill?.amount ? { amount: String(prefill.amount) } : {}),
@@ -286,6 +398,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         category: transaction.category ?? 'Needs review',
         account: transaction.account,
         toAccount: transaction.to_account ?? '',
+        debitCardId: transaction.debit_card_id ?? '',
         remarks: transaction.remarks ?? '',
         paymentMethod: transaction.payment_method ?? '',
         tags: transaction.tags,
@@ -393,10 +506,22 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
     const category = isTransfer ? null : form.category
     const toAccount = isTransfer ? form.toAccount : null
-    const paymentMethod = form.paymentMethod || null
+    // The card only counts when it still draws from the chosen account (the
+    // database rejects anything else) and the entry isn't income.
+    const cardId = form.type !== 'income' && selectedCard && selectedCard.account === form.account ? selectedCard.id : ''
+    const paymentMethod = cardId ? 'Debit card' : form.paymentMethod || null
 
     try {
       if (transaction) {
+        // undefined leaves the stored card alone (only while cards are still
+        // loading and nothing card-related changed); null clears it.
+        const cardUnresolved =
+          !debitCardsLoaded &&
+          !!transaction.debit_card_id &&
+          form.debitCardId === transaction.debit_card_id &&
+          form.account === transaction.account &&
+          form.type !== 'income'
+        const debitCardId = cardId || (cardUnresolved ? undefined : transaction.debit_card_id ? null : undefined)
         await updateTransaction.mutateAsync({
           id: transaction.id,
           type: form.type,
@@ -407,7 +532,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           account: form.account,
           toAccount,
           remarks: form.remarks,
-          paymentMethod,
+          paymentMethod: cardUnresolved ? form.paymentMethod || null : paymentMethod,
+          debitCardId,
           tags: form.tags,
           foreign,
           allowDuplicate: opts?.allowDuplicate,
@@ -432,6 +558,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         toAccount,
         remarks: form.remarks,
         paymentMethod,
+        debitCardId: cardId || null,
         tags: form.tags,
         receipt: form.hasReceipt,
         receiptDocumentId: receipt?.id ?? null,
@@ -507,7 +634,17 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               key={t}
               type="button"
               aria-pressed={form.type === t}
-              onClick={() => setForm((f) => ({ ...f, type: t, ...(t === 'transfer' ? { currency: '', fxRate: '' } : {}) }))}
+              onClick={() =>
+                setForm((f) => ({
+                  ...f,
+                  type: t,
+                  ...(t === 'transfer' ? { currency: '', fxRate: '' } : {}),
+                  // Income can't carry a debit card; drop the card and the method it set.
+                  ...(t === 'income' && f.debitCardId
+                    ? { debitCardId: '', paymentMethod: f.paymentMethod === 'Debit card' ? '' : f.paymentMethod }
+                    : {}),
+                }))
+              }
               className={clsx(
                 'min-h-[44px] rounded-lg text-sm font-semibold capitalize transition-colors duration-200',
                 form.type === t ? 'bg-accent text-white' : 'text-slate-500 hover:bg-slate-50'
@@ -526,7 +663,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         >
           <label
             htmlFor="entry-amount"
-            className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500"
+            className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500"
           >
             {isForeign ? `Amount in ${form.currency}` : 'Amount'}
           </label>
@@ -602,7 +739,11 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                     type="button"
                     aria-pressed={selected}
                     onClick={() => {
-                      setForm((f) => ({ ...f, paymentMethod: selected ? '' : m }))
+                      setForm((f) => {
+                        const paymentMethod = selected ? '' : m
+                        // Any mode other than 'Debit card' means it wasn't the card after all.
+                        return { ...f, paymentMethod, debitCardId: paymentMethod === 'Debit card' ? f.debitCardId : '' }
+                      })
                       setShowMode(false)
                     }}
                     className={clsx(
@@ -658,6 +799,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                 <TextField
                   label={`1 ${form.currency} = ? ${homeCurrency}`}
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="any"
                   placeholder={rateStatus.state === 'loading' ? 'Looking up…' : 'Rate'}
@@ -674,7 +816,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             <TextField
               label={form.type === 'income' ? 'Source' : isTransfer ? 'Description' : 'Merchant'}
               id="entry-merchant"
-              placeholder={form.type === 'income' ? 'e.g. Salary' : isTransfer ? 'e.g. Card payment' : "e.g. Trader Joe's"}
+              placeholder={form.type === 'income' ? 'e.g. Salary' : isTransfer ? 'e.g. Card payment' : 'e.g. Amazon'}
               maxLength={60}
               value={form.merchant}
               onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
@@ -740,12 +882,18 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
         <div key={shakeKey('account')} className={shakeClass('account')}>
           <AccountChips
-            label={isTransfer ? 'From account' : 'Account'}
-            options={fromAccountOptions}
-            value={form.account}
-            onChange={(account) => setForm((f) => ({ ...f, account, toAccount: '' }))}
-            emptyText="No accounts yet. Add one in Settings, Financial setup."
+            label={isTransfer ? 'From' : form.type === 'income' ? 'Into' : 'Paid with'}
+            groups={fromGroups}
+            value={fromValue}
+            onChange={pickFrom}
+            emptyText="No accounts yet. Add one in Settings, Accounts & cards."
           />
+          {selectedCard && !isTransfer && (
+            <p className="mt-1 text-helper text-slate-500">
+              Comes out of <span className="font-medium text-slate-700">{selectedCard.account}</span>
+              {accountBalances.has(selectedCard.account) && ` · ${format(fromAccountBalance)} there now`}
+            </p>
+          )}
           {isTransfer && form.account && !isCardAccount && (
             <p
               className={clsx(
@@ -763,11 +911,11 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         {isTransfer && (
           <div key={shakeKey('toAccount')} className={shakeClass('toAccount')}>
             <AccountChips
-              label="To account"
-              options={toAccountOptions}
-              value={form.toAccount}
-              onChange={(toAccount) => setForm((f) => ({ ...f, toAccount }))}
-              emptyText="No other accounts yet. Add one in Settings, Financial setup."
+              label="To"
+              groups={toGroups}
+              value={ACCOUNT_KEY + form.toAccount}
+              onChange={(key) => setForm((f) => ({ ...f, toAccount: key.slice(ACCOUNT_KEY.length) }))}
+              emptyText="No other accounts yet. Add one in Settings, Accounts & cards."
             />
             {form.toAccount && (
               <p className="mt-1 text-helper text-slate-400">

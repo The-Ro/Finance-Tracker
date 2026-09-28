@@ -56,10 +56,10 @@ export function MonthCompare({ current, prior, currentLabel, priorLabel, format 
           <p className="truncate font-serif text-lg font-semibold tabular-nums text-slate-900" title={`${currentLabel}: ${r.now}`}>
             {r.now}
           </p>
-          <p className="truncate text-[11px] tabular-nums text-slate-500" title={`${priorLabel}: ${r.before}`}>
+          <p className="truncate text-xs tabular-nums text-slate-500" title={`${priorLabel}: ${r.before}`}>
             {priorLabel}: {r.before}
           </p>
-          {r.change && <p className={clsx('text-[11px] font-semibold tabular-nums', toneClass(r.tone))}>{r.change}</p>}
+          {r.change && <p className={clsx('text-xs font-semibold tabular-nums', toneClass(r.tone))}>{r.change}</p>}
         </div>
       ))}
     </div>

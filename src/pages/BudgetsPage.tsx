@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react'
 import { PiggyBank } from 'lucide-react'
+import clsx from 'clsx'
 import { useAuth } from '@/context/AuthContext'
 import { applyRollover, useBudgets, type Budget } from '@/hooks/useBudgets'
 import { useMyTransactions } from '@/hooks/useTransactions'
-import { Button } from '@/components/ui/Button'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, PageHeaderAction } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
+import { useToast } from '@/context/ToastContext'
 import { BudgetCard } from '@/components/budgets/BudgetCard'
 import { BudgetFormModal } from '@/components/budgets/BudgetFormModal'
 import { resolvePeriod } from '@/lib/period'
@@ -51,6 +53,19 @@ export function BudgetsPage() {
   const myTransactions = useMyTransactions(userId)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Budget | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Budget | null>(null)
+  const { show } = useToast()
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return
+    remove.mutate(pendingDelete.id, {
+      onSuccess: () => setPendingDelete(null),
+      onError: () => {
+        setPendingDelete(null)
+        show("Couldn't delete that budget. Try again.", { tone: 'error' })
+      },
+    })
+  }
 
   const lastMonthRange = useMemo(() => resolvePeriod('last-month'), [])
   const spentByCategory = useMemo(
@@ -73,14 +88,13 @@ export function BudgetsPage() {
       <PageHeader
         title="Budgets"
         actions={
-          <Button
+          <PageHeaderAction
+            label="New budget"
             onClick={() => {
               setEditing(null)
               setModalOpen(true)
             }}
-          >
-            Create budget
-          </Button>
+          />
         }
       />
 
@@ -94,11 +108,20 @@ export function BudgetsPage() {
         />
       ) : (
         <>
-          <Card className="p-4">
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-700">Overall budget health (this month)</span>
-              <span className="text-slate-500">
-                {format(totalSpent)} / {format(totalLimit)}
+          <Card className="flex flex-col gap-3 p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-helper font-medium uppercase tracking-wide text-slate-500">All budgets · this month</p>
+                <p className="mt-1 font-serif text-2xl font-semibold tabular-nums text-slate-900">{format(totalSpent)}</p>
+                <p className="text-sm tabular-nums text-slate-500">spent of {format(totalLimit)}</p>
+              </div>
+              <span
+                className={clsx(
+                  'shrink-0 rounded-full px-2.5 py-1 text-helper font-semibold tabular-nums',
+                  totalSpent > totalLimit ? 'bg-danger-light text-danger' : 'bg-positive-light text-positive'
+                )}
+              >
+                {totalSpent > totalLimit ? `${format(totalSpent - totalLimit)} over` : `${format(totalLimit - totalSpent)} left`}
               </span>
             </div>
             <ProgressBar percent={healthPercent} tone={healthPercent > 100 ? 'danger' : 'positive'} />
@@ -120,7 +143,7 @@ export function BudgetsPage() {
                   setEditing({ ...b, monthly_limit: b.baseLimit })
                   setModalOpen(true)
                 }}
-                onDelete={() => remove.mutate(b.id)}
+                onDelete={() => setPendingDelete(b)}
               />
             ))}
           </div>
@@ -128,6 +151,17 @@ export function BudgetsPage() {
       )}
 
       <BudgetFormModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} />
+      <ConfirmDeleteModal
+        open={pendingDelete !== null}
+        title="Delete budget"
+        pending={remove.isPending}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+      >
+        <p>
+          Delete the <span className="font-medium">{pendingDelete?.category}</span> budget? Your transactions aren't affected.
+        </p>
+      </ConfirmDeleteModal>
     </div>
   )
 }

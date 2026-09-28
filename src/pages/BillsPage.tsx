@@ -14,6 +14,7 @@ import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useAccountKinds, useCardBills } from '@/hooks/useCards'
 import { addDaysISO, dueDatesInRange, monthGrid, totalDueWithin } from '@/lib/billCalendar'
 import { formatShortDate, todayISO } from '@/lib/format'
+import { cardPagePath } from '@/components/cards/cardPath'
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -198,16 +199,19 @@ export function BillsPage() {
               {cardDueSoon.map((b) => (
                 <li key={b.account} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
                   <div className="w-12 text-center">
-                    <p className={clsx('text-[10px] font-bold uppercase', b.dueDate < today ? 'text-danger' : 'text-slate-500')}>
+                    <p className={clsx('text-[11px] font-bold uppercase', b.dueDate < today ? 'text-danger' : 'text-slate-500')}>
                       {b.dueDate < today ? 'Overdue' : new Date(b.dueDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })}
                     </p>
                     <p className="font-serif text-lg font-semibold text-slate-900">{Number(b.dueDate.slice(8))}</p>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
+                    <Link
+                      to={cardPagePath(b.account)}
+                      className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900 hover:underline"
+                    >
                       <CreditCard size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
-                      {b.account} bill
-                    </p>
+                      <span className="truncate">{b.account} bill</span>
+                    </Link>
                     <p className="text-helper text-slate-500">
                       {format(b.due)} · statement {formatShortDate(b.statementDate)}
                     </p>
@@ -233,7 +237,7 @@ export function BillsPage() {
                 return (
                   <li key={`${item.id}-${date}`} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
                     <div className="w-12 text-center">
-                      <p className={clsx('text-[10px] font-bold uppercase', overdue ? 'text-danger' : 'text-slate-500')}>
+                      <p className={clsx('text-[11px] font-bold uppercase', overdue ? 'text-danger' : 'text-slate-500')}>
                         {overdue ? 'Overdue' : new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })}
                       </p>
                       <p className="font-serif text-lg font-semibold text-slate-900">{Number(date.slice(8))}</p>

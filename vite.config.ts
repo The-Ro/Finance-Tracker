@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt', not 'autoUpdate': autoUpdate reloads every open tab as soon as
+      // a new build activates, wiping half-typed forms. UpdateBanner asks first.
+      registerType: 'prompt',
       includeAssets: ['favicon.png'],
       manifest: {
         name: 'LedgeEaze',

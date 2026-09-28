@@ -27,6 +27,23 @@ export function shouldPersistQueryKey(queryKey: readonly unknown[]): boolean {
   return true
 }
 
+/**
+ * What to wipe when the resolved signed-in user changes (null = nobody).
+ * The in-memory cache goes whenever a *different* user (or nobody) replaces
+ * the previous one -- some query keys don't include the user id, so one
+ * user's cached data would otherwise render for the next. The saved copy goes
+ * whenever nobody is signed in, including a launch with an expired session.
+ */
+export function cacheResetOnAuthChange(
+  previousUserId: string | null,
+  userId: string | null
+): { clearMemory: boolean; deleteSaved: boolean } {
+  return {
+    clearMemory: previousUserId !== null && previousUserId !== userId,
+    deleteSaved: userId === null,
+  }
+}
+
 /** A saved cache is only restored for the same user, and only while fresh. */
 export function isRestorable<State>(
   saved: PersistedCache<State> | undefined,

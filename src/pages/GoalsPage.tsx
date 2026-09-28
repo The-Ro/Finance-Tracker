@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Plus, Target } from 'lucide-react'
+import { Target } from 'lucide-react'
 import { useGoals, type Goal } from '@/hooks/useGoals'
-import { Button } from '@/components/ui/Button'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, PageHeaderAction } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
+import { useToast } from '@/context/ToastContext'
 import { GoalCard } from '@/components/goals/GoalCard'
 import { GoalFormModal } from '@/components/goals/GoalFormModal'
 import { AddMoneyModal } from '@/components/goals/AddMoneyModal'
@@ -64,22 +65,34 @@ export function GoalsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Goal | null>(null)
   const [addingToId, setAddingToId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Goal | null>(null)
+  const { show } = useToast()
   // Looked up from the live list so the modal always shows the latest saved amount.
   const addingTo = useMemo(() => goals.find((g) => g.id === addingToId) ?? null, [goals, addingToId])
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return
+    remove.mutate(pendingDelete.id, {
+      onSuccess: () => setPendingDelete(null),
+      onError: () => {
+        setPendingDelete(null)
+        show("Couldn't delete that goal. Try again.", { tone: 'error' })
+      },
+    })
+  }
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Goals"
         actions={
-          <Button
+          <PageHeaderAction
+            label="New goal"
             onClick={() => {
               setEditing(null)
               setModalOpen(true)
             }}
-          >
-            <Plus size={16} aria-hidden="true" /> New goal
-          </Button>
+          />
         }
       />
 
@@ -101,7 +114,7 @@ export function GoalsPage() {
                     setEditing(g)
                     setModalOpen(true)
                   }}
-                  onDelete={() => remove.mutate(g.id)}
+                  onDelete={() => setPendingDelete(g)}
                   onAddMoney={() => setAddingToId(g.id)}
                 />
               </div>
@@ -112,6 +125,18 @@ export function GoalsPage() {
 
       <GoalFormModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} />
       <AddMoneyModal goal={addingTo} onClose={() => setAddingToId(null)} />
+      <ConfirmDeleteModal
+        open={pendingDelete !== null}
+        title="Delete goal"
+        pending={remove.isPending}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+      >
+        <p>
+          Delete the goal <span className="font-medium">{pendingDelete?.name}</span>? Its saved-so-far progress is lost. This
+          can't be undone.
+        </p>
+      </ConfirmDeleteModal>
     </div>
   )
 }

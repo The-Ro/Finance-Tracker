@@ -31,7 +31,8 @@ interface AuthLayoutProps {
  *  all simply renders in place. */
 export function AuthLayout({ children, headline, supportingText, title, subtitle, footer }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-screen w-full bg-app-bg">
+    // dvh, not 100vh: iOS Safari's 100vh includes the collapsing toolbar, so the page scrolled.
+    <div className="flex min-h-dvh w-full bg-app-bg">
       <aside className="relative hidden w-[46%] max-w-[760px] shrink-0 flex-col gap-10 overflow-hidden bg-accent-light px-14 py-12 lg:flex">
         <svg
           aria-hidden="true"
@@ -67,7 +68,7 @@ export function AuthLayout({ children, headline, supportingText, title, subtitle
         </div>
       </aside>
 
-      <main className="flex min-h-screen flex-1 flex-col items-center justify-center px-4 py-10 sm:px-8">
+      <main className="flex min-h-dvh flex-1 flex-col items-center justify-center px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-[calc(2.5rem+var(--safe-top))] sm:px-8">
         <div className="w-full max-w-md">
           <AuthRise index={0} className="mb-6 flex flex-col gap-4 lg:hidden">
             <BrandHeader />

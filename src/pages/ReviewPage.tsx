@@ -182,12 +182,12 @@ export function ReviewPage() {
         <div className="flex h-36 items-end gap-3">
           {history.map((h, i) => (
             <div key={h.month} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
-              <span className="text-[11px] tabular-nums text-slate-500">{formatCompact(h.total)}</span>
+              <span className="text-xs tabular-nums text-slate-500">{formatCompact(h.total)}</span>
               <div
                 className={'animate-bar-rise w-full max-w-[44px] rounded-t-lg ' + (h.total < 0 ? 'bg-danger/70' : i === history.length - 1 ? 'bg-accent' : 'bg-accent/40')}
                 style={{ height: `${Math.max(4, (Math.abs(h.total) / historyMax) * 100)}%`, animationDelay: `${i * 70}ms` }}
               />
-              <span className="text-[11px] font-medium text-slate-500">
+              <span className="text-xs font-medium text-slate-500">
                 {new Date(h.month + '-01T00:00:00').toLocaleDateString(undefined, { month: 'short' })}
               </span>
             </div>

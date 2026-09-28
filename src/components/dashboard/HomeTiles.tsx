@@ -28,7 +28,8 @@ function CountUp({ value, format, className }: { value: number; format: (n: numb
   }, [])
   const shown = useAnimatedNumber(mounted ? value : 0, HERO_COUNT_UP_MS)
   return (
-    <span className={clsx('font-serif text-2xl font-semibold leading-tight tabular-nums sm:text-[2rem]', className)}>
+    // Scales with the viewport on phones so a lakh/crore figure fits a half-width tile (320-430px).
+    <span className={clsx('whitespace-nowrap font-serif text-[clamp(1rem,5.1vw,1.5rem)] font-semibold leading-tight tabular-nums sm:text-[2rem]', className)}>
       <span className="sr-only">{format(value)}</span>
       <span aria-hidden="true">{format(shown)}</span>
     </span>
@@ -108,7 +109,7 @@ export function HomeTiles({ balances, saved }: HomeTilesProps) {
     cashNames.length === 0 ? (
       <>
         Set{' '}
-        <Link to="/settings#starting-balances" className="font-semibold text-accent-dark hover:underline">
+        <Link to="/settings/accounts#starting-balances" className="font-semibold text-accent-dark hover:underline">
           starting balances
         </Link>{' '}
         to see this
@@ -124,7 +125,7 @@ export function HomeTiles({ balances, saved }: HomeTilesProps) {
     cards.size === 0 ? (
       <>
         No credit cards ·{' '}
-        <Link to="/settings#account-types" className="font-semibold text-accent-dark hover:underline">
+        <Link to="/settings/accounts#account-types" className="font-semibold text-accent-dark hover:underline">
           add one
         </Link>
       </>

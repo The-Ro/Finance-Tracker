@@ -115,7 +115,7 @@ export function SharedPage() {
             const total = iPaid ? paidTotals.get(s.transaction_id) : undefined
             const who = firstName(other)
             return (
-              <li key={s.id} className="flex items-center gap-3 border-b border-app-border py-3 last:border-b-0">
+              <li key={s.id} className="flex items-start gap-3 border-b border-app-border py-3 last:border-b-0 sm:items-center">
                 <span
                   aria-hidden="true"
                   className={clsx(
@@ -125,41 +125,47 @@ export function SharedPage() {
                 >
                   {s.description.trim().charAt(0).toUpperCase() || '?'}
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className={clsx('truncate text-sm font-semibold', s.settled_at ? 'text-slate-400 line-through' : 'text-slate-900')}>
-                    {s.description}
-                  </p>
-                  <p className="text-helper text-slate-500">
-                    {iPaid
-                      ? `You paid${total !== undefined ? ` ${format(total)}` : ''} · ${who} owes ${format(s.amount)}`
-                      : `${who} paid · you owe ${format(s.amount)}`}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {formatShortDate(s.date)}
-                    {s.settled_at ? ' · settled' : ''}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end">
-                  <span className="text-[11px] text-slate-500">{iPaid ? 'you lent' : 'you owe'}</span>
-                  <span
-                    className={clsx(
-                      'font-serif text-base font-semibold tabular-nums',
-                      s.settled_at ? 'text-slate-400' : iPaid ? 'text-positive' : 'text-danger'
+                {/* Phones: details take the full width, then amount + action
+                    share a line below. From sm it's one row as before. */}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
+                  <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
+                    <p className={clsx('truncate text-sm font-semibold', s.settled_at ? 'text-slate-400 line-through' : 'text-slate-900')}>
+                      {s.description}
+                    </p>
+                    <p className="text-helper text-slate-500">
+                      {iPaid
+                        ? `You paid${total !== undefined ? ` ${format(total)}` : ''} · ${who} owes ${format(s.amount)}`
+                        : `${who} paid · you owe ${format(s.amount)}`}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {formatShortDate(s.date)}
+                      {s.settled_at ? ' · settled' : ''}
+                    </p>
+                  </div>
+                  <div className="flex min-w-0 flex-1 items-center justify-between gap-3 sm:flex-none">
+                    <div className="flex items-baseline gap-1.5 sm:flex-col sm:items-end sm:gap-0">
+                      <span className="text-xs text-slate-500">{iPaid ? 'you lent' : 'you owe'}</span>
+                      <span
+                        className={clsx(
+                          'font-serif text-base font-semibold tabular-nums',
+                          s.settled_at ? 'text-slate-400' : iPaid ? 'text-positive' : 'text-danger'
+                        )}
+                      >
+                        {format(s.amount)}
+                      </span>
+                    </div>
+                    {iPaid && (
+                      <button
+                        type="button"
+                        onClick={() => setSettled.mutate({ id: s.id, settled: !s.settled_at })}
+                        disabled={setSettled.isPending}
+                        className="min-h-[44px] shrink-0 rounded-full border border-app-border px-3 text-helper font-medium text-slate-600 hover:border-accent hover:text-accent-dark disabled:opacity-50"
+                      >
+                        {s.settled_at ? 'Undo' : 'Mark settled'}
+                      </button>
                     )}
-                  >
-                    {format(s.amount)}
-                  </span>
+                  </div>
                 </div>
-                {iPaid && (
-                  <button
-                    type="button"
-                    onClick={() => setSettled.mutate({ id: s.id, settled: !s.settled_at })}
-                    disabled={setSettled.isPending}
-                    className="min-h-[44px] shrink-0 rounded-full border border-app-border px-3 text-helper font-medium text-slate-600 hover:border-accent hover:text-accent-dark disabled:opacity-50"
-                  >
-                    {s.settled_at ? 'Undo' : 'Mark settled'}
-                  </button>
-                )}
               </li>
             )
           })}

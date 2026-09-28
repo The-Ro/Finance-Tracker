@@ -92,13 +92,16 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
       setOpen(false)
     }
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      setOpen(false)
     }
     document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
+    // Capture phase runs before a parent Modal's bubble-phase listener.
+    document.addEventListener('keydown', handleKeyDown, true)
     return () => {
       document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', handleKeyDown, true)
     }
   }, [open])
 
@@ -164,7 +167,7 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
           >
             {recent.length > 0 && (
               <>
-                <li className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Recent</li>
+                <li className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recent</li>
                 {recent.map(renderOption)}
                 <li role="presentation" className="my-1 border-t border-app-border" />
               </>

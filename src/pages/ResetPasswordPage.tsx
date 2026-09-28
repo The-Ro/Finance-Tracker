@@ -6,12 +6,23 @@ import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { AuthError, AuthRise, AuthSpinner, AuthSubmitButton, AuthSuccess } from '@/components/auth/AuthMotion'
 
+// An expired or already-used link comes back with error params (e.g.
+// `#error=access_denied&error_code=otp_expired`) instead of a token. Supabase
+// keeps any existing session when that happens, so it has to be checked
+// explicitly or a signed-in user would be offered their own password change.
+function hasRecoveryLinkError(location: Location): boolean {
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''))
+  const query = new URLSearchParams(location.search)
+  return ['error', 'error_code', 'error_description'].some((key) => hash.has(key) || query.has(key))
+}
+
 // Reached only via the link in a password-recovery email. Supabase's client
 // detects the recovery token in the URL and establishes a session before this
 // mounts, which is why this route sits outside both ProtectedRoute (no normal
 // session may exist yet) and PublicOnlyRoute (a session may already exist).
 export function ResetPasswordPage() {
   const navigate = useNavigate()
+  const [linkError] = useState(() => hasRecoveryLinkError(window.location))
   const [ready, setReady] = useState(false)
   const [hasSession, setHasSession] = useState(false)
   const [password, setPassword] = useState('')
@@ -65,7 +76,7 @@ export function ResetPasswordPage() {
         </p>
       ) : done ? (
         <AuthSuccess>Password updated. Taking you to your dashboard…</AuthSuccess>
-      ) : !hasSession ? (
+      ) : linkError || !hasSession ? (
         <>
           <InlineMessage tone="error">This reset link is invalid or has expired.</InlineMessage>
           <p className="mt-4 text-center text-sm text-slate-500">

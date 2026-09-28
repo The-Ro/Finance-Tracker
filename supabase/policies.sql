@@ -17,14 +17,17 @@ alter table public.viewer_access enable row level security;
 
 -- ---- profiles: readable only for your own row, anyone you share a
 -- ---- viewer_access row with (either direction, any status -- so shared
--- ---- transactions and incoming/outgoing requests can show names), and the
--- ---- admin. This used to be readable by every signed-in user (a full user
--- ---- directory); finding someone new now goes through find_profile_by_email
--- ---- (schema.sql), an exact-email lookup. Only the owner can create/update
--- ---- their own row.
+-- ---- transactions and incoming/outgoing requests can show names), anyone
+-- ---- you share a split with (so settled-up history keeps its names after
+-- ---- a connection is revoked), and the admin. This used to be readable by
+-- ---- every signed-in user (a full user directory); finding someone new now
+-- ---- goes through find_profile_by_email (schema.sql), an exact-email lookup.
+-- ---- Rows are created only by handle_new_user(); users can update just
+-- ---- display_name/avatar -- email mirrors auth.users and isn't editable, so
+-- ---- nobody can pose as another address.
 drop policy if exists profiles_select_all on public.profiles;
 drop policy if exists profiles_select_own_or_connected on public.profiles;
-create policy profiles_select_own_or_connected on public.profiles for select
+create policy profiles_select_own_or_connected on public.profiles for select to authenticated
   using (
     auth.uid() = id
     or public.is_admin()
@@ -33,15 +36,21 @@ create policy profiles_select_own_or_connected on public.profiles for select
       where (va.requester_user_id = auth.uid() and va.owner_user_id = profiles.id)
          or (va.owner_user_id = auth.uid() and va.requester_user_id = profiles.id)
     )
+    or exists (
+      select 1 from public.transaction_splits s
+      where (s.owner_user_id = auth.uid() and s.with_user_id = profiles.id)
+         or (s.with_user_id = auth.uid() and s.owner_user_id = profiles.id)
+    )
   );
 
 drop policy if exists profiles_insert_self on public.profiles;
-create policy profiles_insert_self on public.profiles for insert
-  with check (auth.uid() = id);
 
 drop policy if exists profiles_update_self on public.profiles;
 create policy profiles_update_self on public.profiles for update
   using (auth.uid() = id) with check (auth.uid() = id);
+
+revoke insert, update on public.profiles from anon, authenticated;
+grant update (display_name, avatar) on public.profiles to authenticated;
 
 -- ---- categories / accounts / tags: personal, additive-only lookup lists.
 -- ---- Only the owner can read/add/remove their own; nobody can see or touch
@@ -83,20 +92,25 @@ create policy tags_delete_own on public.tags for delete
   using (auth.uid() = owner_user_id);
 
 -- ---- viewer_access: both sides of a request/grant can see it; only the
--- ---- requester can create it (as 'pending'); only the owner can approve it;
--- ---- either side can delete it (cancel / decline / revoke).
+-- ---- requester can create it (as 'pending'), and only through
+-- ---- request_viewer_access(email) (schema.sql) -- a direct insert could aim
+-- ---- a request at any user id and so reveal that user's profile. Only the
+-- ---- owner can approve it, and only status/responded_at are updatable (the
+-- ---- two user ids can't be re-pointed). Either side can delete it
+-- ---- (cancel / decline / revoke).
 drop policy if exists viewer_access_select on public.viewer_access;
 create policy viewer_access_select on public.viewer_access for select
   using (auth.uid() = requester_user_id or auth.uid() = owner_user_id);
 
 drop policy if exists viewer_access_insert on public.viewer_access;
-create policy viewer_access_insert on public.viewer_access for insert
-  with check (auth.uid() = requester_user_id and status = 'pending');
 
 drop policy if exists viewer_access_update on public.viewer_access;
 create policy viewer_access_update on public.viewer_access for update
   using (auth.uid() = owner_user_id)
   with check (auth.uid() = owner_user_id and status in ('approved','paused'));
+
+revoke insert, update on public.viewer_access from anon, authenticated;
+grant update (status, responded_at) on public.viewer_access to authenticated;
 
 drop policy if exists viewer_access_delete on public.viewer_access;
 create policy viewer_access_delete on public.viewer_access for delete
@@ -157,19 +171,22 @@ begin
   end loop;
 end $$;
 
--- documents: also selectable by approved viewers of the owner's
--- transactions -- a receipt attached to a shared transaction needs its
--- filename/storage_path readable by whoever's been granted access to see
--- that transaction, not just the owner. budgets/goals/recurring_items stay
--- strictly own-only (private even when transactions are shared).
+-- documents: a receipt attached to a shared transaction is also selectable
+-- by whoever's been approved to see that transaction -- only documents some
+-- transaction points at via receipt_document_id, never the owner's whole
+-- Documents page. budgets/goals/recurring_items stay strictly own-only
+-- (private even when transactions are shared).
 drop policy if exists documents_select_shared on public.documents;
 create policy documents_select_shared on public.documents for select
   using (
     exists (
-      select 1 from public.viewer_access
-      where viewer_access.owner_user_id = documents.owner_user_id
-        and viewer_access.requester_user_id = auth.uid()
-        and viewer_access.status = 'approved'
+      select 1 from public.transactions t
+      join public.viewer_access va
+        on va.owner_user_id = t.owner_user_id
+       and va.requester_user_id = auth.uid()
+       and va.status = 'approved'
+      where t.receipt_document_id = documents.id
+        and t.owner_user_id = documents.owner_user_id
     )
   );
 
@@ -252,31 +269,45 @@ create policy documents_storage_delete_own on storage.objects for delete
 -- Also selectable by approved viewers of the owner's transactions -- a
 -- receipt attached to a shared transaction needs to actually be openable
 -- by whoever's been granted access to see that transaction, matching
--- documents_select_shared on the table itself (above).
+-- documents_select_shared on the table itself (above): only files a
+-- documents row attaches to such a transaction, and only inside that
+-- owner's own folder (storage_path is client-written text).
 drop policy if exists documents_storage_select_shared on storage.objects;
 create policy documents_storage_select_shared on storage.objects for select
   using (
     bucket_id = 'documents'
     and exists (
-      select 1 from public.viewer_access
-      where viewer_access.owner_user_id = ((storage.foldername(name))[2])::uuid
-        and viewer_access.requester_user_id = auth.uid()
-        and viewer_access.status = 'approved'
+      select 1 from public.documents d
+      join public.transactions t
+        on t.receipt_document_id = d.id and t.owner_user_id = d.owner_user_id
+      join public.viewer_access va
+        on va.owner_user_id = t.owner_user_id
+       and va.requester_user_id = auth.uid()
+       and va.status = 'approved'
+      where d.storage_path = objects.name
+        and d.owner_user_id::text = (storage.foldername(objects.name))[2]
     )
   );
 
 -- ================= Storage (avatars bucket) =================
 -- Public bucket -- profile pictures must be viewable by every user (they show
 -- up on shared transactions), unlike the private documents bucket above.
-insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', true)
-on conflict (id) do nothing;
+-- Public URLs are served without any select policy, so listing is limited to
+-- your own folder (the top-level folders are user ids). Images only, 5 MB,
+-- matching useUploadAvatar; no SVG (it can carry script).
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880,
+        array['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif', 'image/heic', 'image/heif'])
+on conflict (id) do update
+  set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 -- Objects live at `<owner_user_id>/<uuid>-<safe-filename>` so ownership is
 -- checked straight from the path, same pattern as the documents bucket.
+-- Select on your own folder is still needed for upsert uploads and cleanup.
 drop policy if exists avatars_storage_select_all on storage.objects;
-create policy avatars_storage_select_all on storage.objects for select
-  using (bucket_id = 'avatars');
+drop policy if exists avatars_storage_select_own on storage.objects;
+create policy avatars_storage_select_own on storage.objects for select
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists avatars_storage_insert_own on storage.objects;
 create policy avatars_storage_insert_own on storage.objects for insert
@@ -296,45 +327,68 @@ create policy avatars_storage_delete_own on storage.objects for delete
 -- no broad RLS write policy is added for this workflow.
 
 -- ---- transaction_splits ----
--- Both people in a split can read it; only the payer can create, change or
--- remove it, only on their own expense, for no more than its amount, and only
--- with someone they have an *approved* viewer_access connection with (either
--- direction). The same connection check sits on UPDATE so a split can't be
--- re-pointed at an unconnected user (that would leak its description/date).
+-- Both people in a split can read it; only the payer can create, settle or
+-- remove it. Creating one needs their own expense, a share no more than its
+-- amount (the transaction_splits_cap_total trigger in schema.sql also caps
+-- the total of all shares), and an *approved* viewer_access connection with
+-- the other person (either direction). After that, settled_at is the only
+-- updatable column, so a split can't be re-pointed at an unconnected user or
+-- another transaction -- which is why UPDATE needs no connection check, and
+-- the payer can still settle up after the connection is paused or revoked.
 alter table public.transaction_splits enable row level security;
 
+drop policy if exists transaction_splits_select_participants on public.transaction_splits;
 create policy transaction_splits_select_participants on public.transaction_splits
   for select to authenticated
   using (owner_user_id = auth.uid() or with_user_id = auth.uid());
 
+drop policy if exists transaction_splits_insert_own on public.transaction_splits;
 create policy transaction_splits_insert_own on public.transaction_splits
   for insert to authenticated
   with check (
     owner_user_id = auth.uid()
     and exists (select 1 from public.transactions t
-                where t.id = transaction_id and t.owner_user_id = auth.uid()
-                  and t.type = 'expense' and amount <= t.amount)
+                where t.id = transaction_splits.transaction_id and t.owner_user_id = auth.uid()
+                  and t.type = 'expense' and transaction_splits.amount <= t.amount)
     and exists (select 1 from public.viewer_access va where va.status = 'approved'
-                and ((va.owner_user_id = auth.uid() and va.requester_user_id = with_user_id)
-                  or (va.requester_user_id = auth.uid() and va.owner_user_id = with_user_id)))
+                and ((va.owner_user_id = auth.uid() and va.requester_user_id = transaction_splits.with_user_id)
+                  or (va.requester_user_id = auth.uid() and va.owner_user_id = transaction_splits.with_user_id)))
   );
 
+drop policy if exists transaction_splits_update_own on public.transaction_splits;
 create policy transaction_splits_update_own on public.transaction_splits
   for update to authenticated
   using (owner_user_id = auth.uid())
-  with check (
-    owner_user_id = auth.uid()
-    and exists (select 1 from public.transactions t
-                where t.id = transaction_id and t.owner_user_id = auth.uid()
-                  and t.type = 'expense' and amount <= t.amount)
-    and exists (select 1 from public.viewer_access va where va.status = 'approved'
-                and ((va.owner_user_id = auth.uid() and va.requester_user_id = with_user_id)
-                  or (va.requester_user_id = auth.uid() and va.owner_user_id = with_user_id)))
-  );
+  with check (owner_user_id = auth.uid());
 
+drop policy if exists transaction_splits_delete_own on public.transaction_splits;
 create policy transaction_splits_delete_own on public.transaction_splits
   for delete to authenticated
   using (owner_user_id = auth.uid());
 
-grant select, insert, update, delete on public.transaction_splits to authenticated;
+grant select, insert, delete on public.transaction_splits to authenticated;
+revoke update on public.transaction_splits from authenticated;
+grant update (settled_at) on public.transaction_splits to authenticated;
 revoke all on public.transaction_splits from anon;
+
+-- ---- debit_cards ----
+-- Debit cards are private: own-only for every operation, even when
+-- transactions are shared (a viewer just sees "Debit card" as the method).
+alter table public.debit_cards enable row level security;
+
+drop policy if exists debit_cards_select_own on public.debit_cards;
+create policy debit_cards_select_own on public.debit_cards for select to authenticated
+  using (owner_user_id = auth.uid());
+drop policy if exists debit_cards_insert_own on public.debit_cards;
+create policy debit_cards_insert_own on public.debit_cards for insert to authenticated
+  with check (owner_user_id = auth.uid());
+drop policy if exists debit_cards_update_own on public.debit_cards;
+create policy debit_cards_update_own on public.debit_cards for update to authenticated
+  using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
+drop policy if exists debit_cards_delete_own on public.debit_cards;
+create policy debit_cards_delete_own on public.debit_cards for delete to authenticated
+  using (owner_user_id = auth.uid());
+
+revoke all on public.debit_cards from anon, authenticated;
+grant select, insert, delete on public.debit_cards to authenticated;
+grant update (name, last4, account) on public.debit_cards to authenticated;

@@ -10,8 +10,10 @@ import { formatShortDate, todayISO } from '@/lib/format'
 import { useCardBills } from '@/hooks/useCards'
 import { addDaysISO } from '@/lib/billCalendar'
 import { dueWithin } from '@/lib/home'
+import { cardPagePath } from '@/components/cards/cardPath'
 
 const MAX_ROWS = 5
+const CARD_ID_PREFIX = 'card:'
 
 interface ComingUpCardProps {
   items: RecurringItem[]
@@ -39,7 +41,7 @@ export function ComingUpCard({ items, className }: ComingUpCardProps) {
       ...dueWithin(items, today, 7),
       ...cardBills
         .filter((b) => b.dueDate <= weekEnd)
-        .map((b) => ({ item: { id: 'card:' + b.account, name: b.account + ' bill', amount: b.due }, date: b.dueDate, overdue: b.dueDate < today })),
+        .map((b) => ({ item: { id: CARD_ID_PREFIX + b.account, name: b.account + ' bill', amount: b.due }, date: b.dueDate, overdue: b.dueDate < today })),
     ]
     return merged.sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0))
   }, [items, cardBills, today])
@@ -84,7 +86,7 @@ export function ComingUpCard({ items, className }: ComingUpCardProps) {
               <div className="flex w-11 shrink-0 flex-col items-center leading-tight">
                 <span
                   className={clsx(
-                    'text-[11px] font-bold uppercase',
+                    'text-xs font-bold uppercase',
                     overdue ? 'text-danger' : date === today ? 'text-brass' : 'text-slate-500'
                   )}
                 >
@@ -95,7 +97,16 @@ export function ComingUpCard({ items, className }: ComingUpCardProps) {
                 </span>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-800">{item.name}</p>
+                {item.id.startsWith(CARD_ID_PREFIX) ? (
+                  <Link
+                    to={cardPagePath(item.id.slice(CARD_ID_PREFIX.length))}
+                    className="block truncate text-sm font-semibold text-slate-800 hover:underline"
+                  >
+                    {item.name}
+                  </Link>
+                ) : (
+                  <p className="truncate text-sm font-semibold text-slate-800">{item.name}</p>
+                )}
                 {overdue && (
                   <p className="text-helper font-medium text-danger">Overdue since {formatShortDate(date)}</p>
                 )}

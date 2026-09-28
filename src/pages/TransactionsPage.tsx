@@ -12,6 +12,10 @@ import {
 import { useProfiles } from '@/hooks/useProfiles'
 import { useRequestedAccessRows } from '@/hooks/useSharing'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
+import { useDebitCards } from '@/hooks/useDebitCards'
+import { useAccountsInUse } from '@/hooks/useAccountsInUse'
+import { useCardPaymentSuggestions } from '@/hooks/useCardPaymentSuggestions'
+import { CardPaymentNotice } from '@/components/cards/CardPaymentNotice'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
@@ -80,6 +84,14 @@ export function TransactionsPage() {
   const requestedAccess = useRequestedAccessRows()
   const { data: categories = [] } = useCategories()
   const { data: accounts = [] } = useAccounts()
+  const { data: debitCards = [] } = useDebitCards()
+  const { inUse, ready: usageReady } = useAccountsInUse()
+  const cardPayments = useCardPaymentSuggestions()
+  // The account filter skips banks seeded at signup and never used (keeping whatever is picked).
+  const filterAccounts = useMemo(
+    () => (usageReady ? accounts.filter((a) => inUse.has(a) || a === filters.account) : accounts),
+    [accounts, inUse, usageReady, filters.account]
+  )
 
   const period = settings.data?.selectedPeriod ?? 'all-time'
   const range = resolvePeriod(period)
@@ -187,15 +199,28 @@ export function TransactionsPage() {
           </>
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
-            <Button variant="secondary" onClick={handleExport} disabled={inPeriod.length === 0} className="px-3 sm:px-4">
-              <Download size={16} />
-              <span className="hidden sm:inline">Export</span>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {/* Phones: one row -- the period takes what's left (its trigger's 9rem
+                minimum is lifted here) and the two labelled buttons stay compact. */}
+            <div className="min-w-0 flex-1 sm:flex-none [&_button]:min-w-0 sm:[&_button]:min-w-[9rem]">
+              <PeriodSelector value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+            </div>
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              disabled={inPeriod.length === 0}
+              className="shrink-0 gap-1 px-2.5 !text-helper sm:gap-2 sm:px-4 sm:!text-sm"
+            >
+              <Download size={15} aria-hidden="true" />
+              Export
             </Button>
-            <Button variant="secondary" onClick={() => setDuplicatesOpen(true)} className="px-3 sm:px-4">
-              <Copy size={16} />
-              <span className="hidden sm:inline">Duplicates</span>
+            <Button
+              variant="secondary"
+              onClick={() => setDuplicatesOpen(true)}
+              className="shrink-0 gap-1 px-2.5 !text-helper sm:gap-2 sm:px-4 sm:!text-sm"
+            >
+              <Copy size={15} aria-hidden="true" />
+              Duplicates
               {duplicateGroups.length > 0 && (
                 <span className="rounded-full bg-caution-light px-1.5 text-helper font-semibold text-caution">
                   {duplicateGroups.length}
@@ -239,6 +264,8 @@ export function TransactionsPage() {
         </div>
       )}
 
+      <CardPaymentNotice suggestions={cardPayments.suggestions} cardAccounts={cardPayments.cardAccounts} />
+
       <SavedFilters filters={filters} scope={scope} period={period} onApply={applySavedView} />
 
       {paginated.isLoading ? (
@@ -252,7 +279,8 @@ export function TransactionsPage() {
           currentUserId={userId ?? ''}
           profiles={profiles.data ?? {}}
           categories={categories}
-          accounts={accounts}
+          accounts={filterAccounts}
+          debitCards={debitCards}
           filters={filters}
           onFiltersChange={setFilters}
           peopleOptions={peopleOptions}

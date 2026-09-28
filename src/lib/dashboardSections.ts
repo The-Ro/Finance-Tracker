@@ -21,7 +21,7 @@ export const DASHBOARD_SECTION_LABELS: Record<DashboardSectionId, string> = {
   summary: 'Summary cards',
   cashflow: 'Cash flow chart',
   categoryChart: 'Category breakdown',
-  accountChart: 'Account breakdown',
+  accountChart: 'Savings accounts',
   accountBalances: 'Account balances',
   activity: 'Recent activity',
   review: 'Needs-review banner',

@@ -53,7 +53,16 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
     const value = Number(amount)
     if (!person) return setError('Choose who to split with.')
     if (!Number.isFinite(value) || value <= 0) return setError('Enter the amount they owe.')
-    if (value > transaction.amount) return setError(`Their share can't be more than ${format(transaction.amount)}.`)
+    // Compared in cents so float sums like 33.33 + 33.33 + 33.34 don't trip it.
+    const alreadySplitCents = existing.reduce((sum, s) => sum + Math.round(s.amount * 100), 0)
+    const leftCents = Math.round(transaction.amount * 100) - alreadySplitCents
+    if (Math.round(value * 100) > leftCents) {
+      return setError(
+        alreadySplitCents > 0
+          ? `Only ${format(Math.max(leftCents, 0) / 100)} of ${format(transaction.amount)} is left to split; ${format(alreadySplitCents / 100)} is already split.`
+          : `Their share can't be more than ${format(transaction.amount)}.`
+      )
+    }
     try {
       await create.mutateAsync({ transaction, withUserId: person.id, amount: value })
       onClose()
@@ -109,7 +118,7 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
         {people.length === 0 ? (
           <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
             You can split with people you share with. Connect with someone in{' '}
-            <Link to="/settings#sharing" onClick={onClose} className="font-medium text-accent-dark underline">
+            <Link to="/settings/sharing"onClick={onClose} className="font-medium text-accent-dark underline">
               Settings, Sharing
             </Link>{' '}
             first.

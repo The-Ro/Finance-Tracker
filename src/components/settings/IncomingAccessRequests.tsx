@@ -72,8 +72,10 @@ export function IncomingAccessRequests() {
     remove.mutate(id)
   }
   const handleFollowBack = (id: string, requesterUserId: string) => {
+    const email = profileMap[requesterUserId]?.email
+    if (!email) return
     markActioned(id, requesterUserId, 'followed')
-    sendRequest.mutate(requesterUserId)
+    sendRequest.mutate(email)
   }
 
   // Pending rows not yet acted on, plus a synthetic entry for each recently-actioned
@@ -122,7 +124,7 @@ export function IncomingAccessRequests() {
                       <Button
                         variant="secondary"
                         onClick={() => handleFollowBack(r.id, r.requester_user_id)}
-                        disabled={sendRequest.isPending}
+                        disabled={sendRequest.isPending || !profileMap[r.requester_user_id]?.email}
                       >
                         <UserPlus size={14} /> Follow back
                       </Button>

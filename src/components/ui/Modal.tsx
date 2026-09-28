@@ -25,6 +25,7 @@ export function Modal({
   maxWidthClassName = 'max-w-lg',
   contentRef,
 }: ModalProps) {
+  const overlayRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
 
@@ -53,6 +54,37 @@ export function Modal({
     return () => {
       root.style.overflow = originalOverflow
       root.style.paddingRight = originalPaddingRight
+    }
+  }, [open])
+
+  // iOS doesn't shrink the layout viewport for the on-screen keyboard, so a
+  // bottom sheet pinned to it ends up half behind the keyboard, often with
+  // the field being typed into hidden. On phones, size the overlay to the
+  // visual viewport instead: the sheet then sits just above the keyboard,
+  // and its percentage max-height shrinks to fit the space left.
+  useEffect(() => {
+    const vv = window.visualViewport
+    const overlay = overlayRef.current
+    if (!open || !vv || !overlay || !window.matchMedia('(max-width: 639px)').matches) return
+    function sync() {
+      overlay!.style.top = `${vv!.offsetTop}px`
+      overlay!.style.height = `${vv!.height}px`
+    }
+    function onResize() {
+      sync()
+      const active = document.activeElement
+      if (active instanceof HTMLElement && dialogRef.current?.contains(active)) {
+        active.scrollIntoView({ block: 'nearest' })
+      }
+    }
+    sync()
+    vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', sync)
+    return () => {
+      vv.removeEventListener('resize', onResize)
+      vv.removeEventListener('scroll', sync)
+      overlay.style.top = ''
+      overlay.style.height = ''
     }
   }, [open])
 
@@ -88,6 +120,9 @@ export function Modal({
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        // An open DateField/Dropdown inside the dialog consumes Escape (capture
+        // phase + preventDefault) so it closes only itself, not the form.
+        if (e.defaultPrevented) return
         onCloseRef.current()
         return
       }
@@ -129,7 +164,10 @@ export function Modal({
   // subtree entirely, so it's never nested inside that (or any future)
   // transformed ancestor again.
   return createPortal(
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4">
+    <div
+      ref={overlayRef}
+      className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
+    >
       <div
         ref={dialogRef}
         role="dialog"
@@ -138,8 +176,10 @@ export function Modal({
         tabIndex={-1}
         className={clsx(
           // Phones: a bottom sheet that slides up (easier to reach one-handed);
-          // sm and up: the centered card it always was.
-          'animate-sheet-up flex max-h-[92vh] w-full flex-col rounded-t-3xl bg-white pb-[env(safe-area-inset-bottom)] shadow-card outline-none sm:animate-scale-in sm:max-h-[90vh] sm:rounded-card sm:pb-0',
+          // sm and up: the centered card it always was. The phone max-height is
+          // a % of the overlay (which tracks the visible area and the keyboard,
+          // unlike vh on iOS) and always clears the status bar / Dynamic Island.
+          'animate-sheet-up flex max-h-[min(92%,calc(100%_-_var(--safe-top)_-_0.5rem))] w-full flex-col rounded-t-3xl bg-white pb-[env(safe-area-inset-bottom)] shadow-card outline-none sm:animate-scale-in sm:max-h-[90vh] sm:rounded-card sm:pb-0',
           maxWidthClassName
         )}
       >
@@ -156,7 +196,7 @@ export function Modal({
             <X size={18} />
           </button>
         </div>
-        <div ref={contentRef} className="flex-1 overflow-y-auto px-5 py-4">
+        <div ref={contentRef} className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {children}
         </div>
         {footer && <div className="border-t border-app-border px-5 py-4">{footer}</div>}

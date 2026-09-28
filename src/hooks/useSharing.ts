@@ -74,15 +74,18 @@ export function useFindProfileByEmail() {
   })
 }
 
+/**
+ * Requests go through request_viewer_access(email): viewer_access has no
+ * insert policy, so a request can't be aimed at a bare user id (which would
+ * reveal that person's profile to the requester).
+ */
 export function useSendAccessRequest() {
   const { userId } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (ownerUserId: string) => {
+    mutationFn: async (ownerEmail: string) => {
       if (!userId) throw new Error('Not signed in')
-      const { error } = await supabase
-        .from('viewer_access')
-        .insert({ requester_user_id: userId, owner_user_id: ownerUserId })
+      const { error } = await supabase.rpc('request_viewer_access', { p_email: ownerEmail })
       if (error) {
         if (error.code === DUPLICATE_CODE) {
           throw new Error("You've already requested (or have) access to this person's transactions.")
