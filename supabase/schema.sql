@@ -1923,3 +1923,353 @@ drop trigger if exists iou_payments_check_total on public.iou_payments;
 create trigger iou_payments_check_total before insert or update of amount, iou_id on public.iou_payments
   for each row execute function public.iou_payments_check_total();
 
+
+-- ===== Phone reminders (2026-09-29_push_reminders.sql): push_subscriptions, push_digest, the daily pg_cron job. RLS in policies.sql =====
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- ===== Devices that turned reminders on =====
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null unique check (endpoint like 'https://%'),
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now(),
+  last_sent_on date
+);
+
+-- Saving goes through this RPC: a device's endpoint belongs to whoever turned
+-- reminders on last, so a shared phone never gets the previous person's.
+create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in' using errcode = '28000';
+  end if;
+  if p_endpoint is null or p_endpoint not like 'https://%' or coalesce(p_p256dh, '') = '' or coalesce(p_auth, '') = '' then
+    raise exception 'Invalid subscription' using errcode = '22023';
+  end if;
+  delete from public.push_subscriptions where endpoint = p_endpoint;
+  insert into public.push_subscriptions (owner_user_id, endpoint, p256dh, auth)
+  values (auth.uid(), p_endpoint, p_p256dh, p_auth);
+end;
+$$;
+revoke execute on function public.save_push_subscription(text, text, text) from public, anon;
+grant execute on function public.save_push_subscription(text, text, text) to authenticated;
+
+-- ===== What to say =====
+create or replace function public.push_money(p_amount numeric, p_currency text)
+returns text
+language sql immutable set search_path = ''
+as $$
+  select case coalesce(p_currency, 'INR')
+           when 'INR' then '₹' when 'USD' then '$' when 'EUR' then '€' when 'GBP' then '£'
+           else coalesce(p_currency, '') || ' ' end
+         || to_char(p_amount, case when p_amount = trunc(p_amount) then 'FM999,999,999,999' else 'FM999,999,999,990.00' end);
+$$;
+revoke execute on function public.push_money(numeric, text) from public, anon, authenticated;
+
+-- One row per person with something to hear about today (only people with a
+-- device that hasn't had today's reminder yet). Service role only.
+create or replace function public.push_digest(p_today date)
+returns table (owner_user_id uuid, title text, body text, url text)
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  u record;
+  lines text[];
+  cur text;
+  n_overdue int;
+  n_bills int;
+  names text;
+  go_to text;
+begin
+  for u in
+    select distinct s.owner_user_id as id from public.push_subscriptions s
+    where s.last_sent_on is null or s.last_sent_on < p_today
+  loop
+    lines := '{}';
+    go_to := null;
+    select coalesce(us.currency, 'INR') into cur from public.user_settings us where us.owner_user_id = u.id;
+
+    -- Bills and subscriptions: overdue, due today, due tomorrow.
+    select count(*), string_agg(r.name || ' ' || public.push_money(r.amount, cur), ', ' order by r.next_date, r.name)
+      into n_overdue, names
+      from public.recurring_items r where r.owner_user_id = u.id and r.active and r.next_date < p_today;
+    if n_overdue > 0 then
+      lines := lines || ('Overdue: ' || names);
+      go_to := '/bills';
+    end if;
+    select count(*), string_agg(r.name || ' ' || public.push_money(r.amount, cur), ', ' order by r.name)
+      into n_bills, names
+      from public.recurring_items r where r.owner_user_id = u.id and r.active and r.next_date = p_today;
+    if n_bills > 0 then
+      lines := lines || ('Due today: ' || names);
+      go_to := coalesce(go_to, '/bills');
+    end if;
+    select count(*), string_agg(r.name || ' ' || public.push_money(r.amount, cur), ', ' order by r.name)
+      into n_bills, names
+      from public.recurring_items r where r.owner_user_id = u.id and r.active and r.next_date = p_today + 1;
+    if n_bills > 0 then
+      lines := lines || ('Due tomorrow: ' || names);
+      go_to := coalesce(go_to, '/bills');
+    end if;
+
+    -- Credit card bills due today or in 2 days, when something is owed.
+    select string_agg(c.name || ' bill due ' || case when c.due = p_today then 'today' else to_char(c.due, 'FMMon FMDD') end, ', ')
+      into names
+      from (
+        select a.name,
+               case when d.this_month >= p_today then d.this_month else d.next_month end as due,
+               a.opening_balance + coalesce((
+                 select sum(case
+                   when t.type = 'income' and t.account = a.name then t.amount
+                   when t.type = 'expense' and t.account = a.name then -t.amount
+                   when t.type = 'transfer' and t.account = a.name then -t.amount
+                   when t.type = 'transfer' and t.to_account = a.name then t.amount
+                   else 0 end)
+                 from public.transactions t
+                 where t.owner_user_id = u.id and (t.account = a.name or t.to_account = a.name)), 0) as balance
+        from public.accounts a
+        cross join lateral (
+          select make_date(extract(year from p_today)::int, extract(month from p_today)::int,
+                   least(a.due_day, extract(day from (date_trunc('month', p_today) + interval '1 month - 1 day'))::int)) as this_month,
+                 make_date(extract(year from p_today + interval '1 month')::int, extract(month from p_today + interval '1 month')::int,
+                   least(a.due_day, extract(day from (date_trunc('month', p_today + interval '1 month') + interval '1 month - 1 day'))::int)) as next_month
+        ) d
+        where a.owner_user_id = u.id and a.kind = 'credit_card' and a.closed_at is null and a.due_day is not null
+      ) c
+      where c.balance < 0 and c.due in (p_today, p_today + 2);
+    if names is not null then
+      lines := lines || names;
+      go_to := coalesce(go_to, '/bills');
+    end if;
+
+    -- Salary day: from pay day until it's confirmed for the month.
+    if exists (
+      select 1 from public.user_settings us
+      where us.owner_user_id = u.id and us.salary_day is not null
+        and coalesce(us.salary_confirmed_month, '') <> to_char(p_today, 'YYYY-MM')
+        and extract(day from p_today)::int >= least(us.salary_day,
+              extract(day from (date_trunc('month', p_today) + interval '1 month - 1 day'))::int)
+    ) then
+      lines := lines || 'Did your salary arrive? Tap to confirm.'::text;
+      go_to := coalesce(go_to, '/');
+    end if;
+
+    -- Lent & borrowed with a pay-back date that has come.
+    select string_agg(case when i.direction = 'lent'
+                        then i.person || ' should pay you back ' || public.push_money(i.left_amount, cur)
+                        else 'Pay back ' || i.person || ' ' || public.push_money(i.left_amount, cur) end, ', ')
+      into names
+      from (
+        select x.person, x.direction, x.amount - coalesce((select sum(p.amount) from public.iou_payments p where p.iou_id = x.id), 0) as left_amount
+        from public.ious x
+        where x.owner_user_id = u.id and x.due_date is not null and x.due_date <= p_today
+      ) i
+      where i.left_amount > 0;
+    if names is not null then
+      lines := lines || names;
+      go_to := coalesce(go_to, '/lent');
+    end if;
+
+    if array_length(lines, 1) > 0 then
+      owner_user_id := u.id;
+      title := case when n_overdue > 0 then 'Payment overdue' else 'Today in LedgeEaze' end;
+      body := array_to_string(lines[1:4], E'\n');
+      url := coalesce(go_to, '/');
+      return next;
+    end if;
+  end loop;
+end;
+$$;
+revoke execute on function public.push_digest(date) from public, anon, authenticated;
+grant execute on function public.push_digest(date) to service_role;
+
+-- The Edge Function reads its keys through this (service role only).
+create or replace function public.push_server_config()
+returns table (vapid_keys text, cron_secret text)
+language sql stable security definer set search_path = ''
+as $$
+  select (select decrypted_secret from vault.decrypted_secrets where name = 'push_vapid_keys'),
+         (select decrypted_secret from vault.decrypted_secrets where name = 'push_cron_secret');
+$$;
+revoke execute on function public.push_server_config() from public, anon, authenticated;
+grant execute on function public.push_server_config() to service_role;
+
+-- ===== Every day at 03:30 UTC = 09:00 IST =====
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'ledgeeaze-daily-reminders') then
+    perform cron.unschedule('ledgeeaze-daily-reminders');
+  end if;
+end $$;
+select cron.schedule(
+  'ledgeeaze-daily-reminders',
+  '30 3 * * *',
+  $job$
+    select net.http_post(
+      url := 'https://izidxazhknyoxeqgnqdb.supabase.co/functions/v1/send-reminders',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'push_cron_secret')
+      ),
+      body := '{}'::jsonb,
+      timeout_milliseconds := 30000
+    );
+  $job$
+);
+
+-- ===== Notification history (2026-09-30_notifications.sql). RLS in policies.sql =====
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in (
+    'access_request', 'access_approved', 'access_declined', 'feedback_reply',
+    'split_added', 'split_settled', 'budget', 'bill_overdue', 'reminder')),
+  title text not null check (char_length(title) between 1 and 200),
+  body text check (body is null or char_length(body) <= 500),
+  url text check (url is null or url like '/%'),
+  ref text not null check (char_length(ref) between 1 and 200),
+  actor_user_id uuid references auth.users(id) on delete set null,
+  -- For access requests: what happened to it ('approved' / 'declined').
+  status text check (status is null or status in ('approved', 'declined')),
+  created_at timestamptz not null default now(),
+  read_at timestamptz,
+  unique (owner_user_id, ref)
+);
+create index if not exists notifications_owner_idx on public.notifications (owner_user_id, created_at desc);
+
+-- A person's name for notification text.
+create or replace function public.notify_name(p_user uuid)
+returns text
+language sql stable security definer set search_path = ''
+as $$
+  select coalesce(nullif(btrim(p.display_name), ''), p.email, 'Someone') from public.profiles p where p.id = p_user;
+$$;
+revoke execute on function public.notify_name(uuid) from public, anon, authenticated;
+
+-- ===== Sharing =====
+create or replace function public.notify_viewer_access()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' and new.status = 'pending' then
+    insert into public.notifications (owner_user_id, kind, title, body, url, ref, actor_user_id)
+    values (new.owner_user_id, 'access_request',
+            coalesce(public.notify_name(new.requester_user_id), 'Someone') || ' wants to see your transactions',
+            'Approve to share your transactions with them. You can stop anytime in Settings.',
+            '/settings/sharing', 'access:' || new.id, new.requester_user_id)
+    on conflict (owner_user_id, ref) do nothing;
+  elsif tg_op = 'UPDATE' and old.status = 'pending' and new.status = 'approved' then
+    update public.notifications set status = 'approved', read_at = coalesce(read_at, now())
+     where owner_user_id = new.owner_user_id and ref = 'access:' || new.id;
+    insert into public.notifications (owner_user_id, kind, title, body, url, ref, actor_user_id)
+    values (new.requester_user_id, 'access_approved',
+            coalesce(public.notify_name(new.owner_user_id), 'Someone') || ' said yes',
+            'You can now see their transactions. Choose Everyone on Activity.',
+            '/transactions', 'access-approved:' || new.id, new.owner_user_id)
+    on conflict (owner_user_id, ref) do nothing;
+  elsif tg_op = 'DELETE' and old.status = 'pending' and auth.uid() = old.owner_user_id
+        -- not when the owner is deleting their whole account
+        and exists (select 1 from auth.users where id = old.owner_user_id) then
+    update public.notifications set status = 'declined', read_at = coalesce(read_at, now())
+     where owner_user_id = old.owner_user_id and ref = 'access:' || old.id;
+    insert into public.notifications (owner_user_id, kind, title, body, url, ref, actor_user_id)
+    values (old.requester_user_id, 'access_declined',
+            coalesce(public.notify_name(old.owner_user_id), 'Someone') || ' said no to sharing',
+            'Your request to see their transactions was declined.',
+            '/settings/sharing', 'access-declined:' || old.id, old.owner_user_id)
+    on conflict (owner_user_id, ref) do nothing;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+revoke execute on function public.notify_viewer_access() from public, anon, authenticated;
+drop trigger if exists viewer_access_notify on public.viewer_access;
+create trigger viewer_access_notify after insert or update of status or delete on public.viewer_access
+  for each row execute function public.notify_viewer_access();
+
+-- ===== Feedback replies =====
+create or replace function public.notify_feedback_reply()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.admin_reply is not null and new.admin_reply is distinct from old.admin_reply then
+    insert into public.notifications (owner_user_id, kind, title, body, url, ref)
+    values (new.owner_user_id, 'feedback_reply', 'We replied to your feedback',
+            left(new.admin_reply, 300), '/settings/feedback', 'feedback:' || new.id || ':' || md5(new.admin_reply))
+    on conflict (owner_user_id, ref) do nothing;
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.notify_feedback_reply() from public, anon, authenticated;
+drop trigger if exists feedback_notify_reply on public.feedback;
+create trigger feedback_notify_reply after update of admin_reply on public.feedback
+  for each row execute function public.notify_feedback_reply();
+
+-- ===== Splits =====
+create or replace function public.notify_split()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  cur text;
+begin
+  select coalesce(us.currency, 'INR') into cur from public.user_settings us where us.owner_user_id = new.with_user_id;
+  if tg_op = 'INSERT' then
+    insert into public.notifications (owner_user_id, kind, title, body, url, ref, actor_user_id)
+    values (new.with_user_id, 'split_added',
+            coalesce(public.notify_name(new.owner_user_id), 'Someone') || ' split an expense with you',
+            'You owe ' || public.push_money(new.amount, cur) || ' for ' || new.description || '.',
+            '/shared', 'split:' || new.id, new.owner_user_id)
+    on conflict (owner_user_id, ref) do nothing;
+  elsif tg_op = 'UPDATE' and old.settled_at is null and new.settled_at is not null then
+    insert into public.notifications (owner_user_id, kind, title, body, url, ref, actor_user_id)
+    values (new.with_user_id, 'split_settled',
+            coalesce(public.notify_name(new.owner_user_id), 'Someone') || ' marked a split as settled',
+            public.push_money(new.amount, cur) || ' for ' || new.description || ' is settled.',
+            '/shared', 'split-settled:' || new.id, new.owner_user_id)
+    on conflict (owner_user_id, ref) do nothing;
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.notify_split() from public, anon, authenticated;
+drop trigger if exists transaction_splits_notify on public.transaction_splits;
+create trigger transaction_splits_notify after insert or update of settled_at on public.transaction_splits
+  for each row execute function public.notify_split();
+
+-- ===== Backfill what's open today =====
+insert into public.notifications (owner_user_id, kind, title, body, url, ref, actor_user_id, created_at)
+select va.owner_user_id, 'access_request',
+       coalesce(public.notify_name(va.requester_user_id), 'Someone') || ' wants to see your transactions',
+       'Approve to share your transactions with them. You can stop anytime in Settings.',
+       '/settings/sharing', 'access:' || va.id, va.requester_user_id, va.created_at
+from public.viewer_access va where va.status = 'pending'
+on conflict (owner_user_id, ref) do nothing;
+
+insert into public.notifications (owner_user_id, kind, title, body, url, ref, created_at, read_at)
+select f.owner_user_id, 'feedback_reply', 'We replied to your feedback', left(f.admin_reply, 300), '/settings/feedback',
+       'feedback:' || f.id || ':' || md5(f.admin_reply), coalesce(f.replied_at, f.created_at), f.reply_seen_at
+from public.feedback f where f.admin_reply is not null
+on conflict (owner_user_id, ref) do nothing;
+
+-- ===== Forgot password: account check (2026-09-30_reset_account_check.sql) =====
+create or replace function public.account_exists_for_reset(p_email text)
+returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from auth.users u
+    where lower(u.email) = lower(btrim(p_email)) and u.deleted_at is null
+  );
+$$;
+revoke execute on function public.account_exists_for_reset(text) from public;
+grant execute on function public.account_exists_for_reset(text) to anon, authenticated;

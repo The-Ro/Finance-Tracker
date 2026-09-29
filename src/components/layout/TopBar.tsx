@@ -1,22 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { Bell, Download, FileUp, Plus, LogOut, ChevronDown, Settings, MessageSquare, ShieldCheck, X } from 'lucide-react'
+import { Bell, Download, FileUp, Plus, LogOut, ChevronDown, Settings, MessageSquare, ShieldCheck } from 'lucide-react'
 import { openInstallHelp, usePwaInstall } from '@/hooks/usePwaInstall'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
-import { useOwnedAccessRows } from '@/hooks/useSharing'
-import { useBudgetAlerts } from '@/hooks/useBudgets'
-import { useAdminFeedbackInbox, useMyFeedbackReplies } from '@/hooks/useFeedback'
-import { useOverdueRecurringItems } from '@/hooks/useRecurring'
+import { useAdminFeedbackInbox } from '@/hooks/useFeedback'
+import { useFileOwnAlerts, useNotifications } from '@/hooks/useNotifications'
 import { useIsAdmin } from '@/lib/admin'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
-import { IncomingAccessRequests } from '@/components/settings/IncomingAccessRequests'
-import { BudgetAlerts } from '@/components/budgets/BudgetAlerts'
-import { OverdueRecurringAlerts } from '@/components/recurring/OverdueRecurringAlerts'
-import { AdminFeedbackInbox } from '@/components/settings/AdminFeedbackInbox'
-import { FeedbackReplyNotice } from '@/components/settings/FeedbackReplyNotice'
+import { NotificationsPanel } from './NotificationsPanel'
 
 export function TopBar() {
   const { displayName, email, avatar, signOut } = useAuth()
@@ -25,21 +19,19 @@ export function TopBar() {
   const pwa = usePwaInstall()
   const [notifOpen, setNotifOpen] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
-  const owned = useOwnedAccessRows()
-  const pendingCount = (owned.data ?? []).filter((r) => r.status === 'pending').length
-  const budgetAlerts = useBudgetAlerts()
-  const overBudgetCount = budgetAlerts.filter((a) => a.status === 'over').length
   const isAdmin = useIsAdmin()
   const adminInbox = useAdminFeedbackInbox()
   const unrepliedCount = isAdmin ? (adminInbox.data ?? []).filter((f) => !f.admin_reply).length : 0
-  const myReplies = useMyFeedbackReplies()
-  const overdueRecurring = useOverdueRecurringItems()
-  const hasNotifications =
-    pendingCount > 0 ||
-    overBudgetCount > 0 ||
-    unrepliedCount > 0 ||
-    (myReplies.data ?? []).length > 0 ||
-    overdueRecurring.length > 0
+  // The bell's history (NotificationsPanel); the app files its own budget and
+  // overdue-bill alerts into it here, once each.
+  const notifications = useNotifications()
+  const refreshNotifications = notifications.invalidate
+  const onFiled = useCallback(() => {
+    refreshNotifications()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useFileOwnAlerts(notifications.data, onFiled)
+  const hasNotifications = notifications.unreadCount > 0 || unrepliedCount > 0
 
   useEffect(() => {
     if (!notifOpen) return
@@ -81,7 +73,7 @@ export function TopBar() {
             onClick={() => setNotifOpen((v) => !v)}
             aria-haspopup="dialog"
             aria-expanded={notifOpen}
-            aria-label="Sharing notifications"
+            aria-label={notifications.unreadCount > 0 ? `Notifications, ${notifications.unreadCount} unread` : 'Notifications'}
             className="press relative flex h-11 w-11 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
           >
             <Bell size={18} aria-hidden="true" />
@@ -92,50 +84,7 @@ export function TopBar() {
               </span>
             )}
           </button>
-          {notifOpen && (
-            <div
-              role="dialog"
-              aria-label="Notifications"
-              // Fixed + viewport-relative insets on mobile so a 320px-wide panel anchored
-              // to this small button doesn't blow past the left edge of a narrow screen;
-              // sm+ has room to anchor it normally under the bell instead.
-              className="animate-scale-in fixed inset-x-4 top-[calc(76px+var(--safe-top))] z-30 flex max-h-[70dvh] flex-col gap-3 overflow-y-auto overscroll-contain rounded-lg border border-app-border bg-white p-3 shadow-card sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[min(80vh,calc(100dvh_-_6rem))] sm:w-96"
-            >
-              <div className="flex items-center justify-between border-b border-app-border pb-2">
-                <h2 className="text-sm font-semibold text-slate-800">Notifications</h2>
-                <button
-                  type="button"
-                  aria-label="Close notifications"
-                  onClick={() => setNotifOpen(false)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              {hasNotifications ? (
-                <>
-                  {isAdmin && <AdminFeedbackInbox />}
-                  <FeedbackReplyNotice />
-                  <OverdueRecurringAlerts />
-                  <BudgetAlerts />
-                  <IncomingAccessRequests />
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                  <Bell size={22} className="text-slate-300" />
-                  <p className="text-sm font-medium text-slate-600">You're all caught up</p>
-                  <p className="text-helper text-slate-400">No pending requests or budget alerts right now.</p>
-                </div>
-              )}
-              <NavLink
-                to="/settings/sharing"
-                onClick={() => setNotifOpen(false)}
-                className="block text-center text-helper font-medium text-accent-dark hover:underline"
-              >
-                Manage sharing in Settings
-              </NavLink>
-            </div>
-          )}
+          {notifOpen && <NotificationsPanel onClose={() => setNotifOpen(false)} />}
         </div>
 
         <div className="relative">

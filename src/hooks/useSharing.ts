@@ -7,6 +7,8 @@ export type ViewerAccessRow = Database['public']['Tables']['viewer_access']['Row
 
 function invalidateAccess(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['viewer_access'] })
+  // Sharing changes write to the bell's history (database triggers).
+  queryClient.invalidateQueries({ queryKey: ['notifications'] })
 }
 
 /** Rows where the signed-in user is the owner: requests to approve/decline, plus who they've already approved. */

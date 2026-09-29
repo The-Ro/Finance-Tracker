@@ -450,3 +450,38 @@ begin
     execute format('create policy %I_delete_own on public.%I for delete to authenticated using (auth.uid() = owner_user_id)', t, t);
   end loop;
 end $$;
+
+-- ---- push_subscriptions (phone reminders, 2026-09-29_push_reminders.sql): read/delete own only;
+-- ---- saving goes through save_push_subscription(), the daily job reads with the service role.
+alter table public.push_subscriptions enable row level security;
+revoke all on public.push_subscriptions from anon, authenticated;
+grant select, delete on public.push_subscriptions to authenticated;
+drop policy if exists push_subscriptions_select_own on public.push_subscriptions;
+create policy push_subscriptions_select_own on public.push_subscriptions for select to authenticated
+  using (auth.uid() = owner_user_id);
+drop policy if exists push_subscriptions_delete_own on public.push_subscriptions;
+create policy push_subscriptions_delete_own on public.push_subscriptions for delete to authenticated
+  using (auth.uid() = owner_user_id);
+
+-- ---- notifications (2026-09-30_notifications.sql): own rows; the app may only file budget/bill_overdue itself,
+-- ---- everything else is written by SECURITY DEFINER triggers or the service role. Only read_at is updatable.
+alter table public.notifications enable row level security;
+revoke all on public.notifications from anon, authenticated;
+grant select, delete on public.notifications to authenticated;
+grant insert (owner_user_id, kind, title, body, url, ref) on public.notifications to authenticated;
+grant update (read_at) on public.notifications to authenticated;
+
+drop policy if exists notifications_select_own on public.notifications;
+create policy notifications_select_own on public.notifications for select to authenticated
+  using (auth.uid() = owner_user_id);
+-- The app may only file its own alerts; the other kinds come from triggers.
+drop policy if exists notifications_insert_own_alerts on public.notifications;
+create policy notifications_insert_own_alerts on public.notifications for insert to authenticated
+  with check (auth.uid() = owner_user_id and kind in ('budget', 'bill_overdue'));
+drop policy if exists notifications_update_own on public.notifications;
+create policy notifications_update_own on public.notifications for update to authenticated
+  using (auth.uid() = owner_user_id) with check (auth.uid() = owner_user_id);
+drop policy if exists notifications_delete_own on public.notifications;
+create policy notifications_delete_own on public.notifications for delete to authenticated
+  using (auth.uid() = owner_user_id);
+

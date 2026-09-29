@@ -10,7 +10,7 @@ export default defineConfig({
       // 'prompt', not 'autoUpdate': autoUpdate reloads every open tab as soon as
       // a new build activates, wiping half-typed forms. UpdateBanner asks first.
       registerType: 'prompt',
-      includeAssets: ['favicon.png'],
+      includeAssets: ['favicon.png', 'favicon.ico', 'push-sw.js'],
       manifest: {
         name: 'LedgeEaze',
         short_name: 'LedgeEaze',
@@ -35,6 +35,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        // Phone reminders: the push and notification-click handlers (public/push-sw.js).
+        importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
       },
     }),

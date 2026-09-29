@@ -20,7 +20,7 @@ export function useEraseMyData() {
 
       await removeFolder(DOCUMENTS_BUCKET, `uploads/${userId}`)
 
-      const tables = ['documents', 'rules', 'dismissed_patterns', 'recurring_items', 'goals', 'budgets', 'ious', 'transactions'] as const
+      const tables = ['documents', 'rules', 'dismissed_patterns', 'recurring_items', 'goals', 'budgets', 'ious', 'notifications', 'transactions'] as const
       for (const table of tables) {
         const { error } = await supabase.from(table).delete().eq('owner_user_id', userId)
         if (error) throw error

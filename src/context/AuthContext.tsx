@@ -88,6 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       avatar,
       refreshProfile,
       signOut: async () => {
+        // Stop this device's phone reminders first (needs the session to delete it); never block sign-out on it.
+        try {
+          const { turnOffReminders } = await import('@/lib/push')
+          await turnOffReminders()
+        } catch {
+          // Offline or no service worker: the server drops dead devices on its own.
+        }
         await supabase.auth.signOut()
       },
     }),

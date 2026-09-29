@@ -25,6 +25,8 @@ begin
   for r in
     select p.oid::regprocedure as fn from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'execute')
+      -- The forgot-password check is anon-callable on purpose (owner's call): exact email, true/false only.
+      and p.oid <> 'public.account_exists_for_reset(text)'::regprocedure
   loop
     raise exception 'FAIL: anon can execute SECURITY DEFINER function %', r.fn;
   end loop;
@@ -39,7 +41,10 @@ begin
         'public.transaction_splits_cap_total()', 'public.recurring_items_keep_anchor_day()',
         'public.debit_cards_normalize()', 'public.transactions_check_debit_card()',
         'public.debit_cards_block_account_move()', 'public.accounts_keep_cash()',
-        'public.iou_payments_check_total()', 'public.ious_check_amount()'
+        'public.iou_payments_check_total()', 'public.ious_check_amount()',
+        'public.notify_viewer_access()', 'public.notify_feedback_reply()', 'public.notify_split()',
+        'public.notify_name(uuid)', 'public.push_money(numeric,text)', 'public.push_digest(date)',
+        'public.push_server_config()'
       ]) as f
     ) s where fn is not null
   loop
@@ -56,7 +61,8 @@ begin
       'public.set_account_details(text,text,numeric,integer,integer)', 'public.set_account_closed(text,boolean)',
       'public.request_viewer_access(text)', 'public.convert_account_to_debit_card(text,text,text)',
       'public.admin_overview()', 'public.admin_list_users()', 'public.admin_client_errors(integer)',
-      'public.delete_tag(text)', 'public.set_card_network(text,text)'
+      'public.delete_tag(text)', 'public.set_card_network(text,text)',
+      'public.save_push_subscription(text,text,text)', 'public.account_exists_for_reset(text)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then
@@ -160,6 +166,17 @@ begin
     raise exception 'FAIL: a debit card trigger is missing';
   end if;
 
+  -- Notifications: only read_at is editable; phone-reminder devices can't be written directly.
+  if has_column_privilege('authenticated', 'public.notifications', 'title', 'update')
+     or has_column_privilege('authenticated', 'public.notifications', 'owner_user_id', 'update')
+     or has_column_privilege('authenticated', 'public.notifications', 'status', 'insert') then
+    raise exception 'FAIL: notifications columns other than read_at are writable';
+  end if;
+  if has_table_privilege('authenticated', 'public.push_subscriptions', 'insert')
+     or has_table_privilege('authenticated', 'public.push_subscriptions', 'update') then
+    raise exception 'FAIL: push_subscriptions can be written without save_push_subscription';
+  end if;
+
   -- Cash is always kept: every user has an open cash account, guarded by trigger.
   if not exists (select 1 from pg_trigger where tgname = 'accounts_keep_cash'
                  and tgrelid = 'public.accounts'::regclass) then
@@ -252,6 +269,33 @@ begin
      or exists (select 1 from public.iou_payments where owner_user_id <> me) then
     raise exception 'FAIL: QA15 can read another user''s lent/borrowed records';
   end if;
+
+  -- Notifications and reminder devices: own only; the app can file only its own alert kinds.
+  if exists (select 1 from public.notifications where owner_user_id <> me)
+     or exists (select 1 from public.push_subscriptions where owner_user_id <> me) then
+    raise exception 'FAIL: QA15 can read another user''s notifications or devices';
+  end if;
+  begin
+    insert into public.notifications (owner_user_id, kind, title, ref) values (me, 'access_approved', 'sec-test', 'sec-test-kind');
+    raise exception 'FAIL: QA15 filed a notification kind only triggers may write';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.notifications (owner_user_id, kind, title, ref)
+    values ('8330b931-4022-40ba-bef2-79af3dc8035f', 'budget', 'sec-test', 'sec-test-other');
+    raise exception 'FAIL: QA15 filed a notification for another user';
+  exception when insufficient_privilege then null;
+  end;
+  insert into public.notifications (owner_user_id, kind, title, ref) values (me, 'budget', 'sec-test', 'sec-test-own');
+  perform public.save_push_subscription('https://example.invalid/sec-test', 'k', 'a');
+  if not exists (select 1 from public.push_subscriptions where owner_user_id = me and endpoint = 'https://example.invalid/sec-test') then
+    raise exception 'FAIL: save_push_subscription did not save for the caller';
+  end if;
+  begin
+    perform public.push_digest(current_date);
+    raise exception 'FAIL: QA15 called push_digest';
+  exception when insufficient_privilege then null;
+  end;
 
   -- Exact-email lookup only: no prefix match, never yourself.
   if exists (select 1 from public.find_profile_by_email('rohith24112+qa')) then
@@ -641,6 +685,12 @@ begin
   if exists (select 1 from public.transactions) or exists (select 1 from public.budgets)
      or exists (select 1 from public.viewer_access) then
     raise exception 'FAIL: anon can read user data';
+  end if;
+  if has_table_privilege('anon', 'public.notifications', 'select') or has_table_privilege('anon', 'public.push_subscriptions', 'select') then
+    raise exception 'FAIL: anon has access to notifications or reminder devices';
+  end if;
+  if public.account_exists_for_reset('rohith24112+qa') then
+    raise exception 'FAIL: the forgot-password check matched a partial email';
   end if;
   if has_table_privilege('anon', 'public.ious', 'select') or has_table_privilege('anon', 'public.iou_payments', 'select') then
     raise exception 'FAIL: anon has access to lent/borrowed tables';

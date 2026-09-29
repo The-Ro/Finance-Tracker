@@ -63,6 +63,17 @@ export type PaymentMethod =
 export type RecurringKind = 'recurring' | 'subscription'
 /** Lent & borrowed: you lent it (they owe you) or borrowed it (you owe them). */
 export type IouDirection = 'lent' | 'borrowed'
+/** What a bell notification is about (notifications.kind). */
+export type NotificationKind =
+  | 'access_request'
+  | 'access_approved'
+  | 'access_declined'
+  | 'feedback_reply'
+  | 'split_added'
+  | 'split_settled'
+  | 'budget'
+  | 'bill_overdue'
+  | 'reminder'
 export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'annual'
 export type DocumentStatus = 'stored' | 'review'
 export type SelectedPeriod =
@@ -268,6 +279,43 @@ export interface Database {
           settled_at?: string | null
         }
         Update: Partial<{ amount: number; settled_at: string | null }>
+      }
+      notifications: {
+        Row: {
+          id: string
+          owner_user_id: string
+          kind: NotificationKind
+          title: string
+          body: string | null
+          url: string | null
+          ref: string
+          actor_user_id: string | null
+          status: 'approved' | 'declined' | null
+          created_at: string
+          read_at: string | null
+        }
+        Insert: {
+          owner_user_id: string
+          kind: 'budget' | 'bill_overdue'
+          title: string
+          body?: string | null
+          url?: string | null
+          ref: string
+        }
+        Update: { read_at?: string | null }
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          owner_user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at: string
+          last_sent_on: string | null
+        }
+        Insert: never
+        Update: never
       }
       ious: {
         Row: {
@@ -610,6 +658,14 @@ export interface Database {
       }
     }
     Functions: {
+      account_exists_for_reset: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
+      save_push_subscription: {
+        Args: { p_endpoint: string; p_p256dh: string; p_auth: string }
+        Returns: undefined
+      }
       delete_tag: {
         Args: { p_tag: string }
         Returns: undefined

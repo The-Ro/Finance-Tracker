@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  BellRing,
   ChevronRight,
   Coins,
   Info,
@@ -28,6 +29,7 @@ import { CategoryIconPicker } from './CategoryIconPicker'
 import { CategoryIcon, CategoryIconByKey } from '@/components/ui/CategoryIcon'
 import type { CategoryIconKey } from '@/lib/categoryIcon'
 import { SalarySettings } from './SalarySettings'
+import { ReminderSettings } from './ReminderSettings'
 import { DetectionSettings } from '@/components/settings/DetectionSettings'
 import { DangerZone } from '@/components/settings/DangerZone'
 import { AvatarPicker } from '@/components/settings/AvatarPicker'
@@ -207,6 +209,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: Coins,
     group: 'app',
     render: () => <CurrencySelector />,
+  },
+  {
+    id: 'reminders',
+    label: 'Reminders',
+    subtitle: 'Notes on your phone for bills and money due',
+    icon: BellRing,
+    group: 'app',
+    render: () => <ReminderSettings />,
   },
   {
     id: 'automation',
