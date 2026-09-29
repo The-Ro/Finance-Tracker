@@ -323,6 +323,7 @@ export function useDeleteTag() {
 interface CategoryRow {
   name: string
   kind: CategoryKind | null
+  icon: string | null
 }
 
 /**
@@ -344,7 +345,7 @@ export function useCategories() {
     queryFn: async (): Promise<CategoryRow[]> => {
       const { data, error } = await supabase
         .from('categories')
-        .select('name, kind')
+        .select('name, kind, icon')
         .eq('owner_user_id', userId!)
         .order('name')
       if (error) throw error
@@ -354,17 +355,19 @@ export function useCategories() {
   })
 
   const rows = query.data ?? []
+  /** Chosen icon per category name (only those with one set). */
+  const icons = new Map(rows.filter((r) => r.icon).map((r) => [r.name, r.icon as string]))
   const data = rows.map((r) => r.name)
   const expense = rows.filter((r) => r.kind !== 'income').map((r) => r.name)
   const income = rows.filter((r) => r.kind !== 'expense').map((r) => r.name)
 
   const add = useMutation({
-    mutationFn: async ({ name, kind }: { name: string; kind?: CategoryKind | null }) => {
+    mutationFn: async ({ name, kind, icon }: { name: string; kind?: CategoryKind | null; icon?: string | null }) => {
       const trimmed = name.trim()
       if (!trimmed) throw new Error('Name cannot be empty')
       const { error } = await supabase
         .from('categories')
-        .insert({ name: trimmed, owner_user_id: userId!, created_by: userId, kind: kind ?? null })
+        .insert({ name: trimmed, owner_user_id: userId!, created_by: userId, kind: kind ?? null, icon: icon ?? null })
       if (error && !error.message.includes('duplicate')) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories', userId] }),
@@ -384,5 +387,14 @@ export function useCategories() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories', userId] }),
   })
 
-  return { ...query, data, expense, income, add, remove }
+  /** Sets (or with null clears) a category's icon -- the only editable column. */
+  const setIcon = useMutation({
+    mutationFn: async ({ name, icon }: { name: string; icon: string | null }) => {
+      const { error } = await supabase.from('categories').update({ icon }).eq('owner_user_id', userId!).eq('name', name)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories', userId] }),
+  })
+
+  return { ...query, data, expense, income, icons, add, remove, setIcon }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categoryIconKey } from './categoryIcon'
+import { categoryIconKey, resolveCategoryIcon } from './categoryIcon'
 
 describe('categoryIconKey', () => {
   it('maps built-in categories (any case) and transfers', () => {
@@ -17,5 +17,13 @@ describe('categoryIconKey', () => {
     expect(categoryIconKey('Mobile recharge')).toBe('phone')
     expect(categoryIconKey('Zorblax')).toBe('tag')
     expect(categoryIconKey('')).toBe('tag')
+  })
+})
+
+describe('resolveCategoryIcon', () => {
+  it('prefers a chosen icon, ignores unknown keys, and keeps transfers as transfers', () => {
+    expect(resolveCategoryIcon('Food', 'expense', 'coffee')).toBe('coffee')
+    expect(resolveCategoryIcon('Dining', 'expense', 'nonsense')).toBe('dining')
+    expect(resolveCategoryIcon(null, 'transfer', 'coffee')).toBe('transfer')
   })
 })

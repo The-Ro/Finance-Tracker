@@ -125,7 +125,7 @@ export function TransactionTable({
   const { openEditEntry, openSplit } = useGlobalModals()
   const viewReceipt = useViewReceipt()
   const { show } = useToast()
-  const { expense: expenseCategories, income: incomeCategories } = useCategories()
+  const { expense: expenseCategories, income: incomeCategories, icons: categoryIcons } = useCategories()
 
   const handleViewReceipt = (documentId: string) => {
     viewReceipt.mutate(documentId, {
@@ -383,7 +383,7 @@ export function TransactionTable({
                   TONE_CLASSES[avatarTone(t.category, t.type)]
                 )}
               >
-                <CategoryIcon category={t.category} type={t.type} size={19} strokeWidth={2} />
+                <CategoryIcon category={t.category} type={t.type} iconKey={t.category ? categoryIcons.get(t.category) : null} size={19} strokeWidth={2} />
               </span>
               {/* Left: merchant, then category. Right: amount, then the account (or
                   card) tag; the payment mode sits on the next line, right side -- grey text in one truncated

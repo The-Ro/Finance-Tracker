@@ -76,3 +76,49 @@ export function categoryIconKey(category: string | null | undefined, type?: stri
   for (const [pattern, key] of KEYWORDS) if (pattern.test(name)) return key
   return 'tag'
 }
+
+/** Every icon a category can use, with a name for the picker (Settings -> Categories). */
+export const CATEGORY_ICON_CHOICES: { key: CategoryIconKey; label: string }[] = [
+  { key: 'home', label: 'Home' },
+  { key: 'bolt', label: 'Utilities' },
+  { key: 'basket', label: 'Groceries' },
+  { key: 'dining', label: 'Food' },
+  { key: 'coffee', label: 'Coffee' },
+  { key: 'car', label: 'Travel by road' },
+  { key: 'fuel', label: 'Fuel' },
+  { key: 'plane', label: 'Flights' },
+  { key: 'bag', label: 'Shopping' },
+  { key: 'health', label: 'Health' },
+  { key: 'shield', label: 'Insurance' },
+  { key: 'film', label: 'Entertainment' },
+  { key: 'repeat', label: 'Subscription' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'wifi', label: 'Internet' },
+  { key: 'education', label: 'Education' },
+  { key: 'baby', label: 'Kids' },
+  { key: 'pet', label: 'Pets' },
+  { key: 'fitness', label: 'Fitness' },
+  { key: 'sparkles', label: 'Personal care' },
+  { key: 'gift', label: 'Gifts' },
+  { key: 'receipt', label: 'Fees' },
+  { key: 'loan', label: 'Loan / EMI' },
+  { key: 'trending', label: 'Investments' },
+  { key: 'salary', label: 'Salary' },
+  { key: 'laptop', label: 'Work' },
+  { key: 'percent', label: 'Interest' },
+  { key: 'building', label: 'Rent income' },
+  { key: 'award', label: 'Bonus' },
+  { key: 'refund', label: 'Refund' },
+  { key: 'wallet', label: 'Cash' },
+  { key: 'transfer', label: 'Transfer' },
+  { key: 'review', label: 'To review' },
+  { key: 'tag', label: 'Other' },
+]
+
+const KNOWN = new Set<string>(CATEGORY_ICON_CHOICES.map((c) => c.key))
+
+/** A stored icon key if it's one we know, else the guess from the name. */
+export function resolveCategoryIcon(category: string | null | undefined, type: string | undefined, chosen: string | null | undefined): CategoryIconKey {
+  if (type === 'transfer') return 'transfer'
+  return chosen && KNOWN.has(chosen) ? (chosen as CategoryIconKey) : categoryIconKey(category, type)
+}

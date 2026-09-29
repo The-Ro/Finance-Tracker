@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { Check, Trash2, X } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -21,6 +21,11 @@ interface ManagedListEditorProps {
   onAdd: (name: string) => Promise<void>
   /** Leave out for an add-only list: no trash icons and no selection mode. */
   onRemove?: (name: string) => Promise<void>
+  /** Categories: an icon at the start of each chip; tapping it calls onIconClick (e.g. to change it). */
+  renderIcon?: (name: string) => ReactNode
+  onIconClick?: (name: string) => void
+  /** Something before the "Add new" field, e.g. the icon a new category will get. */
+  addPrefix?: ReactNode
 }
 
 const EMPTY = new Set<string>()
@@ -35,7 +40,7 @@ function errorMessage(e: unknown): string {
   return 'Could not remove that.'
 }
 
-export function ManagedListEditor({ title, items, onAdd, onRemove }: ManagedListEditorProps) {
+export function ManagedListEditor({ title, items, onAdd, onRemove, renderIcon, onIconClick, addPrefix }: ManagedListEditorProps) {
   const toast = useToast()
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -237,7 +242,20 @@ export function ManagedListEditor({ title, items, onAdd, onRemove }: ManagedList
                     {item}
                   </button>
                 ) : (
-                  <span className={clsx('ml-chip-label py-1.5 pl-3', canRemove ? 'pr-1' : 'pr-3')}>{item}</span>
+                  <>
+                    {renderIcon && (
+                      <button
+                        type="button"
+                        aria-label={`Change icon for ${item}`}
+                        title="Change icon"
+                        onClick={() => onIconClick?.(item)}
+                        className="-mr-1.5 ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-accent-dark"
+                      >
+                        {renderIcon(item)}
+                      </button>
+                    )}
+                    <span className={clsx('ml-chip-label py-1.5', renderIcon ? 'pl-2' : 'pl-3', canRemove ? 'pr-1' : 'pr-3')}>{item}</span>
+                  </>
                 )}
                 {canRemove && (
                   <button
@@ -261,6 +279,7 @@ export function ManagedListEditor({ title, items, onAdd, onRemove }: ManagedList
       )}
 
       <div className="flex gap-2">
+        {addPrefix}
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}

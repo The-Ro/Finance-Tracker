@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -8,6 +9,7 @@ import {
   MessageSquare,
   Palette,
   Scale,
+  Smile,
   ShieldCheck,
   SlidersHorizontal,
   Tags,
@@ -22,6 +24,9 @@ import { useCategories } from '@/hooks/useLookupLists'
 import { NetWorthForm } from '@/components/settings/NetWorthForm'
 import { ManagedListEditor } from '@/components/settings/ManagedListEditor'
 import { MoveCategoryEntries } from './MoveCategoryEntries'
+import { CategoryIconPicker } from './CategoryIconPicker'
+import { CategoryIcon, CategoryIconByKey } from '@/components/ui/CategoryIcon'
+import type { CategoryIconKey } from '@/lib/categoryIcon'
 import { SalarySettings } from './SalarySettings'
 import { DetectionSettings } from '@/components/settings/DetectionSettings'
 import { DangerZone } from '@/components/settings/DangerZone'
@@ -56,25 +61,64 @@ export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
   { id: 'danger', label: 'Danger zone' },
 ]
 
+/**
+ * Expense and income categories, each chip with its icon: tap the icon to
+ * change it; a new category can get one before it's added (none picked = the
+ * app guesses from the name). Then Move entries.
+ */
 function CategoriesSection() {
-  const { expense, income, add, remove } = useCategories()
+  const { expense, income, icons, add, remove, setIcon } = useCategories()
+  const [picker, setPicker] = useState<{ kind: 'expense' | 'income'; name: string | null } | null>(null)
+  const [newIcon, setNewIcon] = useState<Record<'expense' | 'income', CategoryIconKey | null>>({ expense: null, income: null })
+
+  const renderIcon = (kind: 'expense' | 'income') => (name: string) => (
+    <CategoryIcon category={name} type={kind} iconKey={icons.get(name)} size={15} />
+  )
+  const addPrefix = (kind: 'expense' | 'income') => (
+    <button
+      type="button"
+      aria-label="Icon for the new category"
+      title="Icon for the new category"
+      onClick={() => setPicker({ kind, name: null })}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-dashed border-app-border text-slate-500 hover:border-accent hover:text-accent-dark"
+    >
+      {newIcon[kind] ? <CategoryIconByKey iconKey={newIcon[kind]!} size={18} /> : <Smile size={18} aria-hidden="true" />}
+    </button>
+  )
+  const list = (kind: 'expense' | 'income', title: string, items: string[]) => (
+    <ManagedListEditor
+      title={title}
+      items={items}
+      onAdd={async (name) => {
+        await add.mutateAsync({ name, kind, icon: newIcon[kind] })
+        setNewIcon((v) => ({ ...v, [kind]: null }))
+      }}
+      onRemove={(name) => remove.mutateAsync(name)}
+      renderIcon={renderIcon(kind)}
+      onIconClick={(name) => setPicker({ kind, name })}
+      addPrefix={addPrefix(kind)}
+    />
+  )
+
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <ManagedListEditor
-        title="Expense categories"
-        items={expense}
-        onAdd={(name) => add.mutateAsync({ name, kind: 'expense' })}
-        onRemove={(name) => remove.mutateAsync(name)}
-      />
-      <ManagedListEditor
-        title="Income categories"
-        items={income}
-        onAdd={(name) => add.mutateAsync({ name, kind: 'income' })}
-        onRemove={(name) => remove.mutateAsync(name)}
-      />
+      {list('expense', 'Expense categories', expense)}
+      {list('income', 'Income categories', income)}
       <div className="xl:col-span-2">
         <MoveCategoryEntries />
       </div>
+      <CategoryIconPicker
+        open={picker !== null}
+        title={picker?.name ? `Icon for ${picker.name}` : 'Icon for the new category'}
+        value={picker ? (picker.name ? ((icons.get(picker.name) as CategoryIconKey | undefined) ?? null) : newIcon[picker.kind]) : null}
+        onClose={() => setPicker(null)}
+        onPick={(key) => {
+          if (!picker) return
+          if (picker.name) setIcon.mutate({ name: picker.name, icon: key })
+          else setNewIcon((v) => ({ ...v, [picker.kind]: key }))
+          setPicker(null)
+        }}
+      />
     </div>
   )
 }

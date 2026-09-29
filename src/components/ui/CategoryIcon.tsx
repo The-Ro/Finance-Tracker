@@ -36,7 +36,7 @@ import {
   type LucideIcon,
   type LucideProps,
 } from 'lucide-react'
-import { categoryIconKey, type CategoryIconKey } from '@/lib/categoryIcon'
+import { resolveCategoryIcon, type CategoryIconKey } from '@/lib/categoryIcon'
 
 const ICONS: Record<CategoryIconKey, LucideIcon> = {
   home: Home,
@@ -75,8 +75,19 @@ const ICONS: Record<CategoryIconKey, LucideIcon> = {
   tag: Tag,
 }
 
-/** The icon for a transaction's category (see categoryIconKey for the mapping). */
-export function CategoryIcon({ category, type, ...props }: { category: string | null | undefined; type?: string } & LucideProps) {
-  const Icon = ICONS[categoryIconKey(category, type)]
+/** The icon for a transaction's category: the user's chosen one (`iconKey`), else guessed from the name. */
+export function CategoryIcon({
+  category,
+  type,
+  iconKey,
+  ...props
+}: { category: string | null | undefined; type?: string; iconKey?: string | null } & LucideProps) {
+  const Icon = ICONS[resolveCategoryIcon(category, type, iconKey)]
+  return <Icon aria-hidden="true" {...props} />
+}
+
+/** One icon by key (the Settings icon picker). */
+export function CategoryIconByKey({ iconKey, ...props }: { iconKey: CategoryIconKey } & LucideProps) {
+  const Icon = ICONS[iconKey]
   return <Icon aria-hidden="true" {...props} />
 }

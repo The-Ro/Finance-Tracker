@@ -95,6 +95,11 @@ begin
     raise exception 'FAIL: authenticated can write profiles.email';
   end if;
 
+  -- Categories: only the icon is editable (renaming would orphan transactions).
+  if has_column_privilege('authenticated', 'public.categories', 'name', 'update') then
+    raise exception 'FAIL: a category name is updatable';
+  end if;
+
   -- Access requests only via request_viewer_access(email); the two user ids are fixed.
   if has_table_privilege('authenticated', 'public.viewer_access', 'insert')
      or has_column_privilege('authenticated', 'public.viewer_access', 'requester_user_id', 'update')

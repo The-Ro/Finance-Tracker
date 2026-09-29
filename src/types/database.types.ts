@@ -108,9 +108,17 @@ export interface Database {
         Update: Partial<{ display_name: string; avatar: string | null }>
       }
       categories: {
-        Row: { owner_user_id: string; name: string; kind: CategoryKind | null; created_by: string | null; created_at: string }
-        Insert: { owner_user_id: string; name: string; kind?: CategoryKind | null; created_by?: string | null }
-        Update: never
+        Row: {
+          owner_user_id: string
+          name: string
+          kind: CategoryKind | null
+          /** Icon key from src/lib/categoryIcon.ts; null = guessed from the name. Only this column is updatable. */
+          icon: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: { owner_user_id: string; name: string; kind?: CategoryKind | null; icon?: string | null; created_by?: string | null }
+        Update: { icon: string | null }
       }
       accounts: {
         Row: {
