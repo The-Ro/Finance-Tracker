@@ -11,11 +11,14 @@ import { usePwaInstall } from '@/hooks/usePwaInstall'
 import { SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currency'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AccountsStep } from './AccountsStep'
+import { BanksStep } from './BanksStep'
 
 const currencyOptions = SUPPORTED_CURRENCIES.map((c) => `${c.code} - ${c.label} (${c.symbol})`)
 const labelForCode = (code: string) => currencyOptions.find((o) => o.startsWith(code + ' ')) ?? currencyOptions[0]
 
-const TOTAL_STEPS = 2
+// You -> your banks -> cards & wallets. Everything else (bills, a budget, a
+// goal, import, sharing) is the "Finish setting up" checklist on Home.
+const TOTAL_STEPS = 3
 
 function StepProgress({ step, onSkip, disabled }: { step: number; onSkip: () => void; disabled: boolean }) {
   return (
@@ -118,8 +121,16 @@ export function WelcomeModal() {
       <div className="flex flex-col gap-4">
         <StepProgress step={step} onSkip={finish} disabled={saving} />
 
-        {step === 2 ? (
-          <AccountsStep onBack={() => setStep(1)} onDone={finish} finishing={saving} />
+        {step === 3 ? (
+          <AccountsStep
+            onBack={() => setStep(2)}
+            onDone={finish}
+            finishing={saving}
+            title="Cards and wallets"
+            description="Add your credit cards with what you owe today, and wallets like Paytm. Your banks are listed too; tap one to change it."
+          />
+        ) : step === 2 ? (
+          <BanksStep onBack={() => setStep(1)} onDone={() => setStep(3)} />
         ) : (
           <>
             <p className="text-sm text-slate-600">

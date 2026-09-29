@@ -6,6 +6,8 @@ export interface TransactionFilters {
   type: TransactionType | null
   category: string | null
   account: string | null
+  /** Payment mode (transactions.payment_method), e.g. "UPI". */
+  paymentMethod: string | null
   /** "Everyone" scope only -- narrow to one person's transactions. */
   ownerId: string | null
 }
@@ -15,6 +17,7 @@ export const EMPTY_TRANSACTION_FILTERS: TransactionFilters = {
   type: null,
   category: null,
   account: null,
+  paymentMethod: null,
   ownerId: null,
 }
 
@@ -29,7 +32,7 @@ export function parseAccountFilter(value: string | null): { account: string } | 
 }
 
 export function hasActiveFilters(f: TransactionFilters): boolean {
-  return !!f.search.trim() || !!f.type || !!f.category || !!f.account || !!f.ownerId
+  return !!f.search.trim() || !!f.type || !!f.category || !!f.account || !!f.paymentMethod || !!f.ownerId
 }
 
 /** Escapes LIKE/ILIKE wildcards so a user typing "50%" or "a_b" searches for

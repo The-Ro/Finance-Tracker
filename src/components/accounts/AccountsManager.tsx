@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { Archive, ChevronDown, CreditCard, Plus } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
+import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
@@ -77,7 +77,6 @@ export function AccountsManager() {
   const closedCards = useMemo(() => debitCards.filter((c) => closedSet.has(c.account)), [debitCards, closedSet])
   const closedAccounts = useMemo(() => accounts.filter((n) => closedSet.has(n)).sort((a, b) => a.localeCompare(b)), [accounts, closedSet])
   const legacy = useMemo(() => visible.filter((n) => looksLikeDebitCardAccount(n)), [visible])
-  const hiddenCount = accounts.filter((n) => !inUse.has(n) && !closedSet.has(n)).length
   const closedCount = closedAccounts.length + closedCards.length
   const cashAccount = useMemo(() => permanentCashAccount(accounts, kinds), [accounts, kinds])
   // The always-kept cash account leads its section.
@@ -205,17 +204,6 @@ export function AccountsManager() {
         description="What’s in each account today. Debit cards spend from these."
         addLabel="Add a bank account"
         onAdd={() => setSheet({ type: 'add', addType: 'bank' })}
-        footer={
-          hiddenCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setSheet({ type: 'add', addType: 'bank' })}
-              className="mt-3 min-h-[44px] text-left text-helper font-medium text-accent-dark hover:underline"
-            >
-              {plural(hiddenCount, 'more bank')} in the list — add one
-            </button>
-          )
-        }
       >
         {groups.bank.length === 0 ? (
           <EmptyRows>No bank accounts yet. Add the ones you use.</EmptyRows>
@@ -405,7 +393,31 @@ export function AccountsManager() {
         </Card>
       )}
 
-      <Modal open={sheet !== null} onClose={closeSheet} title={sheetTitle}>
+      <Modal
+        open={sheet !== null}
+        onClose={closeSheet}
+        title={sheetTitle}
+        headerActions={
+          sheet?.type === 'edit-account' ? (
+            <>
+              {sheet.account !== cashAccount && (
+                <SheetDeleteButton
+                  label={`Remove ${sheet.account}`}
+                  onClick={() => requestRemoval({ type: 'account', name: sheet.account })}
+                />
+              )}
+              <SheetSaveButton form="account-sheet-form" />
+            </>
+          ) : sheet?.type === 'debit' ? (
+            <>
+              {sheet.card && (
+                <SheetDeleteButton label={`Remove ${sheet.card.name}`} onClick={() => requestRemoval({ type: 'debit', card: sheet.card! })} />
+              )}
+              <SheetSaveButton form="debit-sheet-form" label={sheet.card ? 'Save' : 'Add card'} />
+            </>
+          ) : null
+        }
+      >
         {sheet?.type === 'add' && (
           <AddAccountFlow
             key={`add-${sheet.addType ?? 'any'}`}
@@ -421,6 +433,8 @@ export function AccountsManager() {
             idPrefix="settings-account"
             account={sheet.account}
             permanent={sheet.account === cashAccount}
+            formId="account-sheet-form"
+            hideActions
             onSaved={(name) => {
               closeSheet()
               show(`Saved ${name}`)
@@ -437,6 +451,8 @@ export function AccountsManager() {
             card={sheet.card}
             bankAccounts={groups.bank}
             defaultAccount={sheet.defaultAccount}
+            formId="debit-sheet-form"
+            hideActions
             onSaved={(name) => {
               closeSheet()
               show(sheet.card ? `Saved ${name}` : `Added ${name}`)

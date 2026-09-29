@@ -29,6 +29,8 @@ import { AccountBalances } from '@/components/dashboard/AccountBalances'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { ComingUpCard } from '@/components/dashboard/ComingUpCard'
 import { HomeTiles } from '@/components/dashboard/HomeTiles'
+import { SetupChecklist } from '@/components/setup/SetupChecklist'
+import { SalaryPrompt } from '@/components/setup/SalaryPrompt'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { MonthSpendingCard } from '@/components/dashboard/MonthSpendingCard'
 import { CustomizeDashboardModal } from '@/components/dashboard/CustomizeDashboardModal'
@@ -405,6 +407,11 @@ export function DashboardPage() {
       </div>
 
       <HomeTiles balances={balances} saved={savedThisMonth} />
+
+      {/* New users: what's left after the welcome wizard (hides itself when done or dismissed). */}
+      {/* Payday: "did your salary arrive?" (Settings -> Salary). */}
+      <SalaryPrompt />
+      <SetupChecklist />
 
       <div className="stagger-rows flex flex-col gap-4">
         <QuickActions />

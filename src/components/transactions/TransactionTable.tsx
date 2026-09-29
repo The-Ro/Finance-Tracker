@@ -14,7 +14,8 @@ import { InlineTagEditor } from './InlineTagEditor'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Transaction } from '@/hooks/useTransactions'
 import { useDeleteTransaction, useBulkDeleteTransactions, useBulkUpdateTransactionCategory } from '@/hooks/useTransactions'
-import { useCategories } from '@/hooks/useLookupLists'
+import { useAccountDetails, useCategories } from '@/hooks/useLookupLists'
+import { PAYMENT_METHODS, accountsForMode } from '@/lib/cardNetworks'
 import { useToast } from '@/context/ToastContext'
 import { useViewReceipt } from '@/hooks/useDocuments'
 import type { ProfileMap } from '@/hooks/useProfiles'
@@ -153,13 +154,29 @@ export function TransactionTable({
   const ALL_ACCOUNTS = 'All accounts'
   const ALL_TYPES = 'All types'
   // Accounts, then debit cards (as `debit:<id>`, filtered on debit_card_id); labels are what the Dropdown emits.
-  const accountFilterOptions = useMemo(
-    () => [
-      ...accounts.map((name) => ({ label: name, value: name })),
-      ...debitCards.map((card) => ({ label: `${debitCardLabel(card)} · debit card`, value: DEBIT_CARD_FILTER_PREFIX + card.id })),
-    ],
-    [accounts, debitCards]
-  )
+  const { data: accountDetails } = useAccountDetails()
+  // Accounts (and debit cards) a payment mode can come out of; all of them without a mode.
+  const accountOptionsForMode = (mode: string | null) => {
+    const allowed = new Set(
+      accountsForMode(
+        mode,
+        accounts.map((name) => ({ name, kind: accountDetails?.get(name)?.kind, network: accountDetails?.get(name)?.network }))
+      )
+    )
+    return [
+      ...accounts.filter((name) => allowed.has(name)).map((name) => ({ label: name, value: name })),
+      ...(!mode || mode === 'Debit card'
+        ? debitCards.map((card) => ({ label: `${debitCardLabel(card)} · debit card`, value: DEBIT_CARD_FILTER_PREFIX + card.id }))
+        : []),
+    ]
+  }
+  const accountFilterOptions = accountOptionsForMode(filters.paymentMethod)
+  const ALL_CATEGORIES = 'All categories'
+  const ALL_MODES = 'All modes'
+  // A type's own categories (transfers have none); every category without a type.
+  const categoriesForType = (type: TransactionFilters['type']) =>
+    type === 'income' ? incomeCategories : type === 'expense' ? expenseCategories : type === 'transfer' ? [] : categories
+  const filterCategories = categoriesForType(filters.type)
   const accountFilterLabel = accountFilterOptions.find((o) => o.value === filters.account)?.label ?? filters.account
   const filtersActive = hasActiveFilters(filters)
   const setFilter = (patch: Partial<TransactionFilters>) => onFiltersChange({ ...filters, ...patch })
@@ -207,7 +224,7 @@ export function TransactionTable({
   const desktopGrid = scope === 'everyone' ? DESKTOP_GRID_EVERYONE : DESKTOP_GRID_MINE
   const showMobileCheckboxes = selectMode || selected.size > 0
   // Type counts too: the green/red totals on the page set it, and Transfers is picked here.
-  const dropdownFilterCount = [filters.type, filters.category, filters.account, filters.ownerId].filter(Boolean).length
+  const dropdownFilterCount = [filters.type, filters.category, filters.account, filters.paymentMethod, filters.ownerId].filter(Boolean).length
   const typeLabel = filters.type === null ? ALL_TYPES : (QUICK_TYPE_CHIPS.find((c) => c.type === filters.type)?.label ?? ALL_TYPES)
 
   const clearSelection = () => {
@@ -522,7 +539,7 @@ export function TransactionTable({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center">
+      <div className="flex flex-col gap-2">
         <div className="flex min-h-[48px] flex-1 items-center gap-2.5 rounded-xl border border-app-border bg-white px-3.5 focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
           <Search size={17} className="shrink-0 text-slate-400" aria-hidden="true" />
           <input
@@ -565,36 +582,42 @@ export function TransactionTable({
             )}
           </div>
         </div>
-        {/* Category/account/person: always inline from md up, behind the
-            "Filters" chip below on phones. */}
+        {/* Type, Category, Account and Mode as a 2x2 grid (4 across from md),
+            always shown from md, behind the Filter icon on phones. Type narrows
+            Category to that type's categories; Mode narrows Account to what
+            that mode can come out of (accountsForMode). */}
         <div
           id="transaction-dropdown-filters"
-          className={clsx(
-            'flex-col gap-2 sm:flex-row sm:flex-wrap md:flex md:flex-nowrap',
-            filtersOpen ? 'animate-fade-in flex' : 'hidden'
-          )}
+          className={clsx('grid-cols-2 gap-2 md:grid md:grid-cols-4', filtersOpen ? 'animate-fade-in grid' : 'hidden')}
         >
           {scope === 'everyone' && peopleOptions.length > 0 && (
-            <Dropdown
-              options={[ALL_PEOPLE, ...personLabels.map((p) => p.label)]}
-              value={ownerLabel ?? ALL_PEOPLE}
-              aria-label="Filter by person"
-              onChange={(e) =>
-                setFilter({ ownerId: personLabels.find((p) => p.label === e.target.value)?.id ?? null })
-              }
-            />
+            <div className="col-span-2 md:col-span-4">
+              <Dropdown
+                options={[ALL_PEOPLE, ...personLabels.map((p) => p.label)]}
+                value={ownerLabel ?? ALL_PEOPLE}
+                aria-label="Filter by person"
+                onChange={(e) =>
+                  setFilter({ ownerId: personLabels.find((p) => p.label === e.target.value)?.id ?? null })
+                }
+              />
+            </div>
           )}
           <Dropdown
             options={QUICK_TYPE_CHIPS.map((c) => (c.type === null ? ALL_TYPES : c.label))}
             value={typeLabel}
             aria-label="Filter by type"
-            onChange={(e) => setFilter({ type: QUICK_TYPE_CHIPS.find((c) => c.label === e.target.value)?.type ?? null })}
+            onChange={(e) => {
+              const type = QUICK_TYPE_CHIPS.find((c) => c.label === e.target.value)?.type ?? null
+              const allowed = categoriesForType(type)
+              setFilter({ type, category: filters.category && allowed.includes(filters.category) ? filters.category : null })
+            }}
           />
           <Dropdown
-            options={['All categories', ...categories]}
-            value={filters.category ?? 'All categories'}
+            options={[ALL_CATEGORIES, ...filterCategories]}
+            value={filters.category ?? ALL_CATEGORIES}
             aria-label="Filter by category"
-            onChange={(e) => setFilter({ category: e.target.value === 'All categories' ? null : e.target.value })}
+            disabled={filters.type === 'transfer'}
+            onChange={(e) => setFilter({ category: e.target.value === ALL_CATEGORIES ? null : e.target.value })}
           />
           <Dropdown
             options={[ALL_ACCOUNTS, ...accountFilterOptions.map((o) => o.label)]}
@@ -603,6 +626,16 @@ export function TransactionTable({
             onChange={(e) =>
               setFilter({ account: accountFilterOptions.find((o) => o.label === e.target.value)?.value ?? null })
             }
+          />
+          <Dropdown
+            options={[ALL_MODES, ...PAYMENT_METHODS]}
+            value={filters.paymentMethod ?? ALL_MODES}
+            aria-label="Filter by payment mode"
+            onChange={(e) => {
+              const paymentMethod = e.target.value === ALL_MODES ? null : e.target.value
+              const allowed = accountOptionsForMode(paymentMethod).map((o) => o.value)
+              setFilter({ paymentMethod, account: filters.account && allowed.includes(filters.account) ? filters.account : null })
+            }}
           />
         </div>
       </div>

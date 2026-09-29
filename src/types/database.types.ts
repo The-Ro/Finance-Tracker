@@ -6,6 +6,8 @@ export type TransactionType = 'expense' | 'income' | 'transfer'
 export type TransactionSource = 'manual' | 'csv'
 export type CategoryKind = 'expense' | 'income'
 /** Savings and current are both bank accounts; debit cards are separate (debit_cards table) and draw from one. */
+export type CardNetwork = 'visa' | 'mastercard' | 'rupay' | 'amex' | 'diners' | 'other'
+
 export type AnnouncementTone = 'info' | 'success' | 'warning'
 
 /** admin_overview(): counts only -- no one's transactions or amounts. */
@@ -122,6 +124,8 @@ export interface Database {
           statement_day: number | null
           due_day: number | null
           closed_at: string | null
+          /** Credit cards only (set_card_network). A RuPay card can pay by UPI. */
+          card_network: CardNetwork | null
         }
         Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
@@ -134,10 +138,11 @@ export interface Database {
           last4: string | null
           /** The savings/current account the card draws from (accounts.name). */
           account: string
+          network: CardNetwork | null
           created_at: string
         }
-        Insert: { owner_user_id: string; name: string; last4?: string | null; account: string }
-        Update: Partial<{ name: string; last4: string | null; account: string }>
+        Insert: { owner_user_id: string; name: string; last4?: string | null; account: string; network?: CardNetwork | null }
+        Update: Partial<{ name: string; last4: string | null; account: string; network: CardNetwork | null }>
       }
       tags: {
         Row: { owner_user_id: string; name: string; created_by: string | null; created_at: string }
@@ -481,6 +486,11 @@ export interface Database {
           summary_card_order: string[]
           summary_card_hidden: string[]
           setup_checklist_dismissed: boolean
+          salary_amount: number | null
+          salary_account: string | null
+          salary_day: number | null
+          /** YYYY-MM last answered on the payday prompt. */
+          salary_confirmed_month: string | null
           updated_at: string
         }
         Insert: {
@@ -504,6 +514,10 @@ export interface Database {
           summary_card_order?: string[]
           summary_card_hidden?: string[]
           setup_checklist_dismissed?: boolean
+          salary_amount?: number | null
+          salary_account?: string | null
+          salary_day?: number | null
+          salary_confirmed_month?: string | null
         }
         Update: Partial<{
           assets_total: number
@@ -525,10 +539,22 @@ export interface Database {
           summary_card_order: string[]
           summary_card_hidden: string[]
           setup_checklist_dismissed: boolean
+          salary_amount: number | null
+          salary_account: string | null
+          salary_day: number | null
+          salary_confirmed_month: string | null
         }>
       }
     }
     Functions: {
+      delete_tag: {
+        Args: { p_tag: string }
+        Returns: undefined
+      }
+      set_card_network: {
+        Args: { p_account: string; p_network: CardNetwork | null }
+        Returns: undefined
+      }
       admin_overview: {
         Args: Record<string, never>
         Returns: AdminOverview

@@ -19,6 +19,9 @@ interface AccountsStepProps {
   onBack: () => void
   onDone: () => void
   finishing: boolean
+  /** Heading and line under it; defaults to the original single accounts step. */
+  title?: string
+  description?: string
 }
 
 /**
@@ -27,7 +30,13 @@ interface AccountsStepProps {
  * card, a credit card, or a wallet), each with its figure today. Cash is
  * always listed -- it's already there; tap it to set what's in it.
  */
-export function AccountsStep({ onBack, onDone, finishing }: AccountsStepProps) {
+export function AccountsStep({
+  onBack,
+  onDone,
+  finishing,
+  title = 'Where does your money live?',
+  description = 'Add your bank accounts, cards and wallets with what’s in them (or owed) today, so balances start out right.',
+}: AccountsStepProps) {
   const { userId } = useAuth()
   const { data: accounts = [] } = useAccounts()
   const { data: openings } = useAccountOpeningBalances()
@@ -68,10 +77,8 @@ export function AccountsStep({ onBack, onDone, finishing }: AccountsStepProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="animate-fade-in-up flex flex-col gap-1.5">
-        <h3 className="font-serif text-2xl font-semibold leading-tight text-slate-900">Where does your money live?</h3>
-        <p className="text-sm text-slate-600">
-          Add your bank accounts, cards and wallets with what’s in them (or owed) today, so balances start out right.
-        </p>
+        <h3 className="font-serif text-2xl font-semibold leading-tight text-slate-900">{title}</h3>
+        <p className="text-sm text-slate-600">{description}</p>
       </div>
 
       {listed.length > 0 && (
@@ -169,7 +176,7 @@ export function AccountsStep({ onBack, onDone, finishing }: AccountsStepProps) {
           Back
         </Button>
         <Button onClick={handleContinue} disabled={busy}>
-          {finishing ? 'Finishing…' : 'Continue'}
+          {finishing ? 'Finishing…' : 'Finish'}
         </Button>
       </div>
     </div>

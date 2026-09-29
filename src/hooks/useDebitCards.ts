@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { normalizeLast4, type DebitCard } from '@/lib/debitCards'
+import type { CardNetwork } from '@/types/database.types'
 
 const UNIQUE_VIOLATION = '23505'
 const FK_VIOLATION = '23503'
@@ -37,6 +38,8 @@ export interface DebitCardInput {
   last4?: string | null
   /** The savings/current account the card draws from. */
   account: string
+  /** Visa, Mastercard, RuPay, ... (optional). */
+  network?: CardNetwork | null
 }
 
 export function useAddDebitCard() {
@@ -49,7 +52,7 @@ export function useAddDebitCard() {
       if (!name) throw new Error('Give the card a name.')
       const { data, error } = await supabase
         .from('debit_cards')
-        .insert({ owner_user_id: userId, name, last4: normalizeLast4(input.last4), account: input.account })
+        .insert({ owner_user_id: userId, name, last4: normalizeLast4(input.last4), account: input.account, network: input.network ?? null })
         .select('*')
         .single()
       if (error) throw friendlyError(error)
@@ -64,13 +67,14 @@ export function useUpdateDebitCard() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...input }: { id: string } & Partial<DebitCardInput>) => {
-      const patch: { name?: string; last4?: string | null; account?: string } = {}
+      const patch: { name?: string; last4?: string | null; account?: string; network?: CardNetwork | null } = {}
       if (input.name !== undefined) {
         patch.name = input.name.trim()
         if (!patch.name) throw new Error('Give the card a name.')
       }
       if (input.last4 !== undefined) patch.last4 = normalizeLast4(input.last4)
       if (input.account !== undefined) patch.account = input.account
+      if (input.network !== undefined) patch.network = input.network
       const { error } = await supabase.from('debit_cards').update(patch).eq('id', id)
       if (error) throw friendlyError(error)
     },

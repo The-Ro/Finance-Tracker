@@ -12,7 +12,10 @@ import {
   useSetAccountClosed,
   useSetAccountDetails,
   useSetAccountOpeningBalance,
+  useSetCardNetwork,
 } from '@/hooks/useLookupLists'
+import type { CardNetwork } from '@/types/database.types'
+import { CardNetworkPicker } from './CardNetworkPicker'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAccountBalances } from '@/hooks/useTransactions'
 import { useDebitCards } from '@/hooks/useDebitCards'
@@ -61,6 +64,10 @@ interface AccountFormProps {
   onRemove?: () => void
   /** Offers Close / Reopen; called after the change is saved. */
   onClosedChange?: (name: string, closed: boolean) => void
+  /** The form's id, so a Save in the sheet header can submit it. */
+  formId?: string
+  /** Save / Remove / Cancel live in the sheet header (Modal headerActions); Close / Reopen stays here. */
+  hideActions?: boolean
 }
 
 /**
@@ -70,7 +77,7 @@ interface AccountFormProps {
  * AddAccountFlow.
  */
 export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(function AccountForm(
-  { account, compact = false, permanent = false, idPrefix, onSaved, onCancel, onRemove, onClosedChange },
+  { account, compact = false, permanent = false, idPrefix, onSaved, onCancel, onRemove, onClosedChange, formId, hideActions = false },
   ref
 ) {
   const { userId } = useAuth()
@@ -82,6 +89,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
   const { data: debitCards = [] } = useDebitCards()
   const setDetails = useSetAccountDetails()
   const setOpening = useSetAccountOpeningBalance()
+  const setNetworkRpc = useSetCardNetwork()
 
   const original = detailsMap?.get(account)
   const originalKind = original?.kind ?? 'savings'
@@ -95,6 +103,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
   const [limit, setLimit] = useState(original?.creditLimit != null ? String(original.creditLimit) : '')
   const [statementDay, setStatementDay] = useState(original?.statementDay != null ? String(original.statementDay) : '')
   const [dueDay, setDueDay] = useState(original?.dueDay != null ? String(original.dueDay) : '')
+  const [network, setNetwork] = useState<CardNetwork | null>(original?.network ?? null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -152,6 +161,8 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
         (original?.statementDay ?? null) !== details.statementDay ||
         (original?.dueDay ?? null) !== details.dueDay
       if (changed) await setDetails.mutateAsync({ account, details })
+      // After the kind is saved: only a credit card keeps a network.
+      if (isCard && network !== (original?.network ?? null)) await setNetworkRpc.mutateAsync({ account, network })
       const opening = openingBalanceForToday(desired, currentBalance, currentOpening)
       if (opening !== currentOpening) await setOpening.mutateAsync({ account, amount: opening })
       onSaved(account, kind)
@@ -189,7 +200,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
   const canRemove = !permanent && !!onRemove
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form id={formId} className="flex flex-col gap-4" onSubmit={handleSubmit}>
       {isClosed && (
         <p className="rounded-xl bg-slate-100 px-3 py-2.5 text-helper text-slate-600">
           This account is closed. Its history stays; it’s hidden from new entries, totals and bills.
@@ -289,6 +300,12 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
               </div>
             </div>
           )}
+          <CardNetworkPicker
+            value={network}
+            onChange={setNetwork}
+            idPrefix={idPrefix}
+            hint="A RuPay credit card can pay by UPI, so it's offered for UPI entries too."
+          />
           {!compact && (
             <p className="text-helper text-slate-500">
               With both days set, each bill shows on the Bills calendar. Spending counts when you buy; paying the bill is
@@ -324,7 +341,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
       {error && <InlineMessage tone="error">{error}</InlineMessage>}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {canClose || canRemove ? (
+        {canClose || (canRemove && !hideActions) ? (
           <div className="flex flex-wrap items-center gap-1">
             {canClose && (
               <Button type="button" variant="secondary" onClick={toggleClosed} disabled={busy} className="gap-2">
@@ -332,7 +349,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
                 {isClosed ? 'Reopen' : 'Close account'}
               </Button>
             )}
-            {canRemove && (
+            {canRemove && !hideActions && (
               <button
                 type="button"
                 onClick={onRemove}
@@ -346,6 +363,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
         ) : (
           <span />
         )}
+        {!hideActions && (
         <div className="flex gap-2">
           {onCancel && (
             <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
@@ -356,6 +374,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
+        )}
       </div>
     </form>
   )

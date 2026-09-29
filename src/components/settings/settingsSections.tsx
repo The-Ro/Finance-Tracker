@@ -15,11 +15,14 @@ import {
   UserRound,
   Users,
   WandSparkles,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import { useCategories } from '@/hooks/useLookupLists'
 import { NetWorthForm } from '@/components/settings/NetWorthForm'
 import { ManagedListEditor } from '@/components/settings/ManagedListEditor'
+import { MoveCategoryEntries } from './MoveCategoryEntries'
+import { SalarySettings } from './SalarySettings'
 import { DetectionSettings } from '@/components/settings/DetectionSettings'
 import { DangerZone } from '@/components/settings/DangerZone'
 import { AvatarPicker } from '@/components/settings/AvatarPicker'
@@ -69,6 +72,9 @@ function CategoriesSection() {
         onAdd={(name) => add.mutateAsync({ name, kind: 'income' })}
         onRemove={(name) => remove.mutateAsync(name)}
       />
+      <div className="xl:col-span-2">
+        <MoveCategoryEntries />
+      </div>
     </div>
   )
 }
@@ -125,6 +131,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: Tags,
     group: 'money',
     render: () => <CategoriesSection />,
+  },
+  {
+    id: 'salary',
+    label: 'Salary',
+    subtitle: 'Amount, account and pay day',
+    icon: Wallet,
+    group: 'money',
+    render: () => <SalarySettings />,
   },
   {
     id: 'net-worth',

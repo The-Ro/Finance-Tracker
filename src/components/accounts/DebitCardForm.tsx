@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext'
 import { useAddDebitCard, useUpdateDebitCard } from '@/hooks/useDebitCards'
 import { useMyTransactions } from '@/hooks/useTransactions'
 import { normalizeLast4, type DebitCard } from '@/lib/debitCards'
+import type { CardNetwork } from '@/types/database.types'
+import { CardNetworkPicker } from './CardNetworkPicker'
 import { friendlyAccountError } from './accountErrors'
 
 const PICK_ACCOUNT = 'Choose an account'
@@ -22,6 +24,10 @@ interface DebitCardFormProps {
   onCancel?: () => void
   cancelLabel?: string
   onRemove?: () => void
+  /** The form's id, so a Save in the sheet header can submit it. */
+  formId?: string
+  /** Save / Remove / Cancel live in the sheet header (Modal headerActions). */
+  hideActions?: boolean
 }
 
 /** A debit card is its own item, but every purchase with it comes out of the linked account. */
@@ -34,6 +40,8 @@ export function DebitCardForm({
   onCancel,
   cancelLabel = 'Cancel',
   onRemove,
+  formId,
+  hideActions = false,
 }: DebitCardFormProps) {
   const addCard = useAddDebitCard()
   const updateCard = useUpdateDebitCard()
@@ -49,6 +57,7 @@ export function DebitCardForm({
   const [account, setAccount] = useState(card?.account ?? defaultAccount ?? (options.length === 1 ? options[0] : PICK_ACCOUNT))
   const [name, setName] = useState(card?.name ?? '')
   const [last4, setLast4] = useState(card?.last4 ?? '')
+  const [network, setNetwork] = useState<CardNetwork | null>(card?.network ?? null)
   const [error, setError] = useState<string | null>(null)
   const saving = addCard.isPending || updateCard.isPending
 
@@ -66,13 +75,16 @@ export function DebitCardForm({
     }
     try {
       if (card) {
-        const patch: { id: string; name?: string; last4?: string | null; account?: string } = { id: card.id }
+        const patch: { id: string; name?: string; last4?: string | null; account?: string; network?: CardNetwork | null } = {
+          id: card.id,
+        }
         if (trimmed !== card.name) patch.name = trimmed
         if (digits !== card.last4) patch.last4 = digits
         if (account !== card.account && !hasPurchases) patch.account = account
+        if (network !== (card.network ?? null)) patch.network = network
         if (Object.keys(patch).length > 1) await updateCard.mutateAsync(patch)
       } else {
-        await addCard.mutateAsync({ name: trimmed, last4: digits, account })
+        await addCard.mutateAsync({ name: trimmed, last4: digits, account, network })
       }
       onSaved(trimmed)
     } catch (err) {
@@ -98,7 +110,7 @@ export function DebitCardForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form id={formId} className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-1.5">
         <label className="text-helper font-medium text-slate-600">Spends from</label>
         <Dropdown
@@ -136,8 +148,11 @@ export function DebitCardForm({
         />
       </div>
 
+      <CardNetworkPicker value={network} onChange={setNetwork} idPrefix={idPrefix} />
+
       {error && <InlineMessage tone="error">{error}</InlineMessage>}
 
+      {!hideActions && (
       <div className="flex flex-wrap items-center justify-between gap-2">
         {card && onRemove ? (
           <button
@@ -162,6 +177,7 @@ export function DebitCardForm({
           </Button>
         </div>
       </div>
+      )}
     </form>
   )
 }

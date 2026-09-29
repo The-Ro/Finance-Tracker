@@ -198,6 +198,7 @@ async function fetchTransactionsPage(params: {
   query = query.lte('date', range.end)
   if (filters.type) query = query.eq('type', filters.type)
   if (filters.category) query = query.eq('category', filters.category)
+  if (filters.paymentMethod) query = query.eq('payment_method', filters.paymentMethod)
   const accountFilter = parseAccountFilter(filters.account)
   if (accountFilter && 'debitCardId' in accountFilter) query = query.eq('debit_card_id', accountFilter.debitCardId)
   else if (accountFilter) query = query.eq('account', accountFilter.account)

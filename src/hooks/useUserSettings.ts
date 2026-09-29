@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { DEFAULT_CURRENCY } from '@/lib/currency'
 import { CURRENT_WHATS_NEW_VERSION } from '@/lib/whatsNew'
+import type { SalaryConfig } from '@/lib/salary'
 import {
   DEFAULT_DASHBOARD_ORDER,
   DEFAULT_SUMMARY_CARD_ORDER,
@@ -34,6 +35,8 @@ export interface UserSettings {
   summaryCardHidden: string[]
   /** Home's "Finish setting up" checklist was hidden. */
   setupChecklistDismissed: boolean
+  /** Salary day (Settings -> Salary); null when not set up. */
+  salary: SalaryConfig | null
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -56,6 +59,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   summaryCardOrder: DEFAULT_SUMMARY_CARD_ORDER,
   summaryCardHidden: [],
   setupChecklistDismissed: false,
+  salary: null,
 }
 
 export function useUserSettings() {
@@ -100,6 +104,15 @@ export function useUserSettings() {
         summaryCardOrder: normalizeSummaryCardOrder(data.summary_card_order),
         summaryCardHidden: data.summary_card_hidden ?? [],
         setupChecklistDismissed: data.setup_checklist_dismissed ?? false,
+        salary:
+          data.salary_amount != null && data.salary_account && data.salary_day != null
+            ? {
+                amount: Number(data.salary_amount),
+                account: data.salary_account,
+                day: data.salary_day,
+                confirmedMonth: data.salary_confirmed_month ?? null,
+              }
+            : null,
       }
     },
   })
@@ -229,6 +242,34 @@ export function useUserSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
   })
 
+  /** Sets up (or, with null, clears) the salary day. */
+  const updateSalary = useMutation({
+    mutationFn: async (input: { amount: number; account: string; day: number } | null) => {
+      const { error } = await supabase
+        .from('user_settings')
+        .update(
+          input
+            ? { salary_amount: input.amount, salary_account: input.account, salary_day: input.day }
+            : { salary_amount: null, salary_account: null, salary_day: null, salary_confirmed_month: null }
+        )
+        .eq('owner_user_id', userId!)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
+  })
+
+  /** Records that this month's "did your salary arrive?" was answered (YYYY-MM). */
+  const markSalaryAnswered = useMutation({
+    mutationFn: async (month: string) => {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ salary_confirmed_month: month })
+        .eq('owner_user_id', userId!)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
+  })
+
   const dismissSetupChecklist = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -261,6 +302,8 @@ export function useUserSettings() {
     updatePersonalDetails,
     completeOnboarding,
     dismissSetupChecklist,
+    updateSalary,
+    markSalaryAnswered,
     markWhatsNewSeen,
   }
 }

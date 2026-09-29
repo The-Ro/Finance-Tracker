@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
+import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useGoals, type Goal } from '@/hooks/useGoals'
@@ -9,9 +8,11 @@ interface GoalFormModalProps {
   open: boolean
   onClose: () => void
   editing?: Goal | null
+  /** Shows a delete (trash) in the header when editing; the caller confirms and deletes. */
+  onDelete?: () => void
 }
 
-export function GoalFormModal({ open, onClose, editing }: GoalFormModalProps) {
+export function GoalFormModal({ open, onClose, editing, onDelete }: GoalFormModalProps) {
   const { create, update } = useGoals()
   const [name, setName] = useState(editing?.name ?? '')
   const [target, setTarget] = useState(editing ? String(editing.target_amount) : '')
@@ -75,15 +76,11 @@ export function GoalFormModal({ open, onClose, editing }: GoalFormModalProps) {
       open={open}
       onClose={onClose}
       title={editing ? 'Edit goal' : 'New goal'}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save goal'}
-          </Button>
-        </div>
+      headerActions={
+        <>
+          {editing && onDelete && <SheetDeleteButton onClick={onDelete} />}
+          <SheetSaveButton onClick={handleSubmit} busy={saving} label="Save goal" />
+        </>
       }
     >
       <div className="flex flex-col gap-4">

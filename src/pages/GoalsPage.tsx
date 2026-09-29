@@ -123,7 +123,15 @@ export function GoalsPage() {
         </>
       )}
 
-      <GoalFormModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} />
+      <GoalFormModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        editing={editing}
+        onDelete={() => {
+          setModalOpen(false)
+          if (editing) setPendingDelete(editing)
+        }}
+      />
       <AddMoneyModal goal={addingTo} onClose={() => setAddingToId(null)} />
       <ConfirmDeleteModal
         open={pendingDelete !== null}

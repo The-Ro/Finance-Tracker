@@ -31,3 +31,42 @@ export function suggestCategory(merchant: string, type: string, history: PastEnt
   }
   return best
 }
+
+interface PastEntryFull extends PastEntry {
+  account: string
+  payment_method: string | null
+  debit_card_id: string | null
+  amount: number
+}
+
+export interface EntrySuggestion {
+  category: string | null
+  account: string | null
+  paymentMethod: string | null
+  debitCardId: string | null
+  /** Only when the last two similar entries were the same amount (a bill, a subscription). */
+  amount: number | null
+}
+
+/**
+ * Everything worth pre-filling from the user's own history for this merchant:
+ * the usual category (suggestCategory), and the account, mode and card of the
+ * most recent similar entry -- plus the amount when it has repeated exactly.
+ * Null when nothing similar exists.
+ */
+export function suggestEntry(merchant: string, type: string, history: PastEntryFull[]): EntrySuggestion | null {
+  if (normalizeMerchant(merchant).length < 3) return null
+  const similar = history
+    .filter((h) => h.type === type && merchantsSimilar(merchant, h.merchant))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+  if (similar.length === 0) return null
+  const latest = similar[0]
+  const repeated = similar.length >= 2 && similar[0].amount === similar[1].amount ? latest.amount : null
+  return {
+    category: suggestCategory(merchant, type, history),
+    account: latest.account,
+    paymentMethod: latest.payment_method,
+    debitCardId: latest.debit_card_id,
+    amount: repeated,
+  }
+}

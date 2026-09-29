@@ -36,7 +36,6 @@ export function CreditCardsCard({ className }: { className?: string }) {
   const totals = useMemo(() => cardLimitTotals(cards.map((c) => ({ owed: c.status.owed, limit: c.limit }))), [cards])
 
   if (cards.length === 0) return null
-  const anyLimit = cards.some((c) => c.limit !== null)
 
   return (
     <Card className={clsx('flex min-w-0 flex-col gap-4 p-5', className)}>
@@ -117,11 +116,6 @@ export function CreditCardsCard({ className }: { className?: string }) {
         })}
       </ul>
 
-      {anyLimit && (
-        <p className="mt-auto rounded-xl bg-brass-light px-3.5 py-3 text-helper leading-relaxed text-slate-700">
-          Bars turn amber at 30% of a card's limit and red past 70%.
-        </p>
-      )}
     </Card>
   )
 }

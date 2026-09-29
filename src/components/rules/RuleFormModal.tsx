@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
+import { Modal, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useRules, type Rule } from '@/hooks/useRules'
@@ -41,16 +40,7 @@ export function RuleFormModal({ open, onClose, editing }: RuleFormModalProps) {
       open={open}
       onClose={onClose}
       title={editing ? 'Edit rule' : 'Create rule'}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save rule'}
-          </Button>
-        </div>
-      }
+      headerActions={<SheetSaveButton onClick={handleSubmit} busy={saving} label="Save rule" />}
     >
       <div className="flex flex-col gap-4">
         <TextField

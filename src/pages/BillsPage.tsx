@@ -16,6 +16,7 @@ import { useAccountKinds, useCardBills } from '@/hooks/useCards'
 import { addDaysISO, dueDatesInRange, monthGrid, totalDueWithin } from '@/lib/billCalendar'
 import { formatShortDate, todayISO } from '@/lib/format'
 import { cardPagePath } from '@/components/cards/cardPath'
+import { RecurringFormModal } from '@/components/recurring/RecurringFormModal'
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -51,6 +52,7 @@ export function BillsPage() {
   })
   const [selected, setSelected] = useState(today)
   const [windowDays, setWindowDays] = useState<WindowDays>(7)
+  const [editing, setEditing] = useState<RecurringItem | null>(null)
   // Which way the month grid slides in: 1 = next month (from the right), -1 = previous.
   const [slide, setSlide] = useState<1 | -1 | 0>(0)
   const touchStart = useRef<{ x: number; y: number } | null>(null)
@@ -251,6 +253,11 @@ export function BillsPage() {
             <ul className="mb-2 flex flex-col gap-2">
               {cardDueSoon.map((b) => (
                 <li key={b.account} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+                  <Link
+                    to={cardPagePath(b.account)}
+                    aria-label={`Open ${b.account}`}
+                    className="-m-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1.5 hover:bg-slate-100"
+                  >
                   <div className="w-12 text-center">
                     <p className={clsx('text-[11px] font-bold uppercase', b.dueDate < today ? 'text-danger' : 'text-slate-500')}>
                       {b.dueDate < today ? 'Overdue' : new Date(b.dueDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })}
@@ -258,17 +265,15 @@ export function BillsPage() {
                     <p className="font-serif text-lg font-semibold text-slate-900">{Number(b.dueDate.slice(8))}</p>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <Link
-                      to={cardPagePath(b.account)}
-                      className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900 hover:underline"
-                    >
+                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
                       <CreditCard size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
                       <span className="truncate">{b.account} bill</span>
-                    </Link>
+                    </p>
                     <p className="text-helper text-slate-500">
                       {format(b.due)} · statement {formatShortDate(b.statementDate)}
                     </p>
                   </div>
+                  </Link>
                   <Button
                     variant="secondary"
                     onClick={() => openAddEntry('transfer', { toAccount: b.account, amount: b.due, merchant: b.account + ' bill payment' })}
@@ -289,6 +294,12 @@ export function BillsPage() {
                 const payable = date === item.next_date && date <= today
                 return (
                   <li key={`${item.id}-${date}`} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(item)}
+                      aria-label={`Open ${item.name}`}
+                      className="-m-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1.5 text-left hover:bg-slate-100"
+                    >
                     <div className="w-12 text-center">
                       <p className={clsx('text-[11px] font-bold uppercase', overdue ? 'text-danger' : 'text-slate-500')}>
                         {overdue ? 'Overdue' : new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })}
@@ -302,6 +313,7 @@ export function BillsPage() {
                         {item.account ? ` · ${item.account}` : ''}
                       </p>
                     </div>
+                    </button>
                     {payable && item.account && (
                       <Button variant="secondary" onClick={() => markPaid.mutate(item)} disabled={markPaid.isPending}>
                         Mark paid
@@ -314,6 +326,13 @@ export function BillsPage() {
           )}
         </Card>
       </div>
+      {/* Tapping a Coming up row opens it here to check or change it. */}
+      <RecurringFormModal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        kind={editing?.kind ?? 'recurring'}
+        editing={editing}
+      />
     </div>
   )
 }

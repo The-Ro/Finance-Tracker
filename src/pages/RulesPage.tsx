@@ -61,7 +61,7 @@ export function RulesPage() {
         />
       ) : (
         <Card className="p-4">
-          <ul>
+          <ul className="stagger-rows">
             {rules.map((rule) => (
               <RuleRow
                 key={rule.id}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
-import type { CategoryKind } from '@/types/database.types'
+import type { CardNetwork, CategoryKind } from '@/types/database.types'
 import { DEFAULT_ACCOUNT_KIND, normalizeAccountKind, type AccountDetails } from '@/lib/creditCards'
 
 function useLookupList(table: 'accounts' | 'tags') {
@@ -53,6 +53,24 @@ function useLookupList(table: 'accounts' | 'tags') {
 }
 
 export const useAccounts = () => useLookupList('accounts')
+
+/**
+ * Deletes several accounts in one request -- onboarding's bank step removes the
+ * seeded banks the user didn't pick. Only pass accounts nothing uses (see
+ * isUntouchedSeededBank): one referenced by a transaction fails the whole delete.
+ */
+export function useRemoveAccounts() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (names: string[]) => {
+      if (names.length === 0) return
+      const { error } = await supabase.from('accounts').delete().eq('owner_user_id', userId!).in('name', names)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
+  })
+}
 
 /**
  * Each account's opening balance (accounts.opening_balance). Keyed under
@@ -122,7 +140,7 @@ export function useAccountDetails() {
     queryFn: async (): Promise<Map<string, AccountDetails>> => {
       const { data, error } = await supabase
         .from('accounts')
-        .select('name, kind, credit_limit, statement_day, due_day, closed_at')
+        .select('name, kind, credit_limit, statement_day, due_day, closed_at, card_network')
         .eq('owner_user_id', userId!)
       if (error) throw error
       return new Map(
@@ -134,6 +152,7 @@ export function useAccountDetails() {
             statementDay: r.statement_day,
             dueDay: r.due_day,
             closed: r.closed_at != null,
+            network: r.card_network ?? null,
           },
         ])
       )
@@ -163,6 +182,19 @@ export function useSetAccountDetails() {
 }
 
 /** Close or reopen one of the caller's own accounts (narrow RPC). */
+/** Sets a credit card's network (narrow RPC; null clears it). */
+export function useSetCardNetwork() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ account, network }: { account: string; network: CardNetwork | null }) => {
+      const { error } = await supabase.rpc('set_card_network', { p_account: account, p_network: network })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
+  })
+}
+
 export function useSetAccountClosed() {
   const { userId } = useAuth()
   const queryClient = useQueryClient()
@@ -219,6 +251,74 @@ export function useAddAccount() {
 }
 
 export const useTags = () => useLookupList('tags')
+
+/**
+ * Moves everything filed under one category to another (Settings -> Categories):
+ * the user's transactions and recurring items, and its budget when the target
+ * has none yet (a category can only have one). Own rows only (RLS). Returns
+ * how many transactions moved.
+ */
+export function useMoveCategory() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ from, to }: { from: string; to: string }): Promise<number> => {
+      if (!userId) throw new Error('Not signed in')
+      if (from === to) return 0
+      const { error, count } = await supabase
+        .from('transactions')
+        .update({ category: to }, { count: 'exact' })
+        .eq('owner_user_id', userId)
+        .eq('category', from)
+      if (error) throw error
+      const { error: recurringError } = await supabase
+        .from('recurring_items')
+        .update({ category: to })
+        .eq('owner_user_id', userId)
+        .eq('category', from)
+      if (recurringError) throw recurringError
+      const { data: targetBudget } = await supabase
+        .from('budgets')
+        .select('id')
+        .eq('owner_user_id', userId)
+        .eq('category', to)
+        .maybeSingle()
+      if (!targetBudget) {
+        const { error: budgetError } = await supabase
+          .from('budgets')
+          .update({ category: to })
+          .eq('owner_user_id', userId)
+          .eq('category', from)
+        if (budgetError) throw budgetError
+      }
+      return count ?? 0
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['recurring_items', userId] })
+      queryClient.invalidateQueries({ queryKey: ['budgets', userId] })
+    },
+  })
+}
+
+/**
+ * Deletes a tag everywhere: from the user's tag list and from every one of
+ * their transactions (delete_tag RPC, one statement under their own RLS).
+ */
+export function useDeleteTag() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (tag: string) => {
+      const { error } = await supabase.rpc('delete_tag', { p_tag: tag })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags', userId] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+}
 
 interface CategoryRow {
   name: string

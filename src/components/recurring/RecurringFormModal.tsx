@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
+import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
+import { MonthField } from '@/components/ui/MonthField'
+import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
@@ -36,6 +37,10 @@ interface RecurringFormModalProps {
   onClose: () => void
   kind: RecurringKind
   editing?: RecurringItem | null
+  /** A new item's starting values (setup checklist's bill picks); ignored when editing. */
+  prefill?: { name: string; category?: string; loan?: boolean } | null
+  /** Shows a delete (trash) in the header when editing; the caller confirms and deletes. */
+  onDelete?: () => void
 }
 
 /** What a month input gives: YYYY-MM. */
@@ -53,7 +58,7 @@ function loanFormState(item: RecurringItem | null | undefined) {
   }
 }
 
-export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFormModalProps) {
+export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDelete }: RecurringFormModalProps) {
   const { format } = useFormatCurrency()
   // Recurring/subscription detection only ever runs over expense transactions
   // (see useRecurring.ts), so recurring/subscription items are expense-only too.
@@ -69,15 +74,18 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
   // If the user deleted every relevant default category, fall back to the
   // full list rather than showing an empty dropdown.
   const categoryOptions = categories.length > 0 ? categories : allExpenseCategories
+  // A prefilled category only if this form offers it (it must be one of the dropdown options).
+  const prefillCategory = prefill?.category && categoryOptions.includes(prefill.category) ? prefill.category : undefined
 
   const [form, setForm] = useState(() => ({
-    name: editing?.name ?? '',
-    category: editing?.category ?? categoryOptions[0] ?? 'Needs review',
+    name: editing?.name ?? prefill?.name ?? '',
+    category: editing?.category ?? prefillCategory ?? categoryOptions[0] ?? 'Needs review',
     amount: editing ? String(editing.amount) : '',
     cadence: editing?.cadence ?? ('monthly' as Cadence),
     nextDate: editing?.next_date ?? todayISO(),
     account: editing?.account ?? '',
     ...loanFormState(editing),
+    ...(!editing && prefill?.loan ? { isLoan: true } : {}),
   }))
 
   // RecurringFormModal stays mounted across opens (RecurringLikePage just
@@ -95,10 +103,11 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
       nextDate: editing?.next_date ?? todayISO(),
       account: editing?.account ?? '',
       ...loanFormState(editing),
+      ...(!editing && prefill?.loan ? { isLoan: true } : {}),
     })
     setError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editing])
+  }, [open, editing, prefill])
 
   useEffect(() => {
     if (!form.account && accounts.length > 0) {
@@ -183,15 +192,11 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
       open={open}
       onClose={onClose}
       title={editing ? 'Edit' : `Add ${kind === 'subscription' ? 'subscription' : 'recurring payment'}`}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
+      headerActions={
+        <>
+          {editing && onDelete && <SheetDeleteButton label={`Delete ${editing.name}`} onClick={onDelete} />}
+          <SheetSaveButton onClick={handleSubmit} busy={saving} />
+        </>
       }
     >
       <div className="flex flex-col gap-4">
@@ -226,6 +231,7 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
             />
+            <QuickAddCategory variant="link" kind="expense" onAdded={(category) => setForm((f) => ({ ...f, category }))} />
           </div>
           <TextField
             label="Next date"
@@ -286,11 +292,11 @@ export function RecurringFormModal({ open, onClose, kind, editing }: RecurringFo
                     value={form.loanRate}
                     onChange={(e) => setForm((f) => ({ ...f, loanRate: e.target.value }))}
                   />
-                  <TextField
+                  <MonthField
+                    id="recurring-loan-start"
                     label="First EMI (month)"
-                    type="month"
                     value={form.loanStart}
-                    onChange={(e) => setForm((f) => ({ ...f, loanStart: e.target.value }))}
+                    onChange={(loanStart) => setForm((f) => ({ ...f, loanStart }))}
                   />
                 </div>
                 {suggestedEmi !== null && suggestedEmi > 0 && Math.abs(suggestedEmi - Number(form.amount)) >= 1 && (

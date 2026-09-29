@@ -54,7 +54,8 @@ begin
       'public.mark_recurring_item_paid(uuid,date)', 'public.set_account_opening_balance(text,numeric)', 'public.is_admin()',
       'public.set_account_details(text,text,numeric,integer,integer)', 'public.set_account_closed(text,boolean)',
       'public.request_viewer_access(text)', 'public.convert_account_to_debit_card(text,text,text)',
-      'public.admin_overview()', 'public.admin_list_users()', 'public.admin_client_errors(integer)'
+      'public.admin_overview()', 'public.admin_list_users()', 'public.admin_client_errors(integer)',
+      'public.delete_tag(text)', 'public.set_card_network(text,text)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then

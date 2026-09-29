@@ -1,6 +1,6 @@
 import { useEffect, useRef, useLayoutEffect, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { Check, Loader2, Trash2, X } from 'lucide-react'
 import clsx from 'clsx'
 
 interface ModalProps {
@@ -9,6 +9,12 @@ interface ModalProps {
   title: string
   children: ReactNode
   footer?: ReactNode
+  /**
+   * Icon buttons in the header, left of the close X -- edit sheets put Save
+   * (check) and Delete (trash) here instead of a Cancel / Save footer
+   * (SheetSaveButton / SheetDeleteButton); X is the cancel.
+   */
+  headerActions?: ReactNode
   maxWidthClassName?: string
   /** Lets a caller scroll the body back to top itself -- e.g. a form with a
    *  validation error rendered up top, so it's visible even if the user had
@@ -22,6 +28,7 @@ export function Modal({
   title,
   children,
   footer,
+  headerActions,
   maxWidthClassName = 'max-w-lg',
   contentRef,
 }: ModalProps) {
@@ -185,16 +192,19 @@ export function Modal({
       >
         <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 sm:hidden" />
         <div className="flex items-center justify-between border-b border-app-border px-5 py-4">
-          <h2 id="modal-title" className="text-base font-semibold text-slate-900">
+          <h2 id="modal-title" className="min-w-0 truncate text-base font-semibold text-slate-900">
             {title}
           </h2>
-          <button
-            aria-label="Close"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
-          >
-            <X size={18} />
-          </button>
+          <div className="-mr-1.5 flex shrink-0 items-center gap-1.5">
+            {headerActions}
+            <button
+              aria-label="Close"
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
         <div ref={contentRef} className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {children}
@@ -203,5 +213,49 @@ export function Modal({
       </div>
     </div>,
     document.body
+  )
+}
+
+/** Header Save for edit sheets (Modal headerActions): a filled check; submits `form` or calls onClick. */
+export function SheetSaveButton({
+  onClick,
+  form,
+  busy,
+  label = 'Save',
+}: {
+  onClick?: () => void
+  /** Submit this form (by id) instead -- keeps the form's own validation and Enter-to-save. */
+  form?: string
+  busy?: boolean
+  label?: string
+}) {
+  return (
+    <button
+      type={form ? 'submit' : 'button'}
+      form={form}
+      aria-label={busy ? 'Saving' : label}
+      title={label}
+      onClick={onClick}
+      disabled={busy}
+      className="press flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-card hover:bg-accent-dark disabled:opacity-60"
+    >
+      {busy ? <Loader2 size={17} className="animate-spin" aria-hidden="true" /> : <Check size={18} strokeWidth={2.6} aria-hidden="true" />}
+    </button>
+  )
+}
+
+/** Header Delete for edit sheets (Modal headerActions): a red trash. */
+export function SheetDeleteButton({ onClick, disabled, label = 'Delete' }: { onClick: () => void; disabled?: boolean; label?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-9 w-9 items-center justify-center rounded-full text-danger hover:bg-danger-light disabled:opacity-50"
+    >
+      <Trash2 size={17} aria-hidden="true" />
+    </button>
   )
 }

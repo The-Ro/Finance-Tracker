@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { suggestCategory } from './smartCategory'
+import { suggestCategory, suggestEntry } from './smartCategory'
 
 const history = [
   { merchant: 'Uber trip', category: 'Transport', type: 'expense', date: '2026-09-01' },
@@ -27,5 +27,32 @@ describe('suggestCategory', () => {
   it('returns null for short or unknown merchants', () => {
     expect(suggestCategory('ub', 'expense', history)).toBeNull()
     expect(suggestCategory('Nowhere Store', 'expense', history)).toBeNull()
+  })
+})
+
+describe('suggestEntry', () => {
+  const e = (merchant: string, date: string, over: Partial<{ category: string; account: string; payment_method: string | null; amount: number; type: string }> = {}) => ({
+    merchant,
+    date,
+    type: 'expense',
+    category: 'Dining',
+    account: 'HDFC Bank',
+    payment_method: 'UPI' as string | null,
+    debit_card_id: null,
+    amount: 250,
+    ...over,
+  })
+  it('takes the account and mode from the latest similar entry, and a repeated amount', () => {
+    const s = suggestEntry('Swiggy', 'expense', [
+      e('Swiggy', '2026-09-01', { account: 'SBI', payment_method: 'Credit card', amount: 400 }),
+      e('SWIGGY*ORDER 99812345', '2026-09-20', { amount: 250 }),
+      e('Swiggy', '2026-09-10', { amount: 250 }),
+    ])
+    expect(s).toEqual({ category: 'Dining', account: 'HDFC Bank', paymentMethod: 'UPI', debitCardId: null, amount: 250 })
+  })
+  it('leaves the amount out when it varies, and is null for unknown merchants', () => {
+    const s = suggestEntry('Swiggy', 'expense', [e('Swiggy', '2026-09-20', { amount: 250 }), e('Swiggy', '2026-09-10', { amount: 300 })])
+    expect(s?.amount).toBeNull()
+    expect(suggestEntry('Zorblax', 'expense', [e('Swiggy', '2026-09-20')])).toBeNull()
   })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
+import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
+import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { InlineMessage } from '@/components/ui/InlineMessage'
@@ -11,9 +11,11 @@ interface BudgetFormModalProps {
   open: boolean
   onClose: () => void
   editing?: Budget | null
+  /** Shows a delete (trash) in the header when editing; the caller confirms and deletes. */
+  onDelete?: () => void
 }
 
-export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps) {
+export function BudgetFormModal({ open, onClose, editing, onDelete }: BudgetFormModalProps) {
   // Budgets are always an expense concept (a monthly spend limit) -- only
   // ever matched against expense transactions in useBudgetAlerts.
   const { expense: categories } = useCategories()
@@ -66,21 +68,18 @@ export function BudgetFormModal({ open, onClose, editing }: BudgetFormModalProps
       open={open}
       onClose={onClose}
       title={editing ? 'Edit budget' : 'Create budget'}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Saving…' : 'Save budget'}
-          </Button>
-        </div>
+      headerActions={
+        <>
+          {editing && onDelete && <SheetDeleteButton onClick={onDelete} />}
+          <SheetSaveButton onClick={handleSubmit} busy={saving} label="Save budget" />
+        </>
       }
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-helper font-medium text-slate-600">Category</label>
           <Dropdown options={categories} value={category} onChange={(e) => setCategory(e.target.value)} />
+          <QuickAddCategory variant="link" kind="expense" onAdded={setCategory} />
         </div>
         <TextField label="Monthly limit" type="number" step="0.01" min="0" value={limit} onChange={(e) => setLimit(e.target.value)} />
         <label className="flex items-start gap-3 text-sm text-slate-700">

@@ -127,7 +127,7 @@ export function BudgetsPage() {
             <ProgressBar percent={healthPercent} tone={healthPercent > 100 ? 'danger' : 'positive'} />
           </Card>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="stagger-rows grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {budgets.map((b) => (
               <BudgetCard
                 key={b.id}
@@ -150,7 +150,15 @@ export function BudgetsPage() {
         </>
       )}
 
-      <BudgetFormModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} />
+      <BudgetFormModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        editing={editing}
+        onDelete={() => {
+          setModalOpen(false)
+          if (editing) setPendingDelete(editing)
+        }}
+      />
       <ConfirmDeleteModal
         open={pendingDelete !== null}
         title="Delete budget"

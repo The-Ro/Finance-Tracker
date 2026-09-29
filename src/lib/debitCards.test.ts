@@ -7,6 +7,7 @@ const card = (over: Partial<DebitCard>): DebitCard => ({
   name: 'HDFC Millennia',
   last4: '1234',
   account: 'HDFC Bank',
+  network: null,
   created_at: '2026-09-01T00:00:00Z',
   ...over,
 })

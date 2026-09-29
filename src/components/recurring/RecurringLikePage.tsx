@@ -90,7 +90,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
       </Card>
 
       {!isLoading && suggestions.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="stagger-rows flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-slate-700">Suggestions</h2>
           {suggestions.map((c) => (
             <SuggestionCard
@@ -110,7 +110,7 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
           <EmptyState icon={Repeat} title="Nothing confirmed yet" description={emptyDescription} />
         ) : (
           <Card className="p-4">
-            <ul className="flex flex-col gap-1.5">
+            <ul className="stagger-rows flex flex-col gap-1.5">
               {confirmed.map((item) => (
                 <ConfirmedItemRow
                   key={item.id}
@@ -132,7 +132,20 @@ export function RecurringLikePage({ kind, title, addLabel, emptyDescription }: R
         )}
       </div>
 
-      <RecurringFormModal open={modalOpen} onClose={() => setModalOpen(false)} kind={kind} editing={editing} />
+      <RecurringFormModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        kind={kind}
+        editing={editing}
+        onDelete={
+          editing
+            ? () => {
+                setModalOpen(false)
+                setPendingDelete(editing)
+              }
+            : undefined
+        }
+      />
       <ConfirmDeleteModal
         open={pendingDelete !== null}
         title={kind === 'subscription' ? 'Delete subscription' : 'Delete recurring payment'}

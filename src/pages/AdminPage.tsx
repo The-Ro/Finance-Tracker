@@ -79,7 +79,7 @@ function OverviewTab() {
   const maxWeek = Math.max(1, ...weeks.map((w) => w.count))
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="stagger-rows grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Users" value={data.users} sub={`${data.signups_30d} joined in 30 days`} />
         <Stat label="New this week" value={data.signups_7d} />
         <Stat label="Active this week" value={data.logging_7d} sub={`${data.signed_in_7d} signed in`} />
@@ -138,7 +138,7 @@ function UsersTab() {
         <EmptyState icon={Users} title="No users match" description="Try a different name or email." />
       ) : (
         <Card className="overflow-hidden">
-          <ul className="divide-y divide-app-border">
+          <ul className="stagger-rows divide-y divide-app-border">
             {rows.map((u) => (
               <li key={u.id} className="flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
                 <div className="min-w-0 flex-1">
@@ -231,7 +231,7 @@ function ErrorsTab() {
         <EmptyState icon={AlertTriangle} title="No errors" description={`Nothing reported in the last ${days} days.`} />
       ) : (
         <Card className="overflow-hidden">
-          <ul className="divide-y divide-app-border">
+          <ul className="stagger-rows divide-y divide-app-border">
             {data.map((e) => {
               const expanded = open === e.message
               return (
@@ -372,7 +372,7 @@ function AnnouncementsTab() {
         <EmptyState icon={Megaphone} title="No announcements yet" description="Anything you post shows up here." />
       ) : (
         <Card className="overflow-hidden">
-          <ul className="divide-y divide-app-border">
+          <ul className="stagger-rows divide-y divide-app-border">
             {data.map((a) => {
               const live = isLiveAnnouncement(a)
               return (

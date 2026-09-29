@@ -58,8 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('display_name, avatar')
       .eq('id', userId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return
+        // A failed read (e.g. an access token that expired while the app sat
+        // idle, before the refresh landed) keeps what's shown and waits for
+        // the refreshed token below -- it used to replace the name with the
+        // email and never try again.
+        if (error) return
         setDisplayName(data?.display_name ?? email ?? '')
         setAvatar(data?.avatar ?? null)
       })
@@ -67,7 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [session?.user?.id, session?.user?.email, refreshTick])
+    // The access token is a dependency so a TOKEN_REFRESHED re-reads the profile.
+  }, [session?.user?.id, session?.user?.email, session?.access_token, refreshTick])
 
   const refreshProfile = useCallback(() => setRefreshTick((t) => t + 1), [])
 

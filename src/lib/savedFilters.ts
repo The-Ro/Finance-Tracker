@@ -28,6 +28,7 @@ export function describeFilters(f: SavedFilter, ownerName?: string): string {
     f.type ? TYPE_LABELS[f.type] ?? f.type : null,
     f.category,
     f.account,
+    f.paymentMethod ? `via ${f.paymentMethod}` : null,
     f.ownerId ? ownerName ?? 'One person' : null,
     f.search.trim() ? `"${f.search.trim()}"` : null,
   ].filter(Boolean)
@@ -40,6 +41,7 @@ function sameFilters(a: SavedFilter, b: SavedFilter): boolean {
     a.type === b.type &&
     a.category === b.category &&
     a.account === b.account &&
+    (a.paymentMethod ?? null) === (b.paymentMethod ?? null) &&
     a.ownerId === b.ownerId &&
     a.scope === b.scope &&
     a.period === b.period
@@ -81,6 +83,7 @@ export function normalizeSavedFilter(raw: unknown): SavedFilter | null {
     type,
     category: str(r.category),
     account: str(r.account),
+    paymentMethod: str(r.paymentMethod),
     ownerId: scope === 'mine' ? null : ownerId,
   }
   if (scope) f.scope = scope
@@ -102,5 +105,12 @@ export function parseSavedFilters(json: string | null): SavedFilter[] {
 
 /** Splits a saved view back into the parts the page restores separately. */
 export function toFilters(f: SavedFilter): TransactionFilters {
-  return { search: f.search, type: f.type, category: f.category, account: f.account, ownerId: f.ownerId }
+  return {
+    search: f.search,
+    type: f.type,
+    category: f.category,
+    account: f.account,
+    paymentMethod: f.paymentMethod ?? null,
+    ownerId: f.ownerId,
+  }
 }

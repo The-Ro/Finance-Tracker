@@ -53,7 +53,7 @@ export function DocumentVaultList() {
 
   return (
     <Card className="overflow-hidden p-0">
-      <ul>
+      <ul className="stagger-rows">
         {documents.map((doc) => (
           <li key={doc.id} className="flex items-center justify-between gap-3 border-b border-app-border px-4 py-3 last:border-b-0">
             <div className="flex min-w-0 items-center gap-3">

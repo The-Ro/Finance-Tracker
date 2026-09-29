@@ -1,5 +1,5 @@
 import { addDaysISO } from '@/lib/billCalendar'
-import type { AccountKind } from '@/types/database.types'
+import type { AccountKind, CardNetwork } from '@/types/database.types'
 
 export type { AccountKind }
 
@@ -38,6 +38,8 @@ export interface AccountDetails {
   dueDay: number | null
   /** Closed accounts keep their history but drop out of pickers, balances and bills. */
   closed?: boolean
+  /** Credit cards only: Visa, Mastercard, RuPay, ... A RuPay credit card can pay by UPI. */
+  network?: CardNetwork | null
 }
 
 export interface FlowTransaction {
