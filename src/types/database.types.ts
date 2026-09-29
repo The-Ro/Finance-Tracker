@@ -55,11 +55,14 @@ export type PaymentMethod =
   | 'Cash'
   | 'Debit card'
   | 'Credit card'
+  | 'Wallet'
   | 'Net banking'
   | 'Cheque'
   | 'NEFT/RTGS/IMPS'
   | 'Other'
 export type RecurringKind = 'recurring' | 'subscription'
+/** Lent & borrowed: you lent it (they owe you) or borrowed it (you owe them). */
+export type IouDirection = 'lent' | 'borrowed'
 export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'annual'
 export type DocumentStatus = 'stored' | 'review'
 export type SelectedPeriod =
@@ -265,6 +268,58 @@ export interface Database {
           settled_at?: string | null
         }
         Update: Partial<{ amount: number; settled_at: string | null }>
+      }
+      ious: {
+        Row: {
+          id: string
+          owner_user_id: string
+          person: string
+          direction: IouDirection
+          amount: number
+          date: string
+          due_date: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_user_id?: string
+          person: string
+          direction: IouDirection
+          amount: number
+          date?: string
+          due_date?: string | null
+          note?: string | null
+        }
+        Update: Partial<{
+          person: string
+          direction: IouDirection
+          amount: number
+          date: string
+          due_date: string | null
+          note: string | null
+        }>
+      }
+      iou_payments: {
+        Row: {
+          id: string
+          owner_user_id: string
+          iou_id: string
+          amount: number
+          date: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_user_id?: string
+          iou_id: string
+          amount: number
+          date?: string
+        }
+        Update: Partial<{
+          amount: number
+          date: string
+        }>
       }
       goals: {
         Row: {

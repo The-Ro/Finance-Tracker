@@ -46,7 +46,7 @@ export function AuthShowcase({ startIndex }: { startIndex: number }) {
       <div aria-hidden="true" className="relative max-w-[440px] px-8 pb-10 pt-10">
         <AuthRise index={startIndex + 2}>
           <div className="rounded-card border border-app-border bg-app-card px-5 pb-8 pt-5 shadow-card-lg">
-            <p className="text-sm font-semibold text-slate-900">Savings flow</p>
+            <p className="text-sm font-semibold text-slate-900">Money kept each month</p>
             <p className="text-helper text-slate-500">
               6 months · avg <span className="font-semibold text-slate-700">₹{AVERAGE}</span>
             </p>

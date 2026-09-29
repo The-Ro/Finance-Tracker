@@ -24,24 +24,47 @@ export interface ModeAccount {
   network?: CardNetwork | null
 }
 
+const isBank = (kind: AccountKind | undefined) => kind === undefined || kind === 'savings' || kind === 'current'
+
 /**
- * Accounts a payment mode can come out of (user rule):
+ * Accounts a payment mode can come out of (user rules):
+ * - "Cash": cash accounts only; "Wallet": wallets only;
  * - "Credit card": credit cards only;
- * - "UPI": every non-card account plus RuPay credit cards (UPI on credit);
- * - any other mode: every non-card account.
- * No mode picked: everything. The account already on the entry is the
+ * - "Debit card": savings/current accounts (Add entry shows the debit cards
+ *   themselves instead, see modeUsesDebitCards);
+ * - "UPI": banks, wallets and RuPay credit cards (UPI on credit);
+ * - "Net banking", "Cheque", "NEFT/RTGS/IMPS": banks only;
+ * - no mode or "Other": everything, so any card is one tap away.
+ * An unknown kind counts as a bank. The account already on the entry is the
  * caller's to keep visible.
  */
 export function accountsForMode(mode: string | null | undefined, accounts: readonly ModeAccount[]): string[] {
-  if (!mode) return accounts.map((a) => a.name)
-  if (mode === 'Credit card') return accounts.filter((a) => a.kind === 'credit_card').map((a) => a.name)
-  if (mode === 'UPI') {
-    return accounts.filter((a) => a.kind !== 'credit_card' || cardSupportsUpi(a.kind, a.network)).map((a) => a.name)
+  const keep = (test: (a: ModeAccount) => boolean) => accounts.filter(test).map((a) => a.name)
+  switch (mode) {
+    case null:
+    case undefined:
+    case '':
+    case 'Other':
+      return accounts.map((a) => a.name)
+    case 'Cash':
+      return keep((a) => a.kind === 'cash')
+    case 'Wallet':
+      return keep((a) => a.kind === 'wallet')
+    case 'Credit card':
+      return keep((a) => a.kind === 'credit_card')
+    case 'UPI':
+      return keep((a) => isBank(a.kind) || a.kind === 'wallet' || cardSupportsUpi(a.kind, a.network))
+    default:
+      return keep((a) => isBank(a.kind))
   }
-  return accounts.filter((a) => a.kind !== 'credit_card').map((a) => a.name)
+}
+
+/** Whether debit cards are offered for a mode: none picked, "Debit card" or "Other". */
+export function modeUsesDebitCards(mode: string | null | undefined): boolean {
+  return !mode || mode === 'Debit card' || mode === 'Other'
 }
 
 /** Every payment mode, in picker order (Add entry's Mode pill, Activity's Mode filter). */
 export const PAYMENT_METHODS: PaymentMethod[] = [
-  'UPI', 'Cash', 'Debit card', 'Credit card', 'Net banking', 'Cheque', 'NEFT/RTGS/IMPS', 'Other',
+  'UPI', 'Cash', 'Debit card', 'Credit card', 'Wallet', 'Net banking', 'Cheque', 'NEFT/RTGS/IMPS', 'Other',
 ]

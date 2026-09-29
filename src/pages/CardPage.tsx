@@ -198,7 +198,7 @@ export function CardPage() {
                     ? `Overdue ${-billDays}d`
                     : billDays === 0
                       ? 'Due today'
-                      : `Due in ${billDays}d`}
+                      : `Due in ${billDays} day${billDays === 1 ? '' : 's'}`}
               </StatusPill>
             )}
           </div>
@@ -209,10 +209,10 @@ export function CardPage() {
                 <p className="font-serif text-2xl font-semibold tabular-nums text-slate-900">{format(bill.due)}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Stat label="Statement" value={formatShortDate(bill.statementDate)} />
+                <Stat label="Bill date" value={formatShortDate(bill.statementDate)} />
                 <Stat label="Due" value={formatShortDate(bill.dueDate)} />
-                <Stat label="Statement balance" value={format(bill.statementBalance)} />
-                <Stat label="Paid since" value={format(bill.paidSinceStatement)} />
+                <Stat label="Bill amount" value={format(bill.statementBalance)} />
+                <Stat label="Paid so far" value={format(bill.paidSinceStatement)} />
               </div>
               {bill.due > 0 && (
                 <Button onClick={payBill} className="w-full sm:w-auto sm:self-start">
@@ -222,7 +222,7 @@ export function CardPage() {
             </>
           ) : (
             <p className="text-sm text-slate-500">
-              Add this card's statement day and due day in{' '}
+              Add this card's bill day and due day in{' '}
               <Link to="/settings/accounts" className="font-medium text-accent-dark hover:underline">
                 Settings, Accounts & cards
               </Link>{' '}
@@ -235,13 +235,13 @@ export function CardPage() {
           <Card className="animate-fade-in-up flex flex-col gap-3 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-serif text-lg font-semibold text-slate-900">Not yet billed</h2>
+                <h2 className="font-serif text-lg font-semibold text-slate-900">Not on a bill yet</h2>
                 <p className="text-helper text-slate-500">Since {formatShortDate(unbilled.since)} · goes on the next bill</p>
               </div>
               <span className="shrink-0 font-serif text-lg font-semibold tabular-nums text-slate-900">{format(unbilled.total)}</span>
             </div>
             {unbilled.transactions.length === 0 ? (
-              <p className="text-sm text-slate-500">No spending since the last statement.</p>
+              <p className="text-sm text-slate-500">Nothing spent since the last bill.</p>
             ) : (
               <ul className="flex flex-col divide-y divide-app-border">
                 {unbilledShown.map((t) => (
@@ -270,7 +270,7 @@ export function CardPage() {
 
       {history.length > 0 && (
         <Card className="animate-fade-in-up flex flex-col gap-2 p-5">
-          <h2 className="font-serif text-lg font-semibold text-slate-900">Statements</h2>
+          <h2 className="font-serif text-lg font-semibold text-slate-900">Past bills</h2>
           <ul className="flex flex-col divide-y divide-app-border">
             {history.map((s) => {
               const style = STATUS_STYLES[s.status]
@@ -278,7 +278,7 @@ export function CardPage() {
                 <li key={s.statementDate} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <span className="min-w-0">
                     <span className="block text-slate-800">
-                      {formatShortDate(s.statementDate)} statement
+                      Bill of {formatShortDate(s.statementDate)}
                     </span>
                     <span className="block text-helper text-slate-500">
                       Due {formatShortDate(s.dueDate)} · paid {format(s.paidByDue)}

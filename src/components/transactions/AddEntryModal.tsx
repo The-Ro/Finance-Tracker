@@ -37,7 +37,7 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatDate, todayISO } from '@/lib/format'
 import { SUPPORTED_CURRENCIES } from '@/lib/currency'
 import { convertToHome, fetchFxRate } from '@/lib/fx'
-import { PAYMENT_METHODS, accountsForMode } from '@/lib/cardNetworks'
+import { PAYMENT_METHODS, accountsForMode, modeUsesDebitCards } from '@/lib/cardNetworks'
 import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import type { PaymentMethod, TransactionType } from '@/types/database.types'
 
@@ -97,7 +97,6 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // "INR · change" reveals the currency picker + rate; "More details" reveals
   // payment method, remarks, tags and receipt. Both open on their own when
   // editing an entry that uses them.
-  const [showCurrency, setShowCurrency] = useState(false)
   // "Mode" pill next to the currency: how it was paid (UPI, debit/credit card...).
   const [showMode, setShowMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -214,13 +213,15 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     label: name,
     icon: <AccountKindIcon kind={accountKinds.get(name)} size={14} className="shrink-0" />,
   })
-  // The payment mode narrows where it can come out of (accountsForMode):
-  // "Credit card" -> credit cards; "UPI" -> accounts + RuPay credit cards;
-  // any other mode -> non-card accounts. Transfers aren't narrowed, and the
-  // account already picked always stays visible.
+  // The payment mode narrows where it can come out of (accountsForMode in
+  // src/lib/cardNetworks.ts): Cash -> cash, Wallet -> wallets, Credit card ->
+  // credit cards, Debit card -> the debit cards, UPI -> banks, wallets and
+  // RuPay credit cards, bank modes -> banks; no mode or Other -> everything.
+  // Transfers aren't narrowed, and the account already picked stays visible.
+  const entryMode = isTransfer ? null : form.paymentMethod || null
   const modeAllows = (() => {
-    const mode = isTransfer ? null : form.paymentMethod || null
-    if (!mode || mode === 'Debit card') return null
+    const mode = entryMode
+    if (!mode || mode === 'Other') return null
     const allowed = new Set(
       accountsForMode(
         mode,
@@ -234,14 +235,18 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     const byMode = (name: string) => !narrow || !modeAllows || modeAllows(name)
     const shown = ordered.filter(isVisibleAccount).filter(byMode)
     const tucked = ordered.filter(isTuckedAccount).filter(byMode)
-    // Debit cards only fit no mode yet, or "Debit card".
-    if (narrow && modeAllows) debit = []
+    if (narrow && !modeUsesDebitCards(entryMode)) debit = []
+    // "Debit card" with cards to pick: just the cards (a card chip already
+    // stands for its account), unless an older entry has no card on it.
+    const cardsOnly = narrow && entryMode === 'Debit card' && debit.length > 0
+    const plain = (names: string[]) =>
+      names.filter((n) => !isCredit(n) && (!cardsOnly || (!selectedCard && n === form.account)))
     return [
       {
         id: 'accounts',
         label: 'Accounts',
-        options: shown.filter((n) => !isCredit(n)).map(accountChip),
-        more: tucked.filter((n) => !isCredit(n)).map(accountChip),
+        options: plain(shown).map(accountChip),
+        more: cardsOnly ? [] : plain(tucked).map(accountChip),
       },
       {
         id: 'debit',
@@ -268,6 +273,9 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     true
   )
   const toGroups = accountGroups(toOrdered, [])
+  // Cash: no account chips at all once the (only) cash account is picked.
+  const cashAccountCount = [...accountKinds.entries()].filter(([name, kind]) => kind === 'cash' && !closedAccounts.has(name)).length
+  const showFromPicker = !(entryMode === 'Cash' && accountKinds.get(form.account) === 'cash' && cashAccountCount <= 1)
   const fromValue = selectedCard ? DEBIT_KEY + selectedCard.id : ACCOUNT_KEY + form.account
 
   const pickFrom = (key: string) => {
@@ -378,16 +386,16 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     }
   }, [isTransfer, form.toAccount, firstToAccount])
 
-  // A cash account has no "how" -- the payment method fields (UPI/card/net
-  // banking/etc.) all describe moving money through a bank, which doesn't
-  // apply once the account itself already says "Cash".
-  const isCashAccount = accountKinds.get(form.account) === 'cash' || form.account === 'Cash'
+  // Picking the cash account means the mode is Cash (which then hides the
+  // account chips, see showFromPicker); a wallet with no mode yet is Wallet.
+  const fromKind = accountKinds.get(form.account)
+  const isCashAccount = fromKind === 'cash'
   useEffect(() => {
-    if (isCashAccount && form.paymentMethod) {
-      setForm((f) => ({ ...f, paymentMethod: '' }))
-    }
+    if (isTransfer) return
+    if (isCashAccount && form.paymentMethod !== 'Cash') setForm((f) => ({ ...f, paymentMethod: 'Cash', debitCardId: '' }))
+    else if (fromKind === 'wallet' && !form.paymentMethod) setForm((f) => ({ ...f, paymentMethod: 'Wallet' }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCashAccount])
+  }, [fromKind, isTransfer])
 
   // Spending on a credit-card account is, by definition, paid by credit card:
   // fill that in when the user hasn't picked a method themselves.
@@ -438,11 +446,9 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         ...(transaction.original_amount != null ? { amount: String(transaction.original_amount) } : {}),
       })
       keepStoredRate.current = transaction.original_currency != null
-      setShowCurrency(transaction.original_currency != null)
-      setDetailsOpen(countSecondaryFields({ ...transaction, payment_method: null }) > 0)
+      setDetailsOpen(transaction.original_currency != null || countSecondaryFields({ ...transaction, payment_method: null }) > 0)
     } else {
       setForm(blankForm())
-      setShowCurrency(false)
       setDetailsOpen(false)
     }
     setSplitOn(false)
@@ -455,7 +461,6 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
   const reset = () => {
     setForm(blankForm())
-    setShowCurrency(false)
     setDetailsOpen(false)
     setSplitOn(false)
     setSplitWith('')
@@ -486,7 +491,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const fail = (message: string, field?: string) => {
     setError(message)
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-    if (field === 'fxRate') setShowCurrency(true)
+    if (field === 'fxRate') setDetailsOpen(true)
     if (field === 'file') setDetailsOpen(true)
     if (field) {
       setShakeField(field)
@@ -520,7 +525,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     if (!opts?.allowDuplicate) setDuplicatePending(false)
 
     if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter a valid amount greater than zero.', 'amount')
-    if (!form.merchant.trim()) return fail('Enter a merchant or source.', 'merchant')
+    if (!form.merchant.trim()) return fail('Enter who you paid or who paid you.', 'merchant')
     if (!form.date) return fail('Choose a date.', 'date')
     if (!form.account) return fail('Choose an account.', 'account')
     if (isTransfer && !form.toAccount) return fail('Choose an account to transfer to.', 'toAccount')
@@ -630,7 +635,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     remarks: form.remarks,
     tags: form.tags,
     receipt: !isEditing && form.hasReceipt,
-  })
+  }) + (isForeign ? 1 : 0)
 
   return (
     <Modal
@@ -717,22 +722,6 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           {!isTransfer && (
             <button
               type="button"
-              aria-expanded={showCurrency}
-              aria-controls="entry-currency-panel"
-              onClick={() => setShowCurrency((v) => !v)}
-              className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-app-border px-3 text-helper font-semibold text-slate-600 transition-colors hover:border-accent hover:text-accent-dark"
-            >
-              {entryCurrency} · change
-              <ChevronDown
-                size={14}
-                aria-hidden="true"
-                className={clsx('transition-transform duration-200', showCurrency && 'rotate-180')}
-              />
-            </button>
-          )}
-          {!isCashAccount && (
-            <button
-              type="button"
               aria-expanded={showMode}
               aria-controls="entry-mode-panel"
               onClick={() => setShowMode((v) => !v)}
@@ -752,7 +741,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             </button>
           )}
           </div>
-          {showMode && !isCashAccount && (
+          {showMode && !isTransfer && (
             <div
               id="entry-mode-panel"
               role="group"
@@ -760,7 +749,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               className="animate-fade-in-up -mx-1 flex max-w-full gap-1.5 overflow-x-auto px-1 pb-1"
               style={{ scrollbarWidth: 'none' }}
             >
-              {PAYMENT_METHODS.filter((m) => m !== 'Cash').map((m) => {
+              {PAYMENT_METHODS.map((m) => {
                 const selected = form.paymentMethod === m
                 return (
                   <button
@@ -773,14 +762,30 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                         // An account the new mode can't use (a bank under "Credit card", a
                         // Visa card under UPI) moves to the most recent one it can.
                         let account = f.account
-                        if (paymentMethod && paymentMethod !== 'Debit card' && !isTransfer) {
+                        // "Debit card" picks a card: the one already chosen, else one on this
+                        // account, else the most recently used.
+                        if (paymentMethod === 'Debit card' && f.type === 'expense') {
+                          const card =
+                            (f.debitCardId ? cardsById.get(f.debitCardId) : undefined) ??
+                            orderedDebitCards.find((c) => c.account === f.account) ??
+                            orderedDebitCards[0]
+                          if (card) return { ...f, paymentMethod, account: card.account, debitCardId: card.id }
+                        }
+                        // Otherwise an account the new mode can't use (a bank under "Credit
+                        // card", a Visa card under UPI) moves to the most recent one it can.
+                        if (paymentMethod) {
                           const allowed = new Set(
                             accountsForMode(
                               paymentMethod,
                               fromOrdered.map((name) => ({ name, kind: accountKinds.get(name), network: accountDetailsMap?.get(name)?.network }))
                             )
                           )
-                          if (account && !allowed.has(account)) account = fromOrdered.find((n) => allowed.has(n) && isVisibleAccount(n)) ?? ''
+                          if (!allowed.has(account)) {
+                            account =
+                              fromOrdered.find((n) => allowed.has(n) && isVisibleAccount(n)) ??
+                              fromOrdered.find((n) => allowed.has(n)) ??
+                              ''
+                          }
                         }
                         // Any mode other than 'Debit card' means it wasn't the card after all.
                         return { ...f, paymentMethod, account, debitCardId: paymentMethod === 'Debit card' ? f.debitCardId : '' }
@@ -822,40 +827,10 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           )}
         </div>
 
-        {!isTransfer && showCurrency && (
-          <div id="entry-currency-panel" className="animate-fade-in-up grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-helper font-medium text-slate-600">Currency</label>
-              <Dropdown
-                options={CURRENCY_CODES}
-                value={form.currency || homeCurrency}
-                aria-label="Currency"
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, currency: e.target.value === homeCurrency ? '' : e.target.value, fxRate: '' }))
-                }
-              />
-            </div>
-            {isForeign && (
-              <div key={shakeKey('fxRate')} className={shakeClass('fxRate')}>
-                <TextField
-                  label={`1 ${form.currency} = ? ${homeCurrency}`}
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  placeholder={rateStatus.state === 'loading' ? 'Looking up…' : 'Rate'}
-                  value={form.fxRate}
-                  onChange={(e) => setForm((f) => ({ ...f, fxRate: e.target.value }))}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
           <div key={shakeKey('merchant')} className={shakeClass('merchant')}>
             <TextField
-              label={form.type === 'income' ? 'Source' : isTransfer ? 'Description' : 'Merchant'}
+              label={form.type === 'income' ? 'Received from' : isTransfer ? 'What for' : 'Paid to'}
               id="entry-merchant"
               placeholder={form.type === 'income' ? 'e.g. Salary' : isTransfer ? 'e.g. Card payment' : 'e.g. Amazon'}
               maxLength={60}
@@ -946,6 +921,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           </div>
         )}
 
+        {showFromPicker && (
         <div key={shakeKey('account')} className={shakeClass('account')}>
           <AccountChips
             label={isTransfer ? 'From' : form.type === 'income' ? 'Into' : 'Paid with'}
@@ -973,6 +949,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             </p>
           )}
         </div>
+        )}
 
         {isTransfer && (
           <div key={shakeKey('toAccount')} className={shakeClass('toAccount')}>
@@ -1069,7 +1046,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               )}
             </span>
             <span className="flex items-center gap-1 text-helper font-normal text-slate-400">
-              {!detailsOpen && 'Payment, note, tags, receipt'}
+              {!detailsOpen && (isTransfer ? 'Note, tags, receipt' : 'Currency, note, tags')}
               <ChevronDown
                 size={16}
                 aria-hidden="true"
@@ -1080,9 +1057,41 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
           {detailsOpen && (
             <div id="entry-more-details" className="animate-fade-in-up flex flex-col gap-4 border-t border-app-border p-3">
+              {/* Currency lives here: most entries are in the home currency, so it
+                  stays out of the way until needed. A foreign entry still shows
+                  its symbol on the amount and "Saved as ₹X" under it. */}
+              {!isTransfer && (
+                <div id="entry-currency-panel" className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-helper font-medium text-slate-600">Currency</label>
+                    <Dropdown
+                      options={CURRENCY_CODES}
+                      value={form.currency || homeCurrency}
+                      aria-label="Currency"
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, currency: e.target.value === homeCurrency ? '' : e.target.value, fxRate: '' }))
+                      }
+                    />
+                  </div>
+                  {isForeign && (
+                    <div key={shakeKey('fxRate')} className={shakeClass('fxRate')}>
+                      <TextField
+                        label={`1 ${form.currency} = ? ${homeCurrency}`}
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="any"
+                        placeholder={rateStatus.state === 'loading' ? 'Looking up…' : 'Rate'}
+                        value={form.fxRate}
+                        onChange={(e) => setForm((f) => ({ ...f, fxRate: e.target.value }))}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-3">
                 <TextField
-                  label="Remarks"
+                  label="Note"
                   id="entry-remarks"
                   placeholder="Add a note"
                   maxLength={200}

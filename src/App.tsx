@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/context/ThemeContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { Toaster } from '@/components/ui/Toaster'
 import { UpdateBanner } from '@/components/layout/UpdateBanner'
+import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { QueryPersistence } from '@/components/layout/QueryPersistence'
 import { ProtectedRoute, PublicOnlyRoute } from '@/routes/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
@@ -26,6 +27,7 @@ const BudgetsPage = lazy(() => import('@/pages/BudgetsPage').then((m) => ({ defa
 const BillsPage = lazy(() => import('@/pages/BillsPage').then((m) => ({ default: m.BillsPage })))
 const SharedPage = lazy(() => import('@/pages/SharedPage').then((m) => ({ default: m.SharedPage })))
 const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
+const LentPage = lazy(() => import('@/pages/LentPage').then((m) => ({ default: m.LentPage })))
 const GoalsPage = lazy(() => import('@/pages/GoalsPage').then((m) => ({ default: m.GoalsPage })))
 const DocumentsPage = lazy(() => import('@/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 const RulesPage = lazy(() => import('@/pages/RulesPage').then((m) => ({ default: m.RulesPage })))
@@ -61,6 +63,7 @@ export default function App() {
           <ToastProvider>
             <Toaster />
             <UpdateBanner />
+            <InstallPrompt />
             <BrowserRouter>
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
@@ -87,6 +90,7 @@ export default function App() {
                       <Route path="/review" element={<ReviewPage />} />
                       <Route path="/shared" element={<SharedPage />} />
                       <Route path="/goals" element={<GoalsPage />} />
+                      <Route path="/lent" element={<LentPage />} />
                       <Route path="/documents" element={<DocumentsPage />} />
                       <Route path="/rules" element={<RulesPage />} />
                       <Route path="/settings" element={<SettingsPage />} />

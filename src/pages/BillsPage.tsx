@@ -270,7 +270,7 @@ export function BillsPage() {
                       <span className="truncate">{b.account} bill</span>
                     </p>
                     <p className="text-helper text-slate-500">
-                      {format(b.due)} · statement {formatShortDate(b.statementDate)}
+                      {format(b.due)} · bill of {formatShortDate(b.statementDate)}
                     </p>
                   </div>
                   </Link>

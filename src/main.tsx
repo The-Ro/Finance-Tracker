@@ -10,6 +10,8 @@ import '@fontsource/manrope/700.css'
 import '@fontsource/fraunces/600.css'
 import '@fontsource/fraunces/700.css'
 import './index.css'
+// Imported this early so Chrome's install event is caught even if it fires before React mounts.
+import './hooks/usePwaInstall'
 
 // The ErrorBoundary below only catches errors thrown during React's render
 // -- an exception in an event handler or async code (a mutation's onClick,

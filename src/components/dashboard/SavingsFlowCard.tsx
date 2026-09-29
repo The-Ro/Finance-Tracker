@@ -68,7 +68,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
     <Card className="flex min-w-0 flex-col gap-3 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-slate-800">Savings flow</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Money kept each month</h3>
           <p className="text-helper text-slate-500">
             What your bank and cash accounts kept each month. Card spends count when you pay the bill.
           </p>

@@ -38,7 +38,8 @@ begin
         'public.handle_new_user()', 'public.handle_user_email_update()', 'public.rls_auto_enable()',
         'public.transaction_splits_cap_total()', 'public.recurring_items_keep_anchor_day()',
         'public.debit_cards_normalize()', 'public.transactions_check_debit_card()',
-        'public.debit_cards_block_account_move()', 'public.accounts_keep_cash()'
+        'public.debit_cards_block_account_move()', 'public.accounts_keep_cash()',
+        'public.iou_payments_check_total()', 'public.ious_check_amount()'
       ]) as f
     ) s where fn is not null
   loop
@@ -244,6 +245,12 @@ begin
      or exists (select 1 from public.accounts where owner_user_id <> me)
      or exists (select 1 from public.categories where owner_user_id <> me) then
     raise exception 'FAIL: QA15 can read another user''s budgets/accounts/categories';
+  end if;
+
+  -- Lent & borrowed: own-only, and a repayment can't point at someone else's record.
+  if exists (select 1 from public.ious where owner_user_id <> me)
+     or exists (select 1 from public.iou_payments where owner_user_id <> me) then
+    raise exception 'FAIL: QA15 can read another user''s lent/borrowed records';
   end if;
 
   -- Exact-email lookup only: no prefix match, never yourself.
@@ -583,6 +590,9 @@ begin
   if found then raise exception 'FAIL: the admin renamed another user''s debit card'; end if;
   delete from public.debit_cards where owner_user_id <> me;
   if found then raise exception 'FAIL: the admin deleted another user''s debit card'; end if;
+  if exists (select 1 from public.ious where owner_user_id <> me) then
+    raise exception 'FAIL: the admin can read another user''s lent/borrowed records';
+  end if;
   select name into acct from public.accounts where owner_user_id = me and kind in ('savings', 'current') order by name limit 1;
   select name into cat from public.categories where owner_user_id = me and kind = 'expense' order by name limit 1;
   if qa_card is not null and acct is not null and cat is not null then
@@ -595,7 +605,7 @@ begin
   end if;
 end $$;
 
-do $
+do $$
 declare visible int; total int;
 begin
   if not public.is_admin() then raise exception 'FAIL: the admin is not is_admin()'; end if;
@@ -631,6 +641,9 @@ begin
   if exists (select 1 from public.transactions) or exists (select 1 from public.budgets)
      or exists (select 1 from public.viewer_access) then
     raise exception 'FAIL: anon can read user data';
+  end if;
+  if has_table_privilege('anon', 'public.ious', 'select') or has_table_privilege('anon', 'public.iou_payments', 'select') then
+    raise exception 'FAIL: anon has access to lent/borrowed tables';
   end if;
   if exists (select 1 from storage.objects where bucket_id = 'avatars') then
     raise exception 'FAIL: anon can list avatar files (user ids)';

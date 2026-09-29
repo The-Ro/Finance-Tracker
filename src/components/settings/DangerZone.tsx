@@ -60,7 +60,7 @@ export function DangerZone() {
       </div>
       <p className="text-helper text-slate-600">
         Permanently erase everything in your LedgeEaze account - transactions, budgets, goals, recurring
-        items, subscriptions, documents, and rules. Your accounts, categories and starting balances are
+        items, subscriptions, lent & borrowed money, documents, and rules. Your accounts, categories and starting balances are
         kept. This never affects anyone else's data.
       </p>
       <div>
@@ -109,7 +109,7 @@ export function DangerZone() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-slate-700">
-              This deletes your transactions, budgets, goals, recurring items, rules, documents and their
+              This deletes your transactions, budgets, goals, recurring items, lent & borrowed money, rules, documents and their
               stored files in LedgeEaze. Your accounts, categories and starting balances are kept. It does
               not delete anything from Google Drive or any other service.
             </p>

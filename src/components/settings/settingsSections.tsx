@@ -187,7 +187,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   {
     id: 'net-worth',
     label: 'Net worth',
-    subtitle: 'Assets and liabilities totals',
+    subtitle: 'What you own minus what you owe',
     icon: Scale,
     group: 'money',
     render: () => <NetWorthForm />,
@@ -211,7 +211,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   {
     id: 'automation',
     label: 'Automation',
-    subtitle: 'Recurring detection and rules',
+    subtitle: 'Repeat payments and rules',
     icon: WandSparkles,
     group: 'app',
     render: () => (

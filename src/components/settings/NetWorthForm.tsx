@@ -52,13 +52,13 @@ export function NetWorthForm() {
       <div>
         <h3 className="text-sm font-semibold text-slate-800">Net worth</h3>
         <p className="mt-1 text-helper text-slate-500">
-          Net worth is your total assets minus total liabilities - it is not calculated from your monthly
-          income minus expenses. Saved automatically.
+          What you own minus what you owe. Type your own totals (home, gold, investments; loans, dues) -- they
+          aren't worked out from your entries. Saved as you type.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <TextField
-          label="Total assets"
+          label="What you own"
           type="number"
           step="0.01"
           min="0"
@@ -66,7 +66,7 @@ export function NetWorthForm() {
           onChange={(e) => setAssets(e.target.value)}
         />
         <TextField
-          label="Total liabilities"
+          label="What you owe"
           type="number"
           step="0.01"
           min="0"
@@ -76,7 +76,7 @@ export function NetWorthForm() {
       </div>
       <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
         <span className="text-helper text-slate-500">
-          {settings.updateNetWorth.isPending ? 'Saving…' : 'Live preview'}
+          {settings.updateNetWorth.isPending ? 'Saving…' : 'Your net worth'}
         </span>
         <span className="text-sm font-semibold text-slate-900">{format(assetsNum - liabilitiesNum)}</span>
       </div>

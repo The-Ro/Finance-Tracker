@@ -83,7 +83,7 @@ export function SharingSettings() {
         <div>
           <h3 className="text-sm font-semibold text-slate-800">People who can see your transactions</h3>
           <p className="mt-1 text-helper text-slate-500">
-            Toggle the eye to pause someone's access without removing them, or remove to revoke it outright.
+            Tap the eye to pause someone for now, or Remove to stop sharing with them.
           </p>
         </div>
         {approvedViewers.length === 0 ? (

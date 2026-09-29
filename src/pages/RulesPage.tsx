@@ -57,7 +57,7 @@ export function RulesPage() {
         <EmptyState
           icon={SlidersHorizontal}
           title="No rules yet"
-          description="Rules auto-categorize future CSV imports and new entries, e.g. “when merchant contains starbucks, then category: Dining”."
+          description="A rule picks the category for you, for new entries and imported statements. For example: when the name has “starbucks”, use Dining."
         />
       ) : (
         <Card className="p-4">

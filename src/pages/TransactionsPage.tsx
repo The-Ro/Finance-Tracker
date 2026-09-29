@@ -17,6 +17,7 @@ import { useDebitCards } from '@/hooks/useDebitCards'
 import { useAccountsInUse } from '@/hooks/useAccountsInUse'
 import { useCardPaymentSuggestions } from '@/hooks/useCardPaymentSuggestions'
 import { CardPaymentNotice } from '@/components/cards/CardPaymentNotice'
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
@@ -162,6 +163,9 @@ export function TransactionsPage() {
     }
     return { totalCredit: credit, totalDebit: debit }
   }, [inPeriod])
+  // The totals count up to their value (and between values when the period changes).
+  const shownCredit = useAnimatedNumber(totalCredit)
+  const shownDebit = useAnimatedNumber(totalDebit)
 
   // Exports the same scope+period-filtered set the header totals above are
   // computed from -- not the table's own search/type/category/account/person
@@ -198,7 +202,7 @@ export function TransactionsPage() {
                 )}
               >
                 <ArrowDownRight size={12} />
-                {formatCompact(totalCredit)}
+                {formatCompact(shownCredit)}
               </button>
               <button
                 type="button"
@@ -211,7 +215,7 @@ export function TransactionsPage() {
                 )}
               >
                 <ArrowUpRight size={12} />
-                {formatCompact(totalDebit)}
+                {formatCompact(shownDebit)}
               </button>
             </div>
           </>
@@ -254,10 +258,10 @@ export function TransactionsPage() {
       <div className="animate-fade-in-up grid grid-cols-2 gap-3 sm:hidden" role="group" aria-label="Show money in or money out">
         {(
           [
-            { type: 'income', label: 'Money in', total: totalCredit, Icon: ArrowDownRight, tone: 'text-positive', bg: 'bg-positive-light', ring: 'ring-positive' },
-            { type: 'expense', label: 'Money out', total: totalDebit, Icon: ArrowUpRight, tone: 'text-danger', bg: 'bg-danger-light', ring: 'ring-danger' },
+            { type: 'income', label: 'Money in', total: totalCredit, shown: shownCredit, Icon: ArrowDownRight, tone: 'text-positive', bg: 'bg-positive-light', ring: 'ring-positive' },
+            { type: 'expense', label: 'Money out', total: totalDebit, shown: shownDebit, Icon: ArrowUpRight, tone: 'text-danger', bg: 'bg-danger-light', ring: 'ring-danger' },
           ] as const
-        ).map(({ type, label, total, Icon, tone, bg, ring }) => {
+        ).map(({ type, label, total, shown, Icon, tone, bg, ring }) => {
           const active = filters.type === type
           const dimmed = filters.type !== null && !active
           return (
@@ -279,7 +283,7 @@ export function TransactionsPage() {
                 {active && <Check size={14} aria-hidden="true" className="ml-auto" />}
               </span>
               <span className="truncate font-serif text-xl font-semibold tabular-nums text-slate-900" title={format(total)}>
-                {format(total)}
+                {format(shown)}
               </span>
             </button>
           )

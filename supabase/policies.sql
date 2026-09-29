@@ -426,3 +426,27 @@ drop policy if exists categories_update_icon_own on public.categories;
 create policy categories_update_icon_own on public.categories for update to authenticated
   using (owner_user_id = auth.uid())
   with check (owner_user_id = auth.uid());
+
+-- ---- ious / iou_payments (lent & borrowed): strictly private, own-only (2026-09-29_lent_borrowed.sql).
+alter table public.ious enable row level security;
+alter table public.iou_payments enable row level security;
+
+revoke all on public.ious, public.iou_payments from anon;
+grant select, insert, update, delete on public.ious, public.iou_payments to authenticated;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['ious', 'iou_payments']
+  loop
+    execute format('drop policy if exists %I_select_own on public.%I', t, t);
+    execute format('create policy %I_select_own on public.%I for select to authenticated using (auth.uid() = owner_user_id)', t, t);
+    execute format('drop policy if exists %I_insert_own on public.%I', t, t);
+    execute format('create policy %I_insert_own on public.%I for insert to authenticated with check (auth.uid() = owner_user_id)', t, t);
+    execute format('drop policy if exists %I_update_own on public.%I', t, t);
+    execute format('create policy %I_update_own on public.%I for update to authenticated using (auth.uid() = owner_user_id) with check (auth.uid() = owner_user_id)', t, t);
+    execute format('drop policy if exists %I_delete_own on public.%I', t, t);
+    execute format('create policy %I_delete_own on public.%I for delete to authenticated using (auth.uid() = owner_user_id)', t, t);
+  end loop;
+end $$;

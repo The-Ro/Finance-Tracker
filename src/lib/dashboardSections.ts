@@ -54,7 +54,7 @@ export const SUMMARY_CARD_LABELS: Record<SummaryCardId, string> = {
   netWorth: 'Net worth',
   income: 'Income',
   spending: 'Spending',
-  savingsRate: 'Savings rate',
+  savingsRate: 'Kept',
 }
 
 function isSummaryCardId(id: string): id is SummaryCardId {

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
-import { Bell, FileUp, Plus, LogOut, ChevronDown, Settings, MessageSquare, ShieldCheck, X } from 'lucide-react'
+import { Bell, Download, FileUp, Plus, LogOut, ChevronDown, Settings, MessageSquare, ShieldCheck, X } from 'lucide-react'
+import { openInstallHelp, usePwaInstall } from '@/hooks/usePwaInstall'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useOwnedAccessRows } from '@/hooks/useSharing'
@@ -21,6 +22,7 @@ export function TopBar() {
   const { displayName, email, avatar, signOut } = useAuth()
   const { openAddEntry, openImport } = useGlobalModals()
   const [menuOpen, setMenuOpen] = useState(false)
+  const pwa = usePwaInstall()
   const [notifOpen, setNotifOpen] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
   const owned = useOwnedAccessRows()
@@ -197,6 +199,18 @@ export function TopBar() {
               >
                 <MessageSquare size={15} /> Feedback
               </NavLink>
+              {!pwa.isStandalone && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    openInstallHelp()
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <Download size={15} /> Install app
+                </button>
+              )}
               <button
                 role="menuitem"
                 onClick={() => signOut()}

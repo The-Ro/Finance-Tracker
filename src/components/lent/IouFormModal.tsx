@@ -1,0 +1,140 @@
+import { useEffect, useState } from 'react'
+import clsx from 'clsx'
+import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
+import { TextField } from '@/components/ui/TextField'
+import { DateField } from '@/components/ui/DateField'
+import { InlineMessage } from '@/components/ui/InlineMessage'
+import { useIous, type Iou } from '@/hooks/useIous'
+import { todayISO } from '@/lib/format'
+import type { IouDirection } from '@/types/database.types'
+
+interface IouFormModalProps {
+  open: boolean
+  onClose: () => void
+  editing?: Iou | null
+  /** New records start on this side ("I lent" / "I borrowed"). */
+  initialDirection?: IouDirection
+  /** Names already used, offered as suggestions. */
+  people: string[]
+  onDelete?: () => void
+}
+
+export function IouFormModal({ open, onClose, editing, initialDirection = 'lent', people, onDelete }: IouFormModalProps) {
+  const { create, update } = useIous()
+  const [direction, setDirection] = useState<IouDirection>(initialDirection)
+  const [person, setPerson] = useState('')
+  const [amount, setAmount] = useState('')
+  const [date, setDate] = useState(todayISO())
+  const [dueDate, setDueDate] = useState('')
+  const [note, setNote] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  // Stays mounted between opens, so reset from `editing` each time it opens.
+  useEffect(() => {
+    if (!open) return
+    setDirection(editing?.direction ?? initialDirection)
+    setPerson(editing?.person ?? '')
+    setAmount(editing ? String(editing.amount) : '')
+    setDate(editing?.date ?? todayISO())
+    setDueDate(editing?.due_date ?? '')
+    setNote(editing?.note ?? '')
+    setError(null)
+  }, [open, editing, initialDirection])
+
+  const save = async () => {
+    setError(null)
+    const amountNum = Number(amount)
+    if (!person.trim()) return setError('Who is it? Type their name.')
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return setError('Enter the amount.')
+    if (dueDate && dueDate < date) return setError('The pay-back date can’t be before the date.')
+    const input = { person, direction, amount: amountNum, date, dueDate: dueDate || null, note: note.trim() || null }
+    try {
+      if (editing) await update.mutateAsync({ id: editing.id, ...input })
+      else await create.mutateAsync(input)
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Couldn’t save this. Try again.')
+    }
+  }
+
+  const listId = 'iou-people'
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={editing ? 'Edit' : direction === 'lent' ? 'I lent money' : 'I borrowed money'}
+      headerActions={
+        <>
+          {editing && onDelete && <SheetDeleteButton onClick={onDelete} />}
+          <SheetSaveButton onClick={save} busy={create.isPending || update.isPending} label="Save" />
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div role="radiogroup" aria-label="Lent or borrowed" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+          {(
+            [
+              ['lent', 'I lent'],
+              ['borrowed', 'I borrowed'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={direction === value}
+              onClick={() => setDirection(value)}
+              className={clsx(
+                'min-h-[44px] rounded-lg text-sm font-semibold transition-colors',
+                direction === value
+                  ? value === 'lent'
+                    ? 'bg-app-card text-positive shadow-card'
+                    : 'bg-app-card text-danger shadow-card'
+                  : 'text-slate-500'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <TextField
+          label={direction === 'lent' ? 'Lent to' : 'Borrowed from'}
+          placeholder="Their name"
+          list={listId}
+          autoComplete="off"
+          maxLength={80}
+          value={person}
+          onChange={(e) => setPerson(e.target.value)}
+        />
+        <datalist id={listId}>
+          {people.map((p) => (
+            <option key={p} value={p} />
+          ))}
+        </datalist>
+        <TextField
+          label="Amount"
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <DateField label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DateField
+            label="Pay back by (optional)"
+            placeholder="No date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </div>
+        <TextField label="Note (optional)" maxLength={200} placeholder="e.g. for the trip" value={note} onChange={(e) => setNote(e.target.value)} />
+        <p className="text-helper text-slate-500">
+          This keeps track of who owes what. It doesn’t change your account balances.
+        </p>
+        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      </div>
+    </Modal>
+  )
+}

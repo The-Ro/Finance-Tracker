@@ -1844,3 +1844,82 @@ alter table public.categories add column if not exists icon text;
 alter table public.categories drop constraint if exists categories_icon_check;
 alter table public.categories add constraint categories_icon_check
   check (icon is null or icon ~ '^[a-z]{2,20}$');
+
+-- ===== Wallet payment mode (2026-09-29_wallet_payment_mode.sql) =====
+alter table public.transactions drop constraint if exists transactions_payment_method_check;
+alter table public.transactions add constraint transactions_payment_method_check check (
+  payment_method is null or payment_method in
+    ('UPI','Cash','Debit card','Credit card','Wallet','Net banking','Cheque','NEFT/RTGS/IMPS','Other')
+);
+
+-- ===== Lent & borrowed (2026-09-29_lent_borrowed.sql); RLS in policies.sql =====
+create table if not exists public.ious (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  person text not null check (char_length(btrim(person)) between 1 and 80),
+  direction text not null check (direction in ('lent', 'borrowed')),
+  amount numeric(14,2) not null check (amount > 0),
+  date date not null default current_date,
+  due_date date,
+  note text check (note is null or char_length(note) <= 200),
+  created_at timestamptz not null default now(),
+  unique (id, owner_user_id),
+  constraint ious_due_after_date check (due_date is null or due_date >= date)
+);
+create index if not exists ious_owner_idx on public.ious (owner_user_id, date desc);
+
+create table if not exists public.iou_payments (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  iou_id uuid not null,
+  amount numeric(14,2) not null check (amount > 0),
+  date date not null default current_date,
+  created_at timestamptz not null default now(),
+  -- A payment belongs to one of the same person's own records.
+  foreign key (iou_id, owner_user_id) references public.ious (id, owner_user_id) on delete cascade
+);
+create index if not exists iou_payments_iou_idx on public.iou_payments (iou_id);
+
+-- Repayments can't add up to more than was lent/borrowed, and a record's
+-- amount can't be lowered below what's already been repaid.
+create or replace function public.iou_payments_check_total()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_amount numeric;
+  v_paid numeric;
+begin
+  select amount into v_amount from public.ious where id = new.iou_id;
+  select coalesce(sum(amount), 0) into v_paid from public.iou_payments
+   where iou_id = new.iou_id and id <> new.id;
+  if v_paid + new.amount > v_amount then
+    raise exception 'That is more than what is left to pay' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.iou_payments_check_total() from public, anon, authenticated;
+
+create or replace function public.ious_check_amount()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (select coalesce(sum(amount), 0) from public.iou_payments where iou_id = new.id) > new.amount then
+    raise exception 'The amount can''t be less than what has already been paid back' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.ious_check_amount() from public, anon, authenticated;
+
+drop trigger if exists ious_check_amount on public.ious;
+create trigger ious_check_amount before update of amount on public.ious
+  for each row execute function public.ious_check_amount();
+drop trigger if exists iou_payments_check_total on public.iou_payments;
+create trigger iou_payments_check_total before insert or update of amount, iou_id on public.iou_payments
+  for each row execute function public.iou_payments_check_total();
+

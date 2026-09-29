@@ -15,7 +15,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import type { Transaction } from '@/hooks/useTransactions'
 import { useDeleteTransaction, useBulkDeleteTransactions, useBulkUpdateTransactionCategory } from '@/hooks/useTransactions'
 import { useAccountDetails, useCategories } from '@/hooks/useLookupLists'
-import { PAYMENT_METHODS, accountsForMode } from '@/lib/cardNetworks'
+import { PAYMENT_METHODS, accountsForMode, modeUsesDebitCards } from '@/lib/cardNetworks'
 import { useToast } from '@/context/ToastContext'
 import { useViewReceipt } from '@/hooks/useDocuments'
 import type { ProfileMap } from '@/hooks/useProfiles'
@@ -25,7 +25,7 @@ import { formatDate, todayISO } from '@/lib/format'
 import { formatCurrencyAs } from '@/lib/currency'
 import type { TransactionScope } from './ScopeToggle'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
-import { DEBIT_CARD_FILTER_PREFIX, hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
+import { DEBIT_CARD_FILTER_PREFIX, EMPTY_TRANSACTION_FILTERS, hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import { debitCardLabel, type DebitCard } from '@/lib/debitCards'
 import { avatarTone, dayHeadingLabel, groupByDay, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
 
@@ -165,7 +165,7 @@ export function TransactionTable({
     )
     return [
       ...accounts.filter((name) => allowed.has(name)).map((name) => ({ label: name, value: name })),
-      ...(!mode || mode === 'Debit card'
+      ...(modeUsesDebitCards(mode)
         ? debitCards.map((card) => ({ label: `${debitCardLabel(card)} · debit card`, value: DEBIT_CARD_FILTER_PREFIX + card.id }))
         : []),
     ]
@@ -180,6 +180,7 @@ export function TransactionTable({
   const accountFilterLabel = accountFilterOptions.find((o) => o.value === filters.account)?.label ?? filters.account
   const filtersActive = hasActiveFilters(filters)
   const setFilter = (patch: Partial<TransactionFilters>) => onFiltersChange({ ...filters, ...patch })
+  const listMotionKey = [scope, filters.type, filters.category, filters.account, filters.paymentMethod, filters.ownerId].join('|')
 
   // Only the signed-in user's own rows can be bulk-selected -- a shared
   // "Everyone" row from someone else has no edit/delete affordance either.
@@ -226,6 +227,15 @@ export function TransactionTable({
   // Type counts too: the green/red totals on the page set it, and Transfers is picked here.
   const dropdownFilterCount = [filters.type, filters.category, filters.account, filters.paymentMethod, filters.ownerId].filter(Boolean).length
   const typeLabel = filters.type === null ? ALL_TYPES : (QUICK_TYPE_CHIPS.find((c) => c.type === filters.type)?.label ?? ALL_TYPES)
+  // Every filter that's on, as a chip that clears just that one.
+  const activeFilterChips: { key: string; label: string; clear: Partial<TransactionFilters> }[] = [
+    ...(filters.search.trim() ? [{ key: 'search', label: `"${filters.search.trim()}"`, clear: { search: '' } }] : []),
+    ...(filters.type ? [{ key: 'type', label: typeLabel, clear: { type: null } }] : []),
+    ...(filters.category ? [{ key: 'category', label: filters.category, clear: { category: null } }] : []),
+    ...(filters.account ? [{ key: 'account', label: accountFilterLabel ?? filters.account, clear: { account: null } }] : []),
+    ...(filters.paymentMethod ? [{ key: 'mode', label: filters.paymentMethod, clear: { paymentMethod: null } }] : []),
+    ...(filters.ownerId ? [{ key: 'owner', label: ownerLabel ?? 'Person', clear: { ownerId: null } }] : []),
+  ]
 
   const clearSelection = () => {
     setSelected(new Set())
@@ -448,7 +458,7 @@ export function TransactionTable({
                       {extraLine}
                     </span>
                     {t.payment_method && (
-                      <span className="inline-flex shrink-0 items-center rounded-md bg-info-light px-1.5 py-0.5 text-xs font-medium text-info">
+                      <span className="inline-flex shrink-0 items-center rounded px-1 text-[11px] font-medium leading-[18px] text-info bg-info-light">
                         via {t.payment_method}
                       </span>
                     )}
@@ -640,6 +650,32 @@ export function TransactionTable({
         </div>
       </div>
 
+      {/* What's filtered, at a glance: tap a chip's x to drop that filter, or
+          Clear all. Shown on phones too, where the filter grid is folded away. */}
+      {activeFilterChips.length > 0 && (
+        <div className="animate-fade-in flex flex-wrap items-center gap-1.5" aria-label="Active filters">
+          {activeFilterChips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => setFilter(chip.clear)}
+              aria-label={`Remove filter ${chip.label}`}
+              className="animate-pop-in inline-flex min-h-[32px] max-w-[14rem] items-center gap-1 rounded-full bg-accent-light py-1 pl-3 pr-2 text-helper font-medium text-accent-on-light transition-colors hover:bg-accent-light/70 active:scale-95"
+            >
+              <span className="truncate">{chip.label}</span>
+              <X size={14} aria-hidden="true" className="shrink-0" />
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => onFiltersChange(EMPTY_TRANSACTION_FILTERS)}
+            className="min-h-[32px] px-2 text-helper font-semibold text-accent-dark hover:underline"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
       {/* Mine / Everyone, when there's someone else's activity to see. The type
           filter moved to the page's green Money in / red Money out totals
           (and Transfers to the Type filter). */}
@@ -741,8 +777,11 @@ export function TransactionTable({
           </div>
           {/* One group per day on every screen size: a heading that sticks under
               the top bar while its own rows scroll past, then that day's rows.
-              Groups (not rows) rise in, so "Load more" pages don't replay it. */}
-          <ul className="stagger-rows">
+              Groups rise in, and the first rows of each day follow a beat
+              later; "Load more" pages don't replay it. Changing a filter
+              (not typing -- the search box would replay it per key) re-keys the
+              list so the new results rise in. */}
+          <ul key={listMotionKey} className="stagger-rows">
             {groups.map((group) => {
               const headingId = `tx-day-${group.date}`
               return (
@@ -765,7 +804,7 @@ export function TransactionTable({
                       </span>
                     )}
                   </div>
-                  <ul>{group.rows.map(renderRow)}</ul>
+                  <ul className="stagger-rows-soft">{group.rows.map(renderRow)}</ul>
                 </li>
               )
             })}

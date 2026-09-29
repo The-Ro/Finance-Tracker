@@ -47,7 +47,7 @@ export function DocumentVaultList() {
 
   if (documents.length === 0) {
     return (
-      <EmptyState icon={FileText} title="No documents yet" description="Upload a file or add one to your Drive inbox." />
+      <EmptyState icon={FileText} title="No documents yet" description="Add a receipt, bill or statement to keep it here." />
     )
   }
 

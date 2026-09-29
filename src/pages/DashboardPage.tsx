@@ -271,7 +271,7 @@ export function DashboardPage() {
             </>
           ) : (
             <>
-              Add your assets and liabilities in{' '}
+              Add what you own and what you owe in{' '}
               <Link to="/settings/net-worth" className="font-medium text-accent-dark hover:underline">
                 Settings
               </Link>
@@ -305,11 +305,11 @@ export function DashboardPage() {
     savingsRate: (
       <SummaryCard
         key="savingsRate"
-        label="Savings rate"
+        label="Kept"
         value={`${savingsRate.toFixed(0)}%`}
         numericValue={savingsRate}
         format={(n) => `${n.toFixed(0)}%`}
-        footer={income === 0 ? 'Add income to calculate' : `${format(income - spending)} saved`}
+        footer={income === 0 ? 'Add income to see this' : `${format(income - spending)} of your income`}
       />
     ),
   }

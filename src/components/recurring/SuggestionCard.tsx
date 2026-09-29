@@ -25,13 +25,13 @@ export function SuggestionCard({ candidate, onKeep, onIgnore, busy }: Suggestion
               candidate.confidence === 'high' ? 'bg-positive-light text-positive' : 'bg-caution-light text-caution'
             )}
           >
-            {candidate.confidence === 'high' ? 'High confidence' : 'Likely'}
+            {candidate.confidence === 'high' ? 'Very likely' : 'Maybe'}
           </span>
         </div>
         <p className="text-helper text-slate-500">
-          {candidate.category} · {candidate.cadence} · {candidate.occurrenceCount} occurrences · avg{' '}
-          {format(candidate.averageAmount)} · next {formatShortDate(candidate.nextDate)} · ~
-          {format(candidate.monthlyEquivalent)}/mo
+          {candidate.category} · {candidate.cadence} · seen {candidate.occurrenceCount} times · usually{' '}
+          {format(candidate.averageAmount)} · next {formatShortDate(candidate.nextDate)} · about{' '}
+          {format(candidate.monthlyEquivalent)} a month
         </p>
       </div>
       <div className="flex gap-2">

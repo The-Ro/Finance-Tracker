@@ -774,8 +774,16 @@ button {
 .stagger-rows > *:nth-child(4) { animation-delay: 240ms } .stagger-rows > *:nth-child(5) { animation-delay: 320ms }
 .stagger-rows > *:nth-child(6) { animation-delay: 400ms } .stagger-rows > *:nth-child(7) { animation-delay: 480ms }
 .stagger-rows > *:nth-child(8) { animation-delay: 560ms }
+/* Rows inside a group (Activity's day groups): a shorter rise, 45ms apart,
+   first 6 only -- light enough for long lists on iPhone (opacity/transform
+   only, and it ends at transform: none, so no layers linger). */
+.stagger-rows-soft > * { animation: row-rise-soft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 120ms; }
+.stagger-rows-soft > *:nth-child(2) { animation-delay: 165ms } .stagger-rows-soft > *:nth-child(3) { animation-delay: 210ms }
+.stagger-rows-soft > *:nth-child(4) { animation-delay: 255ms } .stagger-rows-soft > *:nth-child(5) { animation-delay: 300ms }
+.stagger-rows-soft > *:nth-child(n + 6) { animation-delay: 345ms }
+@keyframes row-rise-soft { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
 @media (prefers-reduced-motion: reduce) {
-  .animate-bar-grow, .animate-bar-rise, .stagger-rows > * { animation: none; }
+  .animate-bar-grow, .animate-bar-rise, .stagger-rows > *, .stagger-rows-soft > * { animation: none; }
 }
 
 /* Press feedback (motion spec): scale to 0.95 in 120ms, back in 200ms, on
