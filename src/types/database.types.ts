@@ -77,10 +77,12 @@ export type NotificationKind =
   | 'salary'
   | 'birthday'
   | 'announcement'
+  | 'money_reminder'
 export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'annual'
 export type DocumentStatus = 'stored' | 'review'
 export type SelectedPeriod =
   | 'all-time'
+  | 'today'
   | 'this-month'
   | 'last-month'
   | 'last-3-months'
@@ -323,6 +325,34 @@ export interface Database {
         }
         Insert: never
         Update: never
+      }
+      money_reminders: {
+        Row: {
+          id: string
+          owner_user_id: string
+          title: string
+          amount: number | null
+          due_date: string
+          note: string | null
+          done_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_user_id?: string
+          title: string
+          amount?: number | null
+          due_date: string
+          note?: string | null
+          done_at?: string | null
+        }
+        Update: Partial<{
+          title: string
+          amount: number | null
+          due_date: string
+          note: string | null
+          done_at: string | null
+        }>
       }
       ious: {
         Row: {
@@ -747,6 +777,11 @@ export interface Database {
           p_due_day: number | null
         }
         Returns: undefined
+      }
+      /** Private entries of people who share with you: only that one exists (id, owner, date). */
+      private_entries_shared_with_me: {
+        Args: { p_from: string | null; p_to: string }
+        Returns: { id: string; owner_user_id: string; date: string }[]
       }
       find_profile_by_email: {
         Args: { p_email: string }

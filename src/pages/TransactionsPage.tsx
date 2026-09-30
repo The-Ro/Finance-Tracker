@@ -32,7 +32,7 @@ import { resolvePeriod, isWithinRange } from '@/lib/period'
 import { transactionsToCsv, downloadCsv } from '@/lib/csvExport'
 import { findDuplicateGroups } from '@/lib/duplicates'
 import { todayISO } from '@/lib/format'
-import { EMPTY_TRANSACTION_FILTERS, type TransactionFilters } from '@/lib/transactionSearch'
+import { EMPTY_TRANSACTION_FILTERS, matchesFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import { SavedFilters } from '@/components/transactions/SavedFilters'
 import { toFilters, type SavedFilter } from '@/lib/savedFilters'
 
@@ -151,18 +151,19 @@ export function TransactionsPage() {
   const duplicateGroups = useMemo(() => findDuplicateGroups(myTransactions.data ?? []), [myTransactions.data])
 
   const { format, formatSigned, formatCompact } = useFormatCurrency()
-  // Page-level, so this reflects scope + period like the heading it sits
-  // next to -- not the table's own search/type/category/account/person
-  // filters below, which narrow the list further without changing the page.
+  // Scope + period, then the same search/category/account/mode/person filters
+  // as the list (the type filter is left out: these two totals are the type
+  // filter), so filtering to one shop shows what went in and out there.
   const { totalCredit, totalDebit } = useMemo(() => {
     let credit = 0
     let debit = 0
     for (const t of inPeriod) {
+      if (!matchesFilters(t, serverFilters, { ignoreType: true })) continue
       if (t.type === 'income') credit += t.amount
       else if (t.type === 'expense') debit += t.amount
     }
     return { totalCredit: credit, totalDebit: debit }
-  }, [inPeriod])
+  }, [inPeriod, serverFilters])
   // The totals count up to their value (and between values when the period changes).
   const shownCredit = useAnimatedNumber(totalCredit)
   const shownDebit = useAnimatedNumber(totalDebit)

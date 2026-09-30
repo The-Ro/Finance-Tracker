@@ -10,6 +10,7 @@ export interface DateRange {
 
 export const PERIOD_OPTIONS: { value: SelectedPeriod; label: string }[] = [
   { value: 'all-time', label: 'All time' },
+  { value: 'today', label: 'Today' },
   { value: 'this-month', label: 'This month' },
   { value: 'last-month', label: 'Last month' },
   { value: 'last-3-months', label: 'Last 3 months' },
@@ -29,6 +30,8 @@ export function resolvePeriod(period: SelectedPeriod, now: Date = new Date()): D
   switch (period) {
     case 'all-time':
       return { start: null, end }
+    case 'today':
+      return { start: end, end }
     case 'this-month': {
       const start = new Date(now.getFullYear(), now.getMonth(), 1)
       return { start: toISODate(start), end }
@@ -70,6 +73,10 @@ export function resolvePriorPeriod(period: SelectedPeriod, now: Date = new Date(
   switch (period) {
     case 'all-time':
       return null
+    case 'today': {
+      const yesterday = toISODate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1))
+      return { start: yesterday, end: yesterday }
+    }
     case 'this-month': {
       const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       return { start: toISODate(start), end: toISODate(sameDayMonthsBack(now, 1)) }

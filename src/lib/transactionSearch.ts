@@ -62,3 +62,40 @@ export function buildSearchOrFilter(search: string): string | null {
   const tagArray = quotePostgrestValue(`{${quotePostgrestValue(q)}}`)
   return [`merchant.ilike.${pattern}`, `category.ilike.${pattern}`, `tags.cs.${tagArray}`].join(',')
 }
+
+/** The fields matchesFilters() looks at. */
+export interface FilterableTransaction {
+  merchant: string
+  category: string | null
+  tags: string[]
+  type: TransactionType
+  account: string
+  payment_method: string | null
+  debit_card_id?: string | null
+  owner_user_id: string
+}
+
+/**
+ * Client-side twin of the server filters in fetchTransactionsPage, for the
+ * Money in / Money out totals: the same search (merchant/category substring,
+ * any case; tags exact), category, account (or `debit:<card>`), mode and
+ * person. `ignoreType` leaves the type filter out -- the two totals *are* the
+ * type filter, so each keeps showing its own sum.
+ */
+export function matchesFilters(t: FilterableTransaction, f: TransactionFilters, opts: { ignoreType?: boolean } = {}): boolean {
+  if (!opts.ignoreType && f.type && t.type !== f.type) return false
+  if (f.category && t.category !== f.category) return false
+  if (f.paymentMethod && t.payment_method !== f.paymentMethod) return false
+  if (f.ownerId && t.owner_user_id !== f.ownerId) return false
+  const account = parseAccountFilter(f.account)
+  if (account && 'debitCardId' in account && t.debit_card_id !== account.debitCardId) return false
+  if (account && 'account' in account && t.account !== account.account) return false
+  const q = f.search.trim()
+  if (q) {
+    const lower = q.toLowerCase()
+    const hit =
+      t.merchant.toLowerCase().includes(lower) || (t.category ?? '').toLowerCase().includes(lower) || t.tags.includes(q)
+    if (!hit) return false
+  }
+  return true
+}

@@ -14,8 +14,9 @@
 // - A new bell note: the notifications_push_to_device trigger POSTs
 //   {"notificationId": ...} with the cron secret; that note goes to the
 //   owner's devices (migration 2026-09-30_birthdays_push_everything.sql).
-// The daily run also files today's birthday notes (file_birthday_notifications),
-// which then reach phones through that same trigger.
+// The daily run also files today's birthday notes (file_birthday_notifications)
+// and money reminders (file_money_reminder_notifications), which then reach
+// phones through that same trigger.
 //
 // Keys come from Vault via push_server_config() (service role only); nothing
 // secret is in this file. Deployed with verify_jwt = false because the daily
@@ -191,6 +192,9 @@ Deno.serve(async (req) => {
   // The daily job: today's birthdays go in the bell (and so to phones), then the digest.
   const { error: bdayError } = await supabase.rpc('file_birthday_notifications', { p_today: today })
   if (bdayError) console.error('birthdays failed', bdayError.message)
+  // Money reminders due today ("Time to send ₹500: Mom") go in the bell the same way.
+  const { error: sendError } = await supabase.rpc('file_money_reminder_notifications', { p_today: today })
+  if (sendError) console.error('money reminders failed', sendError.message)
   const { data: digest, error } = await supabase.rpc('push_digest', { p_today: today })
   if (error) return json({ error: error.message }, 500)
   return json({ date: today, ...(await deliver(app, (digest ?? []) as DigestRow[], today)) })

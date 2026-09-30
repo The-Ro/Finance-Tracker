@@ -26,3 +26,11 @@ describe('local calendar-date helpers', () => {
     expect(resolvePriorPeriod('last-month', mar3)).toEqual({ start: '2026-01-01', end: '2026-01-31' })
   })
 })
+
+describe('Today period', () => {
+  it('is just today, compared with yesterday (across a month start too)', () => {
+    const mar1 = new Date(2026, 2, 1, 9)
+    expect(resolvePeriod('today', mar1)).toEqual({ start: '2026-03-01', end: '2026-03-01' })
+    expect(resolvePriorPeriod('today', mar1)).toEqual({ start: '2026-02-28', end: '2026-02-28' })
+  })
+})

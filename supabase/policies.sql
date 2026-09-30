@@ -543,3 +543,11 @@ create policy documents_storage_select_shared on storage.objects for select
         and t.shared
     )
   );
+
+-- ===== 2026-09-30: money_reminders -- own only, no anon (migration 2026-09-30_reminders_private_rows_today.sql) =====
+alter table public.money_reminders enable row level security;
+drop policy if exists money_reminders_own on public.money_reminders;
+create policy money_reminders_own on public.money_reminders for all to authenticated
+  using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
+revoke all on public.money_reminders from anon, authenticated;
+grant select, insert, update, delete on public.money_reminders to authenticated;

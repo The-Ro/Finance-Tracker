@@ -68,7 +68,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   summaryCardHidden: [],
   setupChecklistDismissed: false,
   setupChecklistVersion: 1,
-  shareBirthday: false,
+  shareBirthday: true,
   salary: null,
 }
 
@@ -116,7 +116,7 @@ export function useUserSettings() {
         summaryCardHidden: data.summary_card_hidden ?? [],
         setupChecklistDismissed: data.setup_checklist_dismissed ?? false,
         setupChecklistVersion: data.setup_checklist_version ?? 1,
-        shareBirthday: data.share_birthday ?? false,
+        shareBirthday: data.share_birthday ?? true,
         salary:
           data.salary_amount != null && data.salary_account && data.salary_day != null
             ? {

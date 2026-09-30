@@ -86,7 +86,7 @@ export function PersonalDetails() {
       <div>
         <h3 className="text-sm font-semibold text-slate-800">Personal details</h3>
         <p className="mt-1 text-helper text-slate-500">
-          Private to you: never shown to other people, even in shared views, unless you turn on the birthday note below. Saved automatically.
+          Private to you: never shown to other people, even in shared views, except the birthday note below. Saved automatically.
         </p>
       </div>
 
@@ -115,12 +115,12 @@ export function PersonalDetails() {
         {dob && (
           <label className="col-span-2 flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-app-border px-3 py-2">
             <span className="flex min-w-0 flex-col">
-              <span className="text-sm font-medium text-slate-800">Tell the people I share with on my birthday</span>
-              <span className="text-helper text-slate-500">They get a note to wish you. Only the day, never the year.</span>
+              <span className="text-sm font-medium text-slate-800">Birthday note</span>
+              <span className="text-helper text-slate-500">People you share with can wish you. Day only.</span>
             </span>
             <input
               type="checkbox"
-              checked={data?.shareBirthday ?? false}
+              checked={data?.shareBirthday ?? true}
               onChange={(e) => save({ shareBirthday: e.target.checked })}
               className="peer sr-only"
             />
@@ -128,13 +128,13 @@ export function PersonalDetails() {
               aria-hidden="true"
               className={clsx(
                 'relative h-6 w-11 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2',
-                data?.shareBirthday ? 'bg-accent' : 'bg-slate-300'
+                data?.shareBirthday !== false ? 'bg-accent' : 'bg-slate-300'
               )}
             >
               <span
                 className={clsx(
                   'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                  data?.shareBirthday ? 'translate-x-[22px]' : 'translate-x-0.5'
+                  data?.shareBirthday !== false ? 'translate-x-[22px]' : 'translate-x-0.5'
                 )}
               />
             </span>

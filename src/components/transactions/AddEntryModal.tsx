@@ -38,7 +38,7 @@ import { formatDate, todayISO } from '@/lib/format'
 import { SUPPORTED_CURRENCIES } from '@/lib/currency'
 import { convertToHome, fetchFxRate } from '@/lib/fx'
 import { PAYMENT_METHODS, accountsForMode, modeUsesDebitCards } from '@/lib/cardNetworks'
-import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
+import { NewCategoryEditor, QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import type { PaymentMethod, TransactionType } from '@/types/database.types'
 
 
@@ -107,6 +107,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // "Mode" pill next to the currency: how it was paid (UPI, debit/credit card...).
   const [showMode, setShowMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  // The New category box, shown under the chip row (Save / Cancel hide meanwhile).
+  const [addingCategory, setAddingCategory] = useState(false)
   // Optional even split of a new expense with an approved connection.
   const [splitOn, setSplitOn] = useState(false)
   const [splitWith, setSplitWith] = useState('')
@@ -468,6 +470,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     }
     setSplitOn(false)
     setSplitWith('')
+    setAddingCategory(false)
     clearError()
     setDuplicatePending(false)
     setRateStatus({ state: 'idle' })
@@ -479,6 +482,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     setDetailsOpen(false)
     setSplitOn(false)
     setSplitWith('')
+    setAddingCategory(false)
     clearError()
     setDuplicatePending(false)
   }
@@ -687,6 +691,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       title={isEditing ? 'Edit entry' : 'New entry'}
       contentRef={contentRef}
       footer={
+        addingCategory ? undefined : (
         <div className="flex gap-2 sm:justify-end">
           <Button variant="secondary" onClick={handleClose} disabled={saving}>
             Cancel
@@ -704,6 +709,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Save entry'}
           </Button>
         </div>
+        )
       }
     >
       <div className="flex flex-col gap-4">
@@ -971,8 +977,19 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               <QuickAddCategory
                 kind={form.type === 'income' ? 'income' : 'expense'}
                 onAdded={(name) => setForm((f) => ({ ...f, category: name }))}
+                onOpen={() => setAddingCategory(true)}
               />
             </div>
+            {addingCategory && (
+              <NewCategoryEditor
+                kind={form.type === 'income' ? 'income' : 'expense'}
+                onAdded={(name) => {
+                  setForm((f) => ({ ...f, category: name }))
+                  setAddingCategory(false)
+                }}
+                onCancel={() => setAddingCategory(false)}
+              />
+            )}
           </div>
         )}
 
