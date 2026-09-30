@@ -210,7 +210,7 @@ export function ReviewPage() {
                 className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <span className={clsx('text-xs tabular-nums', selected ? 'font-semibold text-slate-900' : 'text-slate-500')}>
-                  {h.total === null ? '–' : formatCompact(h.total)}
+                  {h.total === null ? '' : formatCompact(h.total)}
                 </span>
                 {h.total === null ? (
                   <div className="h-1 w-full max-w-[44px] rounded-full border border-dashed border-slate-300" />

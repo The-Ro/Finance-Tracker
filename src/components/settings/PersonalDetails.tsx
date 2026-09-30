@@ -16,7 +16,8 @@ const GENDER_LABELS: Record<Gender, string> = {
   prefer_not_to_say: 'Prefer not to say',
 }
 const GENDER_OPTIONS: Gender[] = ['male', 'female', 'prefer_not_to_say']
-const UNSET = '(not set)'
+// Blank when not set (user: show nothing rather than 'not set').
+const UNSET = ''
 
 const SUGGESTED_INTERESTS = [
   'Cycling',

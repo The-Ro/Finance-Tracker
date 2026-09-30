@@ -144,7 +144,6 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
           <DateField label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
           <DateField
             label="Pay back by (optional)"
-            placeholder="No date"
             error={errors.on('dueDate')} value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
           />

@@ -263,7 +263,7 @@ export function DashboardPage() {
         key="netWorth"
         highlight
         label="Net worth"
-        value={settings.data?.netWorthConfigured ? format(netWorth ?? 0) : 'Not set'}
+        value={settings.data?.netWorthConfigured ? format(netWorth ?? 0) : ''}
         numericValue={settings.data?.netWorthConfigured ? (netWorth ?? 0) : undefined}
         format={format}
         footer={

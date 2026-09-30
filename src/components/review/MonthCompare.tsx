@@ -21,7 +21,7 @@ export function MonthCompare({ current, prior, currentLabel, priorLabel, format 
   const incomeDelta = current.income - prior.income
   const keptDelta =
     current.keptPercent !== null && prior.keptPercent !== null ? Math.round(current.keptPercent) - Math.round(prior.keptPercent) : null
-  const kept = (p: number | null) => (p === null ? '—' : `${Math.round(p)}%`)
+  const kept = (p: number | null) => (p === null ? '' : `${Math.round(p)}%`)
 
   const rows: { label: string; now: string; before: string; change: string | null; tone: Tone }[] = [
     {

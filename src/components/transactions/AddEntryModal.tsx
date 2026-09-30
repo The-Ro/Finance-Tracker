@@ -29,6 +29,7 @@ import { useAccountKinds, useCardStatuses, useClosedAccounts } from '@/hooks/use
 import { useApprovedConnections, useSplitMutations } from '@/hooks/useSplits'
 import { useProfiles } from '@/hooks/useProfiles'
 import { suggestEntry } from '@/lib/smartCategory'
+import { usualEntries, type UsualEntry } from '@/lib/usualEntries'
 import { evenShare } from '@/lib/splits'
 import { countSecondaryFields, currencySymbol, orderAccountOptions, savedEntryMessage } from '@/lib/entryForm'
 import { useAuth } from '@/context/AuthContext'
@@ -170,6 +171,31 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     if (!category && !account && !paymentMethod && !amount) return null
     return { category, account, paymentMethod, debitCardId: card ? card.id : null, amount, cardLabel: card ? debitCardLabel(card) : null }
   }, [isEditing, isTransfer, myTransactions, form.merchant, form.type, form.category, form.account, form.paymentMethod, form.amount, categoryOptions, accounts, cardsById])
+
+  // "Your usual": entries logged again and again (by how often, how recently,
+  // and the same weekday / time of day), one tap to fill in. Only on a fresh
+  // new entry of that type, before anything is typed.
+  const usual = useMemo(() => {
+    if (isEditing || isTransfer || !myTransactions || !open) return []
+    return usualEntries(myTransactions, new Date(), { limit: 6 }).filter(
+      (u) => u.type === form.type && (!u.account || accounts.includes(u.account))
+    )
+  }, [isEditing, isTransfer, myTransactions, open, form.type, accounts])
+  const showUsual = usual.length > 0 && !form.merchant.trim() && !form.amount
+  const applyUsual = (u: UsualEntry) => {
+    const card = u.debitCardId ? cardsById.get(u.debitCardId) : undefined
+    setForm((f) => ({
+      ...f,
+      merchant: u.merchant,
+      category: u.category && categoryOptions.includes(u.category) ? u.category : f.category,
+      account: card ? card.account : u.account || f.account,
+      debitCardId: card ? card.id : '',
+      paymentMethod: card ? 'Debit card' : ((u.paymentMethod as PaymentMethod | null) ?? f.paymentMethod),
+      amount: u.amount ? String(u.amount) : f.amount,
+    }))
+    // Straight to the amount when it isn't known yet.
+    if (!u.amount) requestAnimationFrame(() => document.getElementById('entry-amount')?.focus())
+  }
 
   // A new entry starts on the most recently used account (the first chip),
   // falling back to the first account in the list.
@@ -740,6 +766,25 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             </button>
           ))}
         </div>
+
+        {showUsual && (
+          <div className="animate-fade-in -mb-1 flex min-w-0 flex-col gap-1.5">
+            <span className="text-helper font-medium text-slate-600">Your usual</span>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" style={{ scrollbarWidth: 'none' }}>
+              {usual.map((u) => (
+                <button
+                  key={u.merchant}
+                  type="button"
+                  onClick={() => applyUsual(u)}
+                  className="press flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-app-border bg-app-card px-3 text-helper font-medium text-slate-700 hover:border-accent"
+                >
+                  <span className="max-w-[10rem] truncate">{u.merchant}</span>
+                  {u.amount != null && <span className="tabular-nums text-slate-500">{format(u.amount)}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* The amount leads: one big serif figure, centered, with the currency as a
             compact "INR · change" control that reveals the picker and rate. */}

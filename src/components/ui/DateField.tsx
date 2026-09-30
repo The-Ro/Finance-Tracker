@@ -50,7 +50,7 @@ const YEARS = Array.from({ length: 120 + 20 + 1 }, (_, i) => CURRENT_YEAR + 20 -
 // above a modal, since portaling escapes the modal's own stacking context.
 const VIEWPORT_MARGIN = 16
 
-export function DateField({ id, label, value, onChange, placeholder = 'Select date', className, error }: DateFieldProps) {
+export function DateField({ id, label, value, onChange, placeholder = '', className, error }: DateFieldProps) {
   const revealRef = useRevealOnError<HTMLDivElement>(error)
   const [open, setOpen] = useState(false)
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)

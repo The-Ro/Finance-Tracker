@@ -27,7 +27,7 @@ const monthName = (index: number, style: 'short' | 'long') =>
  * picker here. Portaled with fixed positioning so a Modal's scroll box can't
  * clip it (same as DateField / Dropdown).
  */
-export function MonthField({ id, label, value, onChange, placeholder = 'Choose month', error }: MonthFieldProps) {
+export function MonthField({ id, label, value, onChange, placeholder = '', error }: MonthFieldProps) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const [y, m] = value ? value.split('-').map(Number) : [NaN, NaN]
