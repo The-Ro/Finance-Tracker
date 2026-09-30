@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { CheckSquare, ListFilter, Lock, Pencil, Receipt, Search, Split, Trash2, X } from 'lucide-react'
+import { CheckSquare, ListFilter, Lock, LockOpen, Pencil, Receipt, Search, Split, Trash2, X } from 'lucide-react'
 import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
 import { CategoryIcon } from '@/components/ui/CategoryIcon'
 import { useAccountKinds } from '@/hooks/useCards'
@@ -13,7 +13,7 @@ import { InlineCategoryEditor } from './InlineCategoryEditor'
 import { InlineTagEditor } from './InlineTagEditor'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Transaction } from '@/hooks/useTransactions'
-import { useDeleteTransaction, useBulkDeleteTransactions, useBulkUpdateTransactionCategory } from '@/hooks/useTransactions'
+import { useDeleteTransaction, useBulkDeleteTransactions, useBulkUpdateTransactionCategory, useSetTransactionShared } from '@/hooks/useTransactions'
 import { useAccountDetails, useCategories } from '@/hooks/useLookupLists'
 import { PAYMENT_METHODS, accountsForMode, modeUsesDebitCards } from '@/lib/cardNetworks'
 import { useToast } from '@/context/ToastContext'
@@ -121,6 +121,7 @@ export function TransactionTable({
   const deleteTransaction = useDeleteTransaction()
   const bulkDeleteTransactions = useBulkDeleteTransactions()
   const bulkUpdateCategory = useBulkUpdateTransactionCategory()
+  const setShared = useSetTransactionShared()
   const { formatSigned } = useFormatCurrency()
   const { openEditEntry, openSplit } = useGlobalModals()
   const viewReceipt = useViewReceipt()
@@ -290,6 +291,43 @@ export function TransactionTable({
     })
   }
 
+  // Tap the lock on your own entry: keep it to yourself, or share it again.
+  const toggleShared = (t: Transaction) => {
+    const shared = t.shared === false
+    setShared.mutate(
+      { id: t.id, shared },
+      {
+        onSuccess: () => show(shared ? 'Shared with everyone again' : 'Only you can see this now', { tone: 'info' }),
+        onError: (e) => show(e instanceof Error ? e.message : 'Couldn’t change who can see this.', { tone: 'error' }),
+      }
+    )
+  }
+  const shareLock = (t: Transaction, editable: boolean, phone: boolean) => {
+    const locked = t.shared === false
+    if (!editable) return locked ? <Lock size={12} className="shrink-0 text-slate-400" aria-label="Only you can see this" /> : null
+    const busy = setShared.isPending && setShared.variables?.id === t.id
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleShared(t)
+        }}
+        disabled={busy}
+        aria-pressed={locked}
+        aria-label={locked ? 'Only you can see this. Tap to share with everyone' : 'Shared with everyone. Tap to keep it to yourself'}
+        title={locked ? 'Only you can see this' : 'Shared with everyone'}
+        className={clsx(
+          'flex shrink-0 items-center justify-center transition-colors disabled:opacity-50',
+          phone ? '-my-3 h-11 w-7' : 'h-6 w-6 rounded',
+          locked ? 'text-slate-500' : 'text-slate-300 hover:text-slate-500'
+        )}
+      >
+        {locked ? <Lock size={13} className={busy ? '' : 'animate-pop-in'} /> : <LockOpen size={13} />}
+      </button>
+    )
+  }
+
   const renderRow = (t: Transaction) => {
     const owner = profiles[t.owner_user_id]
     const editable = t.owner_user_id === currentUserId
@@ -404,9 +442,7 @@ export function TransactionTable({
                     <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
                       {t.merchant}
                     </span>
-                    {t.shared === false && (
-                      <Lock size={12} className="shrink-0 text-slate-400" aria-label="Only you can see this" />
-                    )}
+                    {shareLock(t, editable, true)}
                     {t.receipt &&
                       (t.receipt_document_id ? (
                         <button
@@ -485,7 +521,7 @@ export function TransactionTable({
               <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
                 {t.merchant}
               </span>
-              {t.shared === false && <Lock size={12} className="shrink-0 text-slate-400" aria-label="Only you can see this" />}
+              {shareLock(t, editable, false)}
               {t.receipt &&
                 (t.receipt_document_id ? (
                   <button

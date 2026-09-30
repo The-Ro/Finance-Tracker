@@ -62,8 +62,8 @@ export function QuickAddCategory({
   }
 
   return (
-    <div className="flex shrink-0 flex-col gap-1">
-      <div className="flex items-center gap-1 rounded-full border border-accent bg-white py-1 pl-3 pr-1">
+    <div className="flex w-full min-w-0 max-w-sm flex-col gap-1">
+      <div className="flex w-full min-w-0 items-center gap-1 rounded-full border border-accent bg-white py-1 pl-3 pr-1">
         <input
           ref={inputRef}
           value={name}
@@ -81,14 +81,14 @@ export function QuickAddCategory({
           maxLength={40}
           placeholder="New category"
           aria-label="New category name"
-          className="min-h-[34px] w-36 bg-transparent text-helper focus:outline-none"
+          className="min-h-[34px] min-w-0 flex-1 bg-transparent text-helper focus:outline-none"
         />
         <button
           type="button"
           aria-label="Add category"
           onClick={() => void submit()}
           disabled={!name.trim() || add.isPending}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-white disabled:opacity-50"
         >
           <Check size={15} strokeWidth={2.6} />
         </button>
@@ -96,7 +96,7 @@ export function QuickAddCategory({
           type="button"
           aria-label="Cancel new category"
           onClick={() => setOpen(false)}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
         >
           <X size={15} />
         </button>

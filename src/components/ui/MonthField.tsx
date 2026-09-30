@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { FieldError } from './FieldError'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -12,6 +13,8 @@ interface MonthFieldProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  /** Shown under the field, which turns red and scrolls into view. */
+  error?: string | null
 }
 
 const monthName = (index: number, style: 'short' | 'long') =>
@@ -24,7 +27,7 @@ const monthName = (index: number, style: 'short' | 'long') =>
  * picker here. Portaled with fixed positioning so a Modal's scroll box can't
  * clip it (same as DateField / Dropdown).
  */
-export function MonthField({ id, label, value, onChange, placeholder = 'Choose month' }: MonthFieldProps) {
+export function MonthField({ id, label, value, onChange, placeholder = 'Choose month', error }: MonthFieldProps) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const [y, m] = value ? value.split('-').map(Number) : [NaN, NaN]
@@ -32,6 +35,10 @@ export function MonthField({ id, label, value, onChange, placeholder = 'Choose m
   const [viewYear, setViewYear] = useState(() => (hasValue ? y : new Date().getFullYear()))
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  // A new error: bring the red field into view.
+  useEffect(() => {
+    if (error) triggerRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [error])
   const panelRef = useRef<HTMLDivElement>(null)
 
   const recalc = useCallback(() => {
@@ -102,8 +109,10 @@ export function MonthField({ id, label, value, onChange, placeholder = 'Choose m
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-invalid={error ? true : undefined}
         className={clsx(
-          'flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg border border-app-border bg-white px-3 text-left text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
+          'flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 text-left text-sm focus:outline-none focus:ring-1',
+          error ? 'border-danger ring-1 ring-danger' : 'border-app-border focus:border-accent focus:ring-accent',
           hasValue ? 'text-slate-900' : 'text-slate-400'
         )}
       >
@@ -166,6 +175,7 @@ export function MonthField({ id, label, value, onChange, placeholder = 'Choose m
           </div>,
           document.body
         )}
+      <FieldError message={error} />
     </div>
   )
 }

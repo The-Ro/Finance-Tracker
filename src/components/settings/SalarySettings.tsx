@@ -5,7 +5,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useToast } from '@/context/ToastContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useAccountsInUse } from '@/hooks/useAccountsInUse'
@@ -20,8 +21,9 @@ const PICK = 'Choose an account'
 /**
  * Settings -> Salary: amount, the account it's paid into and the pay day.
  * On pay day Home asks whether it arrived (SalaryPrompt).
+ * `bare` drops the card and heading (the welcome setup and Home checklist use it).
  */
-export function SalarySettings() {
+export function SalarySettings({ bare, onSaved }: { bare?: boolean; onSaved?: () => void } = {}) {
   const settings = useUserSettings()
   const { data: accounts = [] } = useAccounts()
   const { inUse } = useAccountsInUse()
@@ -35,7 +37,7 @@ export function SalarySettings() {
   const [amount, setAmount] = useState('')
   const [account, setAccount] = useState(PICK)
   const [day, setDay] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'amount' | 'account' | 'day'>()
 
   useEffect(() => {
     if (!salary) return
@@ -56,17 +58,18 @@ export function SalarySettings() {
   const dayNote = Number(day) >= 1 ? shortMonthNote(Number(day)) : null
 
   const save = async () => {
-    setError(null)
+    errors.clear()
     const value = parseBalance(amount)
     const d = Number(day)
-    if (value === null || value <= 0) return setError('Enter your monthly salary.')
-    if (account === PICK) return setError('Choose the account it is paid into.')
-    if (!Number.isInteger(d) || d < 1 || d > 31) return setError('Pay day is a day of the month, 1 to 31.')
+    if (value === null || value <= 0) return errors.fail('Enter your monthly salary.', 'amount')
+    if (account === PICK) return errors.fail('Choose the account it is paid into.', 'account')
+    if (!Number.isInteger(d) || d < 1 || d > 31) return errors.fail('Pay day is a day of the month, 1 to 31.', 'day')
     try {
       await settings.updateSalary.mutateAsync({ amount: value, account, day: d })
       show('Salary saved. You’ll be asked on pay day.')
+      onSaved?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save.')
+      errors.fail(e instanceof Error ? e.message : 'Could not save.')
     }
   }
 
@@ -78,24 +81,29 @@ export function SalarySettings() {
     show('Salary removed.')
   }
 
+  const Wrap = bare ? BareWrap : SalaryCard
   return (
-    <Card className="flex flex-col gap-4 p-5">
+    <Wrap>
+      {!bare && (
       <div className="flex items-center gap-2">
         <Wallet size={16} className="text-accent-dark" aria-hidden="true" />
         <h3 className="text-sm font-semibold text-slate-800">Salary</h3>
       </div>
+      )}
       <p className="text-helper text-slate-500">
         {salary
           ? `${format(salary.amount)} into ${salary.account} on ${payDayLabel(salary.day)}. On pay day you're asked if it arrived; Yes logs it with the tag #salary.`
           : 'Set your salary and pay day. On pay day Home asks if it arrived; Yes logs it as income with the tag #salary.'}
       </p>
+      <FormError message={errors.general} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <TextField label="Monthly salary" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 62000" />
+        <TextField label="Monthly salary" inputMode="decimal" error={errors.on('amount')} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 62000" />
         <div className="flex flex-col gap-1.5">
           <span className="text-helper font-medium text-slate-600">Paid into</span>
           <Dropdown
             options={account === PICK ? [PICK, ...options] : options}
             value={account}
+            error={errors.on('account')}
             aria-label="Account the salary is paid into"
             onChange={(e) => setAccount(e.target.value)}
           />
@@ -104,6 +112,7 @@ export function SalarySettings() {
           <TextField
             label="Pay day"
             inputMode="numeric"
+            error={errors.on('day')}
             value={lastDay ? '' : day}
             onChange={(e) => setDay(e.target.value.replace(/\D/g, ''))}
             placeholder={lastDay ? 'Last day' : 'e.g. 1'}
@@ -124,7 +133,6 @@ export function SalarySettings() {
         </div>
       </div>
       {dayNote && <p className="-mt-1 text-helper text-slate-500">{dayNote}</p>}
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
       <div className="flex flex-wrap gap-2">
         <Button onClick={save} disabled={settings.updateSalary.isPending || unchanged}>
           {settings.updateSalary.isPending ? (
@@ -143,6 +151,14 @@ export function SalarySettings() {
           </Button>
         )}
       </div>
-    </Card>
+    </Wrap>
   )
+}
+
+function SalaryCard({ children }: { children: React.ReactNode }) {
+  return <Card className="flex flex-col gap-4 p-5">{children}</Card>
+}
+
+function BareWrap({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col gap-4">{children}</div>
 }

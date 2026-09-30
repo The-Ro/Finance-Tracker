@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import type { RecurringItem } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate, todayISO } from '@/lib/format'
-import { useCardBills } from '@/hooks/useCards'
+import { useAccountKinds, useCardBills } from '@/hooks/useCards'
 import { addDaysISO } from '@/lib/billCalendar'
 import { dueWithin } from '@/lib/home'
 import { cardPagePath } from '@/components/cards/cardPath'
@@ -34,6 +34,7 @@ export function ComingUpCard({ items, className }: ComingUpCardProps) {
   const { format } = useFormatCurrency()
   const today = todayISO()
   const cardBills = useCardBills()
+  const kinds = useAccountKinds()
   // Recurring items plus credit-card bills (unpaid statement amount) due within the week.
   const rows = useMemo(() => {
     const weekEnd = addDaysISO(today, 6)
@@ -45,7 +46,9 @@ export function ComingUpCard({ items, className }: ComingUpCardProps) {
     ]
     return merged.sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0))
   }, [items, cardBills, today])
-  const total = rows.reduce((sum, r) => sum + r.item.amount, 0)
+  // Card-charged items (card EMIs, subscriptions on a card) are paid through the card bill: not counted twice.
+  const onCardIds = new Set(items.filter((i) => i.account && kinds.get(i.account) === 'credit_card').map((i) => i.id))
+  const total = rows.reduce((sum, r) => sum + (onCardIds.has(r.item.id) ? 0 : r.item.amount), 0)
   const shown = rows.slice(0, MAX_ROWS)
   const hasItems = items.some((i) => i.active) || cardBills.length > 0
 

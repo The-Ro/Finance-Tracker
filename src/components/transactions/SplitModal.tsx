@@ -4,12 +4,13 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useApprovedConnections, useSplitMutations, useSplits } from '@/hooks/useSplits'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { evenShare } from '@/lib/splits'
 import type { Transaction } from '@/hooks/useTransactions'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 
 interface SplitModalProps {
   transaction: Transaction | null
@@ -25,7 +26,7 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
   const { create, remove } = useSplitMutations()
   const [personLabel, setPersonLabel] = useState('')
   const [amount, setAmount] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'person' | 'amount'>()
 
   // Label -> user id; the email disambiguates two people with the same name.
   const people = useMemo(
@@ -42,32 +43,33 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
     if (!transaction) return
     setPersonLabel(people[0]?.label ?? '')
     setAmount(String(evenShare(transaction.amount)))
-    setError(null)
+    errors.clear()
   }, [transaction]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!transaction) return null
 
   const handleSave = async () => {
-    setError(null)
+    errors.clear()
     const person = people.find((p) => p.label === personLabel)
     const value = Number(amount)
-    if (!person) return setError('Choose who to split with.')
-    if (!Number.isFinite(value) || value <= 0) return setError('Enter the amount they owe.')
+    if (!person) return errors.fail('Choose who to split with.', 'person')
+    if (!Number.isFinite(value) || value <= 0) return errors.fail('Enter the amount they owe.', 'amount')
     // Compared in cents so float sums like 33.33 + 33.33 + 33.34 don't trip it.
     const alreadySplitCents = existing.reduce((sum, s) => sum + Math.round(s.amount * 100), 0)
     const leftCents = Math.round(transaction.amount * 100) - alreadySplitCents
     if (Math.round(value * 100) > leftCents) {
-      return setError(
+      return errors.fail(
         alreadySplitCents > 0
           ? `Only ${format(Math.max(leftCents, 0) / 100)} of ${format(transaction.amount)} is left to split; ${format(alreadySplitCents / 100)} is already split.`
-          : `Their share can't be more than ${format(transaction.amount)}.`
+          : `Their share can't be more than ${format(transaction.amount)}.`,
+        'amount'
       )
     }
     try {
       await create.mutateAsync({ transaction, withUserId: person.id, amount: value })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save this split.')
+      errors.fail(e instanceof Error ? e.message : 'Could not save this split.')
     }
   }
 
@@ -90,6 +92,7 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
       }
     >
       <div className="flex flex-col gap-4">
+        <FormError message={errors.general} />
         <p className="text-sm text-slate-600">
           {transaction.merchant} · {format(transaction.amount)}. You paid; the other person sees what they owe you on
           their Shared page.
@@ -130,6 +133,7 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
               <Dropdown
                 options={people.map((p) => p.label)}
                 value={personLabel}
+                error={errors.on('person')}
                 onChange={(e) => setPersonLabel(e.target.value)}
                 aria-label="Split with"
               />
@@ -139,6 +143,7 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
               type="number"
               step="0.01"
               min="0"
+              error={errors.on('amount')}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
@@ -156,7 +161,6 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
             </div>
           </>
         )}
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
   )

@@ -9,6 +9,8 @@ import { shouldShowInstallCard } from '@/lib/installPrompt'
 const SNOOZE_KEY = 'ledgeeaze:install-snoozed-at'
 /** Wait a moment after opening before offering it, so it isn't the first thing in the way. */
 const SHOW_AFTER_MS = 5000
+/** Sign-in pages: the card waits until you're inside the app. */
+const AUTH_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password']
 
 function readSnooze(): number | null {
   try {
@@ -45,7 +47,11 @@ export function InstallPrompt() {
     if (!shouldShowInstallCard({ standalone: isStandalone, device, snoozedAt: readSnooze(), now: Date.now() })) return
     let timer: number
     const tryShow = () => {
-      if (document.querySelector('[role=dialog]')) {
+      // Not over the sign-in forms (it covered the password box), not while a
+      // sheet is open, and not while someone is typing: wait and try again.
+      const onAuthPage = AUTH_PATHS.some((p) => window.location.pathname.startsWith(p))
+      const typing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement
+      if (onAuthPage || typing || document.querySelector('[role=dialog]')) {
         timer = window.setTimeout(tryShow, 3000)
         return
       }

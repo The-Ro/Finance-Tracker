@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { SETUP_CHECKLIST_VERSION } from '@/lib/setupChecklist'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { DEFAULT_CURRENCY } from '@/lib/currency'
@@ -37,6 +38,10 @@ export interface UserSettings {
   summaryCardHidden: string[]
   /** Home's "Finish setting up" checklist was hidden. */
   setupChecklistDismissed: boolean
+  /** SETUP_CHECKLIST_VERSION when it was hidden (a newer step brings it back). */
+  setupChecklistVersion: number
+  /** On their birthday, the people they share with get a note to wish them. */
+  shareBirthday: boolean
   /** Salary day (Settings -> Salary); null when not set up. */
   salary: SalaryConfig | null
 }
@@ -62,6 +67,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   summaryCardOrder: DEFAULT_SUMMARY_CARD_ORDER,
   summaryCardHidden: [],
   setupChecklistDismissed: false,
+  setupChecklistVersion: 1,
+  shareBirthday: false,
   salary: null,
 }
 
@@ -108,6 +115,8 @@ export function useUserSettings() {
         summaryCardOrder: normalizeSummaryCardOrder(data.summary_card_order),
         summaryCardHidden: data.summary_card_hidden ?? [],
         setupChecklistDismissed: data.setup_checklist_dismissed ?? false,
+        setupChecklistVersion: data.setup_checklist_version ?? 1,
+        shareBirthday: data.share_birthday ?? false,
         salary:
           data.salary_amount != null && data.salary_account && data.salary_day != null
             ? {
@@ -224,6 +233,7 @@ export function useUserSettings() {
       dateOfBirth?: string | null
       interests?: string[]
       zodiacSign?: ZodiacSign | null
+      shareBirthday?: boolean
     }) => {
       const { error } = await supabase
         .from('user_settings')
@@ -232,6 +242,7 @@ export function useUserSettings() {
           ...(input.dateOfBirth !== undefined ? { date_of_birth: input.dateOfBirth } : {}),
           ...(input.interests !== undefined ? { interests: input.interests } : {}),
           ...(input.zodiacSign !== undefined ? { zodiac_sign: input.zodiacSign } : {}),
+          ...(input.shareBirthday !== undefined ? { share_birthday: input.shareBirthday } : {}),
         })
         .eq('owner_user_id', userId!)
       if (error) throw error
@@ -284,7 +295,7 @@ export function useUserSettings() {
     mutationFn: async () => {
       const { error } = await supabase
         .from('user_settings')
-        .update({ setup_checklist_dismissed: true })
+        .update({ setup_checklist_dismissed: true, setup_checklist_version: SETUP_CHECKLIST_VERSION })
         .eq('owner_user_id', userId!)
       if (error) throw error
     },

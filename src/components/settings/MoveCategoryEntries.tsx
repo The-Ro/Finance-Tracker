@@ -3,11 +3,11 @@ import { ArrowRight, Shuffle } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useCategories, useMoveCategory } from '@/hooks/useLookupLists'
 import { useMyTransactions } from '@/hooks/useTransactions'
+import { FormError } from '@/components/ui/FieldError'
 
 const PICK = 'Choose…'
 
@@ -78,7 +78,7 @@ export function MoveCategoryEntries() {
         <input type="checkbox" checked={deleteAfter} onChange={(e) => setDeleteAfter(e.target.checked)} className="h-4 w-4" />
         Delete {fromName ? `"${fromName}"` : 'the old category'} afterwards
       </label>
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
       <Button onClick={run} disabled={!fromName || to === PICK || move.isPending} className="w-fit">
         {move.isPending ? 'Moving…' : fromName && to !== PICK ? `Move ${n} ${n === 1 ? 'entry' : 'entries'}` : 'Move entries'}
       </Button>

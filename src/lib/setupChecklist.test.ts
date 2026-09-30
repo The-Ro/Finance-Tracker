@@ -1,16 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { setupChecklist } from './setupChecklist'
+import { SETUP_CHECKLIST_VERSION, setupChecklist } from './setupChecklist'
 import { roundUpLimit, suggestBudgets } from './budgetSuggestions'
 
 describe('setupChecklist', () => {
+  const none = { hasAccounts: false, hasSalary: false, hasBills: false, hasBudget: false, hasGoal: false, hasImport: false, hasSharing: false }
+  const all = { hasAccounts: true, hasSalary: true, hasBills: true, hasBudget: true, hasGoal: true, hasImport: true, hasSharing: true }
+
   it('lists every item in order with how many are done', () => {
-    const r = setupChecklist({ hasAccounts: true, hasBills: false, hasBudget: true, hasGoal: false, hasImport: false, hasSharing: false })
-    expect(r.items.map((i) => i.id)).toEqual(['accounts', 'bills', 'budget', 'goal', 'import', 'share'])
-    expect(r).toMatchObject({ done: 2, total: 6, complete: false })
+    const r = setupChecklist({ ...none, hasAccounts: true, hasBudget: true })
+    expect(r.items.map((i) => i.id)).toEqual(['accounts', 'salary', 'bills', 'budget', 'goal', 'import', 'share'])
+    expect(r).toMatchObject({ done: 2, total: 7, complete: false, visible: true })
   })
-  it('is complete when everything is done', () => {
-    const all = { hasAccounts: true, hasBills: true, hasBudget: true, hasGoal: true, hasImport: true, hasSharing: true }
-    expect(setupChecklist(all).complete).toBe(true)
+  it('is complete (and hidden) when everything is done', () => {
+    expect(setupChecklist(all)).toMatchObject({ complete: true, visible: false })
+  })
+  it('stays hidden once hidden at the current version', () => {
+    const r = setupChecklist(none, { dismissed: true, version: SETUP_CHECKLIST_VERSION })
+    expect(r.visible).toBe(false)
+    expect(r.items.some((i) => i.isNew)).toBe(false)
+  })
+  it('comes back after an update adds a step, with that step marked new', () => {
+    const r = setupChecklist({ ...all, hasSalary: false }, { dismissed: true, version: 1 })
+    expect(r.visible).toBe(true)
+    expect(r.items.filter((i) => i.isNew).map((i) => i.id)).toEqual(['salary'])
+  })
+  it('stays hidden when the new step is already done, even if old ones are not', () => {
+    const r = setupChecklist({ ...none, hasSalary: true }, { dismissed: true, version: 1 })
+    expect(r.visible).toBe(false)
+  })
+  it('never marks steps new for someone who never hid it', () => {
+    expect(setupChecklist(none).items.some((i) => i.isNew)).toBe(false)
   })
 })
 

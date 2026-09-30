@@ -75,6 +75,8 @@ export type NotificationKind =
   | 'bill_overdue'
   | 'reminder'
   | 'salary'
+  | 'birthday'
+  | 'announcement'
 export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'annual'
 export type DocumentStatus = 'stored' | 'review'
 export type SelectedPeriod =
@@ -603,6 +605,8 @@ export interface Database {
           summary_card_order: string[]
           summary_card_hidden: string[]
           setup_checklist_dismissed: boolean
+          setup_checklist_version: number
+          share_birthday: boolean
           salary_amount: number | null
           salary_account: string | null
           salary_day: number | null
@@ -632,6 +636,8 @@ export interface Database {
           summary_card_order?: string[]
           summary_card_hidden?: string[]
           setup_checklist_dismissed?: boolean
+          setup_checklist_version?: number
+          share_birthday?: boolean
           salary_amount?: number | null
           salary_account?: string | null
           salary_day?: number | null
@@ -658,6 +664,8 @@ export interface Database {
           summary_card_order: string[]
           summary_card_hidden: string[]
           setup_checklist_dismissed: boolean
+          setup_checklist_version: number
+          share_birthday: boolean
           salary_amount: number | null
           salary_account: string | null
           salary_day: number | null

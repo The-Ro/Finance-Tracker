@@ -1,8 +1,8 @@
+import { FormError } from '@/components/ui/FieldError'
 import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import {
   parseCsvFile,
   detectColumnMapping,
@@ -131,7 +131,7 @@ export function CsvImportModal({ open, onClose }: CsvImportModalProps) {
             }}
             className="text-sm"
           />
-          {error && <InlineMessage tone="error">{error}</InlineMessage>}
+          <FormError message={error} />
         </div>
       )}
 
@@ -161,7 +161,7 @@ export function CsvImportModal({ open, onClose }: CsvImportModalProps) {
               <Dropdown options={accounts} value={fallbackAccount} onChange={(e) => setFallbackAccount(e.target.value)} />
             </div>
           </div>
-          {error && <InlineMessage tone="error">{error}</InlineMessage>}
+          <FormError message={error} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={resetAll}>
               Start over

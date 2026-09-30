@@ -10,10 +10,13 @@ import {
   Receipt,
   Target,
   Users,
+  Wallet,
   X,
   type LucideIcon,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
+import { Modal } from '@/components/ui/Modal'
+import { SalarySettings } from '@/components/settings/SalarySettings'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
@@ -30,6 +33,7 @@ import { BudgetSuggestionsModal } from './BudgetSuggestionsModal'
 
 const COPY: Record<SetupItemId, { title: string; hint: string; icon: LucideIcon }> = {
   accounts: { title: 'Add your accounts and cards', hint: 'Banks, cards and wallets with today’s balance', icon: Landmark },
+  salary: { title: 'Set your salary day', hint: 'On pay day we ask if it came in, and log it', icon: Wallet },
   bills: { title: 'Add your regular bills', hint: 'Rent, EMIs, phone, subscriptions: one tap each', icon: Receipt },
   budget: { title: 'Set a monthly budget', hint: 'Limits suggested from your spending', icon: PiggyBank },
   goal: { title: 'Start a savings goal', hint: 'An emergency fund, a trip, anything', icon: Target },
@@ -56,7 +60,7 @@ export function SetupChecklist() {
   const goals = useGoals()
   const owned = useOwnedAccessRows()
   const requested = useRequestedAccessRows()
-  const [sheet, setSheet] = useState<'bills' | 'budget' | null>(null)
+  const [sheet, setSheet] = useState<'bills' | 'budget' | 'salary' | null>(null)
 
   const loaded =
     ready && recurring.data && budgets.data && goals.data && owned.data && requested.data && transactions.data && settings.data
@@ -65,29 +69,37 @@ export function SetupChecklist() {
     () =>
       setupChecklist({
         hasAccounts: [...inUse].some((name) => kinds.get(name) !== 'cash'),
+        hasSalary: !!settings.data?.salary,
         hasBills: (recurring.data ?? []).length > 0,
         hasBudget: (budgets.data ?? []).length > 0,
         hasGoal: (goals.data ?? []).length > 0,
         hasImport: (transactions.data ?? []).some((t) => t.source === 'csv'),
         hasSharing: (owned.data ?? []).length + (requested.data ?? []).length > 0,
+      }, {
+        dismissed: settings.data?.setupChecklistDismissed ?? false,
+        version: settings.data?.setupChecklistVersion ?? 1,
       }),
-    [inUse, kinds, recurring.data, budgets.data, goals.data, transactions.data, owned.data, requested.data]
+    [inUse, kinds, recurring.data, budgets.data, goals.data, transactions.data, owned.data, requested.data, settings.data]
   )
 
   const modals = (
     <>
       <BillPicksModal open={sheet === 'bills'} onClose={() => setSheet(null)} />
       <BudgetSuggestionsModal open={sheet === 'budget'} onClose={() => setSheet(null)} />
+      <Modal open={sheet === 'salary'} onClose={() => setSheet(null)} title="Salary day">
+        <SalarySettings bare onSaved={() => setSheet(null)} />
+      </Modal>
     </>
   )
 
-  if (!loaded || !settings.data?.onboardingCompleted || settings.data.setupChecklistDismissed || state.complete) {
+  if (!loaded || !settings.data?.onboardingCompleted || !state.visible) {
     // Keep a sheet mounted if it's open (finishing the last item closes the card).
     return sheet ? modals : null
   }
 
   const act = (id: SetupItemId) => {
     if (id === 'accounts') navigate('/settings/accounts')
+    else if (id === 'salary') setSheet('salary')
     else if (id === 'bills') setSheet('bills')
     else if (id === 'budget') setSheet('budget')
     else if (id === 'goal') navigate('/goals')
@@ -120,7 +132,7 @@ export function SetupChecklist() {
         />
       </div>
       <ul className="stagger-rows flex flex-col">
-        {state.items.map(({ id, done }) => {
+        {state.items.map(({ id, done, isNew }) => {
           const { title, hint, icon: Icon } = COPY[id]
           return (
             <li key={id}>
@@ -138,8 +150,13 @@ export function SetupChecklist() {
                   {done ? <Check size={17} strokeWidth={3} aria-hidden="true" /> : <Icon size={17} aria-hidden="true" />}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className={clsx('truncate text-sm font-semibold', done ? 'text-slate-500 line-through' : 'text-slate-900')}>
-                    {title}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className={clsx('truncate text-sm font-semibold', done ? 'text-slate-500 line-through' : 'text-slate-900')}>
+                      {title}
+                    </span>
+                    {isNew && !done && (
+                      <span className="shrink-0 rounded-full bg-brass-light px-1.5 text-xs font-bold text-brass">New</span>
+                    )}
                   </span>
                   <span className="truncate text-helper text-slate-500">{done ? 'Done' : hint}</span>
                 </span>

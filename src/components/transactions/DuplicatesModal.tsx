@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useBulkDeleteTransactions, type Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatDate } from '@/lib/format'
+import { FormError } from '@/components/ui/FieldError'
 
 interface DuplicatesModalProps {
   open: boolean
@@ -64,7 +64,7 @@ export function DuplicatesModal({ open, onClose, groups }: DuplicatesModalProps)
           Transactions with the same amount and account, within a few days of each other, with a similar
           merchant. Nothing is removed unless you choose which one to keep.
         </p>
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+        <FormError message={error} />
 
         {visible.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">

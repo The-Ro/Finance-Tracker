@@ -1,6 +1,6 @@
 // send-reminders: LedgeEaze's daily phone reminders (Web Push).
 //
-// Three ways in:
+// Four ways in:
 // - The daily job (pg_cron, 09:00 IST, migration 2026-09-29_push_reminders.sql)
 //   POSTs with the `x-cron-secret` header. push_digest() says what each person
 //   should hear about today; every device they turned reminders on for gets one
@@ -11,6 +11,11 @@
 //   offline) get it now. last_sent_on still stops a second send the same day.
 // - "Send a test" POSTs {"test": true} with the user's token; only that user's
 //   own devices get a test notification.
+// - A new bell note: the notifications_push_to_device trigger POSTs
+//   {"notificationId": ...} with the cron secret; that note goes to the
+//   owner's devices (migration 2026-09-30_birthdays_push_everything.sql).
+// The daily run also files today's birthday notes (file_birthday_notifications),
+// which then reach phones through that same trigger.
 //
 // Keys come from Vault via push_server_config() (service role only); nothing
 // secret is in this file. Deployed with verify_jwt = false because the daily
@@ -71,10 +76,10 @@ function nowIst(): { date: string; hour: number } {
   return { date, hour }
 }
 
-async function sendTo(app: webpush.ApplicationServer, sub: Subscription, message: Message) {
+async function sendTo(app: webpush.ApplicationServer, sub: Subscription, message: Message, tag = 'ledgeeaze-daily') {
   const subscriber = app.subscribe({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } })
   try {
-    await subscriber.pushTextMessage(JSON.stringify({ ...message, tag: 'ledgeeaze-daily' }), { ttl: 12 * 60 * 60, urgency: 'normal' })
+    await subscriber.pushTextMessage(JSON.stringify({ ...message, tag }), { ttl: 12 * 60 * 60, urgency: 'normal' })
     return 'sent' as const
   } catch (e) {
     const status = e instanceof webpush.PushMessageError ? e.response.status : 0
@@ -130,7 +135,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
-  let body: { test?: boolean; catchUp?: boolean } = {}
+  let body: { test?: boolean; catchUp?: boolean; notificationId?: string } = {}
   try {
     body = await req.json()
   } catch {
@@ -163,8 +168,29 @@ Deno.serve(async (req) => {
     return json({ date: today, ...(await deliver(app, rows, today)) })
   }
 
-  // The daily job.
+  // Everything below is the database calling (cron secret only).
   if (!cronSecret || req.headers.get('x-cron-secret') !== cronSecret) return json({ error: 'Not allowed' }, 401)
+
+  // One new bell note -> that person's phones.
+  if (body.notificationId) {
+    const { data: note } = await supabase
+      .from('notifications')
+      .select('id, owner_user_id, title, body, url, read_at, dismissed_at')
+      .eq('id', body.notificationId)
+      .maybeSingle()
+    if (!note || note.read_at || note.dismissed_at) return json({ skipped: true })
+    const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('owner_user_id', note.owner_user_id)
+    const results = await Promise.all(
+      ((subs ?? []) as Subscription[]).map((s) =>
+        sendTo(app, s, { title: note.title, body: note.body ?? '', url: note.url ?? '/' }, 'ledgeeaze-' + note.id)
+      )
+    )
+    return json({ devices: results.length, sent: results.filter((r) => r === 'sent').length })
+  }
+
+  // The daily job: today's birthdays go in the bell (and so to phones), then the digest.
+  const { error: bdayError } = await supabase.rpc('file_birthday_notifications', { p_today: today })
+  if (bdayError) console.error('birthdays failed', bdayError.message)
   const { data: digest, error } = await supabase.rpc('push_digest', { p_today: today })
   if (error) return json({ error: error.message }, 500)
   return json({ date: today, ...(await deliver(app, (digest ?? []) as DigestRow[], today)) })

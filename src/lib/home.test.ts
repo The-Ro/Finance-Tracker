@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetSpendSummary, dueWithin, firstName, greetingFor, sparklinePath } from './home'
+import { budgetSpendSummary, dueWithin, firstName, greetingFor, isBirthdayToday, sparklinePath } from './home'
 
 describe('greetingFor', () => {
   it('splits the day into morning, afternoon and evening', () => {
@@ -92,5 +92,18 @@ describe('dueWithin', () => {
   it('includes repeat occurrences inside the window', () => {
     const daily = { ...gym, next_date: '2026-09-27' }
     expect(dueWithin([daily], '2026-09-27', 8).map((r) => r.date)).toEqual(['2026-09-27', '2026-10-04'])
+  })
+})
+
+describe('isBirthdayToday', () => {
+  it('matches month and day, whatever the year', () => {
+    expect(isBirthdayToday('1990-09-30', '2026-09-30')).toBe(true)
+    expect(isBirthdayToday('1990-09-29', '2026-09-30')).toBe(false)
+    expect(isBirthdayToday(null, '2026-09-30')).toBe(false)
+  })
+  it('puts a 29 Feb birthday on 28 Feb in other years', () => {
+    expect(isBirthdayToday('2000-02-29', '2027-02-28')).toBe(true)
+    expect(isBirthdayToday('2000-02-29', '2028-02-28')).toBe(false)
+    expect(isBirthdayToday('2000-02-29', '2028-02-29')).toBe(true)
   })
 })

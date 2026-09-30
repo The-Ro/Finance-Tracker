@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useAccountKinds } from '@/hooks/useCards'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
 import { MonthField } from '@/components/ui/MonthField'
 import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useCategories, useAccounts } from '@/hooks/useLookupLists'
 import { useRecurringMutations, type RecurringItem, type RecurringLoanInput } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
@@ -64,8 +66,9 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   // (see useRecurring.ts), so recurring/subscription items are expense-only too.
   const { expense: allExpenseCategories } = useCategories()
   const { data: accounts = [] } = useAccounts()
+  const kinds = useAccountKinds()
   const { addManual, update } = useRecurringMutations()
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
 
   const relevant = kind === 'subscription' ? SUBSCRIPTION_CATEGORIES : RECURRING_CATEGORIES
   const categories = allExpenseCategories.filter(
@@ -105,7 +108,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
       ...loanFormState(editing),
       ...(!editing && prefill?.loan ? { isLoan: true } : {}),
     })
-    setError(null)
+    errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, prefill])
 
@@ -116,25 +119,25 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   }, [accounts, form.account])
 
   const handleSubmit = async () => {
-    setError(null)
+    errors.clear()
     const amountNum = Number(form.amount)
-    if (!form.name.trim()) return setError(`Enter a ${kind === 'subscription' ? 'service' : 'payment'} name.`)
-    if (!Number.isFinite(amountNum) || amountNum <= 0) return setError('Enter a valid amount.')
-    if (!form.nextDate) return setError('Choose the next date.')
+    if (!form.name.trim()) return errors.fail(`Enter a ${kind === 'subscription' ? 'service' : 'payment'} name.`, 'name')
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return errors.fail('Enter the amount.', 'amount')
+    if (!form.nextDate) return errors.fail('Choose the next date.', 'nextDate')
     // Required so "Mark as paid" always has somewhere to log the actual
     // expense transaction against -- see useRecurring.ts's markPaid.
-    if (!form.account) return setError('Choose an account.')
+    if (!form.account) return errors.fail('Choose an account.', 'account')
     let loan: RecurringLoanInput | null = null
     if (form.isLoan) {
       const loanAmount = Number(form.loanAmount)
       const tenure = Number(form.loanTenure)
-      if (!supportsLoanDetails(form.cadence)) return setError('Loan details need a monthly (or longer) cadence.')
-      if (!Number.isFinite(loanAmount) || loanAmount <= 0) return setError('Enter the loan amount.')
-      if (!Number.isInteger(tenure) || tenure < 1 || tenure > 600) return setError('Enter the tenure in months (1 to 600).')
-      if (!MONTH_KEY.test(form.loanStart)) return setError('Choose the month of the first EMI.')
+      if (!supportsLoanDetails(form.cadence)) return errors.fail('Loan details need a monthly (or longer) cadence.', 'cadence')
+      if (!Number.isFinite(loanAmount) || loanAmount <= 0) return errors.fail('Enter the loan amount.', 'loanAmount')
+      if (!Number.isInteger(tenure) || tenure < 1 || tenure > 600) return errors.fail('Enter the tenure in months (1 to 600).', 'loanTenure')
+      if (!MONTH_KEY.test(form.loanStart)) return errors.fail('Choose the month of the first EMI.', 'loanStart')
       const rate = form.loanRate.trim() === '' ? null : Number(form.loanRate)
       if (rate !== null && (!Number.isFinite(rate) || rate < 0 || rate > 100)) {
-        return setError('Enter the interest rate as a yearly % between 0 and 100, or leave it empty.')
+        return errors.fail('Enter the interest rate as a yearly % between 0 and 100, or leave it empty.', 'loanRate')
       }
       loan = { amount: loanAmount, tenureMonths: tenure, startMonth: form.loanStart, interestRate: rate }
     }
@@ -165,7 +168,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
       }
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save.')
+      errors.fail(e instanceof Error ? e.message : 'Could not save.')
     }
   }
 
@@ -200,8 +203,10 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
       }
     >
       <div className="flex flex-col gap-4">
+        <FormError message={errors.general} />
         <TextField
           label={kind === 'subscription' ? 'Service name' : 'Name'}
+          error={errors.on('name')}
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
         />
@@ -211,6 +216,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             type="number"
             step="0.01"
             min="0.01"
+            error={errors.on('amount')}
             value={form.amount}
             onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
           />
@@ -218,6 +224,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             <label className="text-helper font-medium text-slate-600">Cadence</label>
             <Dropdown
               options={CADENCES}
+              error={errors.on('cadence')}
               value={form.cadence}
               onChange={(e) => setForm((f) => ({ ...f, cadence: e.target.value as Cadence }))}
             />
@@ -231,23 +238,34 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
             />
-            <QuickAddCategory variant="link" kind="expense" onAdded={(category) => setForm((f) => ({ ...f, category }))} />
           </div>
           <TextField
             label="Next date"
             type="date"
+            error={errors.on('nextDate')}
             value={form.nextDate}
             onChange={(e) => setForm((f) => ({ ...f, nextDate: e.target.value }))}
           />
+        </div>
+        {/* Full width: inside the half-width Category column the add box spilled over. */}
+        <div className="-mt-2">
+          <QuickAddCategory variant="link" kind="expense" onAdded={(category) => setForm((f) => ({ ...f, category }))} />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-helper font-medium text-slate-600">Account</label>
           <Dropdown
             options={accounts}
+            error={errors.on('account')}
             value={form.account}
             onChange={(e) => setForm((f) => ({ ...f, account: e.target.value }))}
           />
-          <p className="text-helper text-slate-400">Marking this paid logs an expense against this account.</p>
+          <p className="text-helper text-slate-500">
+            {kinds.get(form.account) === 'credit_card'
+              ? form.isLoan
+                ? 'A card EMI: each "Mark paid" adds that month’s EMI to this card’s bill, like the bank does. Don’t also log the full purchase, or it counts twice. Set the next date to when the EMI shows on the card.'
+                : 'Marking this paid adds it to this card’s bill. You pay it when you pay the card.'
+              : 'Marking this paid logs an expense against this account.'}
+          </p>
         </div>
         {kind === 'recurring' && (
           <div className="flex flex-col gap-3 rounded-xl border border-app-border p-3">
@@ -258,7 +276,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                 onChange={(e) => setForm((f) => ({ ...f, isLoan: e.target.checked }))}
                 className="h-4 w-4"
               />
-              This is a loan / EMI
+              {kinds.get(form.account) === 'credit_card' ? 'This is an EMI on this card' : 'This is a loan / EMI'}
             </label>
             {form.isLoan && (
               <>
@@ -268,6 +286,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                     type="number"
                     step="0.01"
                     min="1"
+                    error={errors.on('loanAmount')}
                     value={form.loanAmount}
                     onChange={(e) => setForm((f) => ({ ...f, loanAmount: e.target.value }))}
                   />
@@ -277,6 +296,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                     step="1"
                     min="1"
                     max="600"
+                    error={errors.on('loanTenure')}
                     value={form.loanTenure}
                     onChange={(e) => setForm((f) => ({ ...f, loanTenure: e.target.value }))}
                   />
@@ -289,12 +309,14 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                     min="0"
                     max="100"
                     placeholder="Optional"
+                    error={errors.on('loanRate')}
                     value={form.loanRate}
                     onChange={(e) => setForm((f) => ({ ...f, loanRate: e.target.value }))}
                   />
                   <MonthField
                     id="recurring-loan-start"
                     label="First EMI (month)"
+                    error={errors.on('loanStart')}
                     value={form.loanStart}
                     onChange={(loanStart) => setForm((f) => ({ ...f, loanStart }))}
                   />
@@ -317,7 +339,6 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             )}
           </div>
         )}
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
   )

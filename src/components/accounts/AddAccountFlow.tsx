@@ -4,7 +4,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
 import { useAccountDetails, useAccounts, useAddAccount } from '@/hooks/useLookupLists'
 import { useAddDebitCard, useDebitCards } from '@/hooks/useDebitCards'
@@ -86,7 +87,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
   const [cardName, setCardName] = useState('')
   const [cardNameTouched, setCardNameTouched] = useState(false)
   const [last4, setLast4] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'name' | 'balance' | 'owed' | 'limit' | 'statementDay' | 'dueDay' | 'cardName' | 'last4'>()
   const [saving, setSaving] = useState(false)
 
   const accountNames = useMemo(() => accounts.data ?? [], [accounts.data])
@@ -109,7 +110,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
 
   const chooseType = (t: AddAccountType) => {
     setType(t)
-    setError(null)
+    errors.clear()
   }
 
   const chooseBankKind = (k: 'savings' | 'current') => {
@@ -119,21 +120,25 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
 
   const save = async (): Promise<boolean> => {
     if (!type) return true
-    setError(null)
+    errors.clear()
     if (!accountName) {
-      setError(type === 'credit' ? 'Give the card a name.' : type === 'wallet' ? 'Give the wallet a name.' : 'Choose or type the bank.')
+      errors.fail(type === 'credit' ? 'Give the card a name.' : type === 'wallet' ? 'Give the wallet a name.' : 'Choose or type the bank.', 'name')
       return false
     }
     const existing = matchAccountName(accountName, accountNames)
     if (existing && inUse.has(existing)) {
-      setError(`You already have an account called ${existing}.`)
+      errors.fail(`You already have an account called ${existing}.`, 'name')
       return false
     }
 
     const isCard = type === 'credit'
     const value = parseBalance(isCard ? owed : balance)
     if (value === null) {
-      setError(isCard ? 'Enter what you owe as a number, like 12500.' : 'Enter the balance as a number, like 25000.')
+      errors.fail(isCard ? 'Enter what you owe as a number, like 12500.' : 'Enter the balance as a number, like 25000.', isCard ? 'owed' : 'balance')
+      return false
+    }
+    if (!isCard && value < 0) {
+      errors.fail('The balance can’t be below zero. Enter 0 or more.', 'balance')
       return false
     }
 
@@ -144,18 +149,18 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
       if (limit.trim() !== '') {
         creditLimit = parseBalance(limit)
         if (creditLimit === null || creditLimit <= 0) {
-          setError('The credit limit must be more than zero.')
+          errors.fail('The credit limit must be more than zero.', 'limit')
           return false
         }
       }
       const s = dayOrNull(statementDay)
       const d = dayOrNull(dueDay)
       if (s === 'invalid' || d === 'invalid') {
-        setError('Statement and due days are a day of the month, 1 to 31.')
+        errors.fail('Statement and due days are a day of the month, 1 to 31.', s === 'invalid' ? 'statementDay' : 'dueDay')
         return false
       }
       if ((s === null) !== (d === null)) {
-        setError('Add both the statement day and the due day, or neither.')
+        errors.fail('Add both the statement day and the due day, or neither.', s === null ? 'statementDay' : 'dueDay')
         return false
       }
       sDay = s
@@ -167,17 +172,17 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
     const trimmedCard = shownCardName.trim()
     if (addCard) {
       if (!trimmedCard) {
-        setError('Give the debit card a name, or turn off “Add its debit card”.')
+        errors.fail('Give the debit card a name, or turn off “Add its debit card”.', 'cardName')
         return false
       }
       if (debitCards.some((c) => c.name.trim().toLowerCase() === trimmedCard.toLowerCase())) {
-        setError(`You already have a debit card called ${trimmedCard}. Give this one another name.`)
+        errors.fail(`You already have a debit card called ${trimmedCard}. Give this one another name.`, 'cardName')
         return false
       }
       try {
         digits = normalizeLast4(last4)
       } catch {
-        setError('The last 4 digits must be 4 numbers.')
+        errors.fail('The last 4 digits must be 4 numbers.', 'last4')
         return false
       }
     }
@@ -194,7 +199,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
         opening: isCard ? owedToOpening(value) : value,
       })
     } catch (e) {
-      setError(friendlyAccountError(e, 'Could not add this account.'))
+      errors.fail(friendlyAccountError(e, 'Could not add this account.'))
       setSaving(false)
       return false
     }
@@ -267,7 +272,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
           type="button"
           onClick={() => {
             setType(null)
-            setError(null)
+            errors.clear()
           }}
           disabled={busy}
           className="-ml-2 inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-sm font-medium text-accent-dark hover:bg-slate-50 disabled:opacity-50"
@@ -287,7 +292,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-helper font-medium text-slate-600">Bank</label>
-                <Dropdown options={[TYPE_A_NAME, ...unusedBanks]} value={bankPick} aria-label="Bank" onChange={(e) => setBankPick(e.target.value)} />
+                <Dropdown options={[TYPE_A_NAME, ...unusedBanks]} value={bankPick} error={bankPick === TYPE_A_NAME ? null : errors.on('name')} aria-label="Bank" onChange={(e) => setBankPick(e.target.value)} />
               </div>
               {bankPick === TYPE_A_NAME && (
                 <TextField
@@ -295,6 +300,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
                   label="Bank or account name"
                   autoComplete="off"
                   placeholder="e.g. HDFC Bank"
+                  error={errors.on('name')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -306,6 +312,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
               label="Bank or account name"
               autoComplete="off"
               placeholder="e.g. HDFC Bank"
+              error={errors.on('name')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -336,7 +343,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
             </div>
           </div>
 
-          <BalanceField idPrefix={idPrefix} value={balance} onChange={setBalance} />
+          <BalanceField idPrefix={idPrefix} value={balance} onChange={setBalance} error={errors.on('balance')} />
 
           <div className="flex flex-col gap-3 rounded-xl border border-app-border p-3">
             <label className="flex min-h-[44px] cursor-pointer items-center gap-3">
@@ -378,6 +385,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
                   label="Card name"
                   autoComplete="off"
                   placeholder="e.g. HDFC Bank Debit"
+                  error={errors.on('cardName')}
                   value={shownCardName}
                   onChange={(e) => {
                     setCardName(e.target.value)
@@ -392,6 +400,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
                   autoComplete="off"
                   maxLength={4}
                   placeholder="1234"
+                  error={errors.on('last4')}
                   value={last4}
                   onChange={(e) => setLast4(e.target.value.replace(/\D/g, ''))}
                 />
@@ -419,6 +428,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
               inputMode="decimal"
               autoComplete="off"
               placeholder="0"
+              error={errors.on('owed')}
               value={owed}
               onChange={(e) => setOwed(e.target.value)}
             />
@@ -433,6 +443,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
                   type="text"
                   inputMode="decimal"
                   autoComplete="off"
+                  error={errors.on('limit')}
                   value={limit}
                   onChange={(e) => setLimit(e.target.value)}
                 />
@@ -444,6 +455,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
                     inputMode="numeric"
                     autoComplete="off"
                     placeholder="e.g. 12"
+                    error={errors.on('statementDay')}
                     value={statementDay}
                     onChange={(e) => setStatementDay(e.target.value)}
                   />
@@ -454,6 +466,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
                     inputMode="numeric"
                     autoComplete="off"
                     placeholder="e.g. 2"
+                    error={errors.on('dueDay')}
                     value={dueDay}
                     onChange={(e) => setDueDay(e.target.value)}
                   />
@@ -476,6 +489,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
               label="Wallet name"
               autoComplete="off"
               placeholder="e.g. Paytm Wallet"
+              error={errors.on('name')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -496,11 +510,11 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
               ))}
             </div>
           </div>
-          <BalanceField idPrefix={idPrefix} value={balance} onChange={setBalance} />
+          <BalanceField idPrefix={idPrefix} value={balance} onChange={setBalance} error={errors.on('balance')} />
         </>
       )}
 
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={errors.general} />
 
       <div className="flex justify-end gap-2">
         {onCancel && (
@@ -516,7 +530,7 @@ export const AddAccountFlow = forwardRef<AddAccountFlowHandle, AddAccountFlowPro
   )
 })
 
-function BalanceField({ idPrefix, value, onChange }: { idPrefix: string; value: string; onChange: (v: string) => void }) {
+function BalanceField({ idPrefix, value, onChange, error }: { idPrefix: string; value: string; onChange: (v: string) => void; error: string | null }) {
   return (
     <div className="flex flex-col gap-1">
       <TextField
@@ -526,6 +540,7 @@ function BalanceField({ idPrefix, value, onChange }: { idPrefix: string; value: 
         inputMode="decimal"
         autoComplete="off"
         placeholder="0"
+        error={error}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

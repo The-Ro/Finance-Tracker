@@ -86,7 +86,11 @@ export function BillsPage() {
   }, [active, today, weekEnd])
   // Card bills due within the week (or already overdue) count toward the total.
   const cardDueSoon = cardBills.filter((b) => b.dueDate <= weekEnd)
-  const weekTotal = totalDueWithin(active, today, windowDays) + cardDueSoon.reduce((sum, b) => sum + b.due, 0)
+  // Something charged to a credit card (a card EMI, a subscription on the card)
+  // is paid through that card's bill, so it isn't counted again on its own.
+  const onCard = (item: RecurringItem) => !!item.account && kinds.get(item.account) === 'credit_card'
+  const weekTotal =
+    totalDueWithin(active.filter((i) => !onCard(i)), today, windowDays) + cardDueSoon.reduce((sum, b) => sum + b.due, 0)
 
   // Per-account: can the current balance cover everything due this week from it?
   const shortfalls = useMemo(() => {
@@ -310,7 +314,7 @@ export function BillsPage() {
                       <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
                       <p className="text-helper text-slate-500">
                         {format(item.amount)}
-                        {item.account ? ` · ${item.account}` : ''}
+                        {item.account ? (onCard(item) ? ` · goes on the ${item.account} bill` : ` · ${item.account}`) : ''}
                       </p>
                     </div>
                     </button>

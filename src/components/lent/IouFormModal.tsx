@@ -3,7 +3,8 @@ import clsx from 'clsx'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
 import { DateField } from '@/components/ui/DateField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useIous, type Iou } from '@/hooks/useIous'
 import { todayISO } from '@/lib/format'
 import type { IouDirection } from '@/types/database.types'
@@ -27,7 +28,8 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
   const [date, setDate] = useState(todayISO())
   const [dueDate, setDueDate] = useState('')
   const [note, setNote] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'person' | 'amount' | 'dueDate'>()
+  const clearErrors = errors.clear
 
   // Stays mounted between opens, so reset from `editing` each time it opens.
   useEffect(() => {
@@ -38,22 +40,22 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
     setDate(editing?.date ?? todayISO())
     setDueDate(editing?.due_date ?? '')
     setNote(editing?.note ?? '')
-    setError(null)
-  }, [open, editing, initialDirection])
+    clearErrors()
+  }, [open, editing, initialDirection, clearErrors])
 
   const save = async () => {
-    setError(null)
+    errors.clear()
     const amountNum = Number(amount)
-    if (!person.trim()) return setError('Who is it? Type their name.')
-    if (!Number.isFinite(amountNum) || amountNum <= 0) return setError('Enter the amount.')
-    if (dueDate && dueDate < date) return setError('The pay-back date can’t be before the date.')
+    if (!person.trim()) return errors.fail('Who is it? Type their name.', 'person')
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return errors.fail('Enter the amount.', 'amount')
+    if (dueDate && dueDate < date) return errors.fail('The pay-back date can’t be before the date.', 'dueDate')
     const input = { person, direction, amount: amountNum, date, dueDate: dueDate || null, note: note.trim() || null }
     try {
       if (editing) await update.mutateAsync({ id: editing.id, ...input })
       else await create.mutateAsync(input)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Couldn’t save this. Try again.')
+      errors.fail(e instanceof Error ? e.message : 'Couldn’t save this. Try again.')
     }
   }
 
@@ -71,6 +73,7 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
       }
     >
       <div className="flex flex-col gap-4">
+        <FormError message={errors.general} />
         <div role="radiogroup" aria-label="Lent or borrowed" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
           {(
             [
@@ -103,7 +106,7 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
           list={listId}
           autoComplete="off"
           maxLength={80}
-          value={person}
+          error={errors.on('person')} value={person}
           onChange={(e) => setPerson(e.target.value)}
         />
         <datalist id={listId}>
@@ -117,7 +120,7 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
           inputMode="decimal"
           step="0.01"
           min="0.01"
-          value={amount}
+          error={errors.on('amount')} value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
         <div className="grid grid-cols-2 gap-3">
@@ -125,7 +128,7 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
           <DateField
             label="Pay back by (optional)"
             placeholder="No date"
-            value={dueDate}
+            error={errors.on('dueDate')} value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
           />
         </div>
@@ -133,7 +136,6 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
         <p className="text-helper text-slate-500">
           This keeps track of who owes what. It doesn’t change your account balances.
         </p>
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
   )

@@ -406,6 +406,18 @@ export function useUpdateTransactionTags() {
   })
 }
 
+/** The lock on an Activity row: share this entry with everyone, or keep it to yourself. */
+export function useSetTransactionShared() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, shared }: { id: string; shared: boolean }) => {
+      const { error } = await supabase.from('transactions').update({ shared }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateTransactionQueries(queryClient),
+  })
+}
+
 export function useDeleteTransaction() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@/components/ui/Button'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
 import { AccountForm, type AccountFormHandle } from '@/components/accounts/AccountForm'
 import { AddAccountFlow, type AddAccountFlowHandle } from '@/components/accounts/AddAccountFlow'
@@ -14,11 +13,14 @@ import { useDebitCards } from '@/hooks/useDebitCards'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { ACCOUNT_KIND_LABELS, openingToOwed } from '@/lib/creditCards'
 import { debitCardLabel, debitCardsByAccount } from '@/lib/debitCards'
+import { FormError } from '@/components/ui/FieldError'
 
 interface AccountsStepProps {
   onBack: () => void
   onDone: () => void
   finishing: boolean
+  /** Button label when this isn't the last step (default "Finish"). */
+  nextLabel?: string
   /** Heading and line under it; defaults to the original single accounts step. */
   title?: string
   description?: string
@@ -34,6 +36,7 @@ export function AccountsStep({
   onBack,
   onDone,
   finishing,
+  nextLabel,
   title = 'Where does your money live?',
   description = 'Add your bank accounts, cards and wallets with what’s in them (or owed) today, so balances start out right.',
 }: AccountsStepProps) {
@@ -135,7 +138,7 @@ export function AccountsStep({
         </ul>
       )}
 
-      {warning && <InlineMessage tone="error">{warning}</InlineMessage>}
+      <FormError message={warning} />
 
       <div className="rounded-xl border border-app-border p-4">
         {editing ? (
@@ -176,7 +179,7 @@ export function AccountsStep({
           Back
         </Button>
         <Button onClick={handleContinue} disabled={busy}>
-          {finishing ? 'Finishing…' : 'Finish'}
+          {finishing ? 'Finishing…' : nextLabel ?? 'Finish'}
         </Button>
       </div>
     </div>

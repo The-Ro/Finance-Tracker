@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { FieldError, useRevealOnError } from './FieldError'
 import { createPortal } from 'react-dom'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
@@ -10,6 +11,8 @@ interface DateFieldProps {
   onChange: (e: ChangeEvent<HTMLInputElement>) => void
   placeholder?: string
   className?: string
+  /** Shown under the field, which turns red and scrolls into view. */
+  error?: string | null
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -47,7 +50,8 @@ const YEARS = Array.from({ length: 120 + 20 + 1 }, (_, i) => CURRENT_YEAR + 20 -
 // above a modal, since portaling escapes the modal's own stacking context.
 const VIEWPORT_MARGIN = 16
 
-export function DateField({ id, label, value, onChange, placeholder = 'Select date', className }: DateFieldProps) {
+export function DateField({ id, label, value, onChange, placeholder = 'Select date', className, error }: DateFieldProps) {
+  const revealRef = useRevealOnError<HTMLDivElement>(error)
   const [open, setOpen] = useState(false)
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
   const [yearPickerOpen, setYearPickerOpen] = useState(false)
@@ -162,7 +166,7 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
           {label}
         </label>
       )}
-      <div className="relative">
+      <div ref={revealRef} className="relative">
         <button
           ref={triggerRef}
           type="button"
@@ -170,8 +174,10 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-invalid={error ? true : undefined}
           className={clsx(
-            'flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg border border-app-border bg-white px-3 text-left text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
+            'flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 text-left text-sm focus:outline-none focus:ring-1',
+            error ? 'border-danger ring-1 ring-danger' : 'border-app-border focus:border-accent focus:ring-accent',
             selected ? 'text-slate-900' : 'text-slate-400',
             className
           )}
@@ -336,6 +342,7 @@ export function DateField({ id, label, value, onChange, placeholder = 'Select da
             document.body
           )}
       </div>
+      <FieldError message={error} />
     </div>
   )
 }

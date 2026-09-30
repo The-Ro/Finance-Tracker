@@ -4,11 +4,11 @@ import { Plus, Sparkles } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Pill } from '@/components/ui/Pill'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { ZODIAC_SIGNS } from '@/lib/zodiac'
 import type { Gender, ZodiacSign } from '@/types/database.types'
+import { FormError } from '@/components/ui/FieldError'
 
 const GENDER_LABELS: Record<Gender, string> = {
   male: 'Male',
@@ -86,7 +86,7 @@ export function PersonalDetails() {
       <div>
         <h3 className="text-sm font-semibold text-slate-800">Personal details</h3>
         <p className="mt-1 text-helper text-slate-500">
-          Private to you - never shown to other users, even in shared views. Saved automatically.
+          Private to you: never shown to other people, even in shared views, unless you turn on the birthday note below. Saved automatically.
         </p>
       </div>
 
@@ -112,6 +112,34 @@ export function PersonalDetails() {
             save({ dateOfBirth: e.target.value || null })
           }}
         />
+        {dob && (
+          <label className="col-span-2 flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-app-border px-3 py-2">
+            <span className="flex min-w-0 flex-col">
+              <span className="text-sm font-medium text-slate-800">Tell the people I share with on my birthday</span>
+              <span className="text-helper text-slate-500">They get a note to wish you. Only the day, never the year.</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={data?.shareBirthday ?? false}
+              onChange={(e) => save({ shareBirthday: e.target.checked })}
+              className="peer sr-only"
+            />
+            <span
+              aria-hidden="true"
+              className={clsx(
+                'relative h-6 w-11 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2',
+                data?.shareBirthday ? 'bg-accent' : 'bg-slate-300'
+              )}
+            >
+              <span
+                className={clsx(
+                  'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+                  data?.shareBirthday ? 'translate-x-[22px]' : 'translate-x-0.5'
+                )}
+              />
+            </span>
+          </label>
+        )}
 
         <div className="col-span-2 flex flex-col gap-1.5">
           <label className="flex items-center gap-1.5 text-helper font-medium text-slate-600">
@@ -189,7 +217,7 @@ export function PersonalDetails() {
         </div>
       </div>
 
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
     </Card>
   )
 }

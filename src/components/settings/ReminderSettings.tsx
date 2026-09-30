@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { BellRing, Download } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useToast } from '@/context/ToastContext'
 import { openInstallHelp } from '@/hooks/usePwaInstall'
 import { catchUpReminders, currentPushState, sendTestReminder, turnOffReminders, turnOnReminders, type PushState } from '@/lib/push'
+import { FormError } from '@/components/ui/FieldError'
 
 /**
  * Phone reminders on this device: one short note at 9 AM on days with bills
@@ -117,7 +117,7 @@ export function ReminderSettings() {
           <BellRing size={15} /> Turn on reminders
         </Button>
       )}
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
       <p className="text-helper text-slate-500">Each phone or computer is turned on separately.</p>
     </Card>
   )

@@ -56,11 +56,20 @@ export function Modal({
     const scrollbarWidth = window.innerWidth - root.clientWidth
     const originalOverflow = root.style.overflow
     const originalPaddingRight = root.style.paddingRight
+    const scrollY = window.scrollY
     root.style.overflow = 'hidden'
     if (scrollbarWidth > 0) root.style.paddingRight = `${scrollbarWidth}px`
     return () => {
       root.style.overflow = originalOverflow
       root.style.paddingRight = originalPaddingRight
+      // iPhone: closing a sheet while the keyboard was up can leave the page
+      // pushed up by the keyboard's height -- a white strip under the bottom
+      // bar (seen after saving on Lent & borrowed). Drop the keyboard and put
+      // the page back where it was once the layout settles.
+      const active = document.activeElement
+      if (active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) active.blur()
+      requestAnimationFrame(() => window.scrollTo({ top: scrollY }))
+      setTimeout(() => window.scrollTo({ top: scrollY }), 350)
     }
   }, [open])
 

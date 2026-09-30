@@ -7,6 +7,21 @@ export function greetingFor(hour: number): string {
   return 'Good evening'
 }
 
+/**
+ * Is it their birthday? `dob` and `today` are YYYY-MM-DD; only month and day
+ * count. A 29 Feb birthday is on 28 Feb when the year has no 29th (same rule
+ * as the server's file_birthday_notifications).
+ */
+export function isBirthdayToday(dob: string | null | undefined, today: string): boolean {
+  if (!dob || dob.length < 10) return false
+  const md = dob.slice(5, 10)
+  const todayMd = today.slice(5, 10)
+  if (md === todayMd) return true
+  const year = Number(today.slice(0, 4))
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+  return md === '02-29' && !leap && todayMd === '02-28'
+}
+
 /** First word of a display name ('' when there isn't one). */
 export function firstName(displayName: string | null | undefined): string {
   return (displayName ?? '').trim().split(/\s+/)[0] ?? ''

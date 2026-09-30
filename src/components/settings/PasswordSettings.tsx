@@ -2,28 +2,29 @@ import { useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useToast } from '@/context/ToastContext'
 import { supabase } from '@/lib/supabaseClient'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 
 export function PasswordSettings() {
   const { show } = useToast()
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'newPassword' | 'confirmPassword'>()
   const [pending, setPending] = useState(false)
 
   const handleSubmit = async () => {
-    setError(null)
-    if (newPassword.length < 6) return setError('Use at least 6 characters.')
-    if (newPassword !== confirmPassword) return setError("Passwords don't match.")
+    errors.clear()
+    if (newPassword.length < 6) return errors.fail('Use at least 6 characters.', 'newPassword')
+    if (newPassword !== confirmPassword) return errors.fail("Passwords don't match.", 'confirmPassword')
 
     setPending(true)
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
     setPending(false)
 
     if (updateError) {
-      setError(updateError.message)
+      errors.fail(updateError.message)
       return
     }
     show('Password updated.')
@@ -42,6 +43,7 @@ export function PasswordSettings() {
           label="New password"
           type="password"
           autoComplete="new-password"
+          error={errors.on('newPassword')}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
         />
@@ -49,6 +51,7 @@ export function PasswordSettings() {
           label="Confirm new password"
           type="password"
           autoComplete="new-password"
+          error={errors.on('confirmPassword')}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
         />
@@ -56,7 +59,7 @@ export function PasswordSettings() {
       <Button onClick={handleSubmit} disabled={pending} className="self-start">
         {pending ? 'Updating…' : 'Update password'}
       </Button>
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={errors.general} />
     </Card>
   )
 }

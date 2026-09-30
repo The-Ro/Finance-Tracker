@@ -4,7 +4,6 @@ import { Check } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useBudgets } from '@/hooks/useBudgets'
@@ -14,6 +13,7 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { suggestBudgets } from '@/lib/budgetSuggestions'
 import { parseBalance } from '@/lib/onboardingAccounts'
 import { todayISO } from '@/lib/format'
+import { FormError } from '@/components/ui/FieldError'
 
 interface Row {
   category: string
@@ -142,7 +142,7 @@ export function BudgetSuggestionsModal({ open, onClose }: { open: boolean; onClo
             }}
           />
         )}
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+        <FormError message={error} />
       </div>
     </Modal>
   )

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react'
+import { FieldError, useRevealOnError } from './FieldError'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown, type LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
@@ -21,6 +22,8 @@ interface DropdownProps {
   iconOnly?: boolean
   icon?: LucideIcon
   'aria-label'?: string
+  /** Shown under the list, which turns red and scrolls into view. */
+  error?: string | null
 }
 
 const COMPACT_LIST_WIDTH = 184
@@ -41,7 +44,8 @@ const VIEWPORT_MARGIN = 16
  * sits inside Modal's `overflow-y-auto` body, cutting the option list off
  * after however many rows fit instead of floating above the modal.
  */
-export function Dropdown({ options, value, onChange, className, disabled, recentOptions, compact, iconOnly, icon: Icon, ...rest }: DropdownProps) {
+export function Dropdown({ options, value, onChange, className, disabled, recentOptions, compact, iconOnly, icon: Icon, error, ...rest }: DropdownProps) {
+  const revealRef = useRevealOnError<HTMLDivElement>(error)
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -145,7 +149,7 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
     </li>
   )
 
-  return (
+  const control = (
     <div ref={containerRef} className="relative min-w-0">
       <button
         ref={triggerRef}
@@ -162,6 +166,7 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
             : compact
             ? 'flex min-h-[40px] items-center gap-1.5 rounded-full border border-app-border bg-white px-3 text-sm font-medium text-slate-700 hover:border-slate-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-50'
             : 'flex min-h-[44px] w-full min-w-[9rem] items-center justify-between gap-2 rounded-lg border border-app-border bg-white px-3 text-left text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-50',
+          error && 'border-danger ring-1 ring-danger',
           className
         )}
       >
@@ -196,6 +201,13 @@ export function Dropdown({ options, value, onChange, className, disabled, recent
           </ul>,
           document.body
         )}
+    </div>
+  )
+  if (error === undefined) return control
+  return (
+    <div ref={revealRef} className="flex min-w-0 flex-col gap-1.5">
+      {control}
+      <FieldError message={error} />
     </div>
   )
 }

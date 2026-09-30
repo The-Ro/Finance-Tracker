@@ -3,7 +3,8 @@ import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal
 import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useCategories } from '@/hooks/useLookupLists'
 import { useBudgets, type Budget } from '@/hooks/useBudgets'
 
@@ -23,7 +24,8 @@ export function BudgetFormModal({ open, onClose, editing, onDelete }: BudgetForm
   const [category, setCategory] = useState(editing?.category ?? '')
   const [limit, setLimit] = useState(editing ? String(editing.monthly_limit) : '')
   const [rollover, setRollover] = useState(editing?.rollover ?? false)
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'category' | 'limit'>()
+  const clearErrors = errors.clear
 
   // BudgetFormModal stays mounted across opens (BudgetsPage just toggles
   // `open`), so the useState initializers above only ever run once, on first
@@ -35,19 +37,19 @@ export function BudgetFormModal({ open, onClose, editing, onDelete }: BudgetForm
     setCategory(editing?.category ?? '')
     setLimit(editing ? String(editing.monthly_limit) : '')
     setRollover(editing?.rollover ?? false)
-    setError(null)
-  }, [open, editing])
+    clearErrors()
+  }, [open, editing, clearErrors])
 
   useEffect(() => {
     if (!category && categories.length > 0) setCategory(categories[0])
   }, [category, categories])
 
   const handleSubmit = async () => {
-    setError(null)
+    errors.clear()
     // Number('') is 0, so a blank field has to be rejected explicitly.
     const limitNum = limit.trim() === '' ? NaN : Number(limit)
-    if (!category) return setError('Choose a category.')
-    if (!Number.isFinite(limitNum) || limitNum <= 0) return setError('Enter a monthly limit greater than zero.')
+    if (!category) return errors.fail('Choose a category.', 'category')
+    if (!Number.isFinite(limitNum) || limitNum <= 0) return errors.fail('Enter a monthly limit greater than zero.', 'limit')
 
     try {
       if (editing) {
@@ -57,7 +59,7 @@ export function BudgetFormModal({ open, onClose, editing, onDelete }: BudgetForm
       }
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save this budget.')
+      errors.fail(e instanceof Error ? e.message : 'Could not save this budget.')
     }
   }
 
@@ -76,12 +78,13 @@ export function BudgetFormModal({ open, onClose, editing, onDelete }: BudgetForm
       }
     >
       <div className="flex flex-col gap-4">
+        <FormError message={errors.general} />
         <div className="flex flex-col gap-1.5">
           <label className="text-helper font-medium text-slate-600">Category</label>
-          <Dropdown options={categories} value={category} onChange={(e) => setCategory(e.target.value)} />
+          <Dropdown options={categories} error={errors.on('category')} value={category} onChange={(e) => setCategory(e.target.value)} />
           <QuickAddCategory variant="link" kind="expense" onAdded={setCategory} />
         </div>
-        <TextField label="Monthly limit" type="number" step="0.01" min="0" value={limit} onChange={(e) => setLimit(e.target.value)} />
+        <TextField label="Monthly limit" type="number" step="0.01" min="0" error={errors.on('limit')} value={limit} onChange={(e) => setLimit(e.target.value)} />
         <label className="flex items-start gap-3 text-sm text-slate-700">
           <input
             type="checkbox"
@@ -96,7 +99,6 @@ export function BudgetFormModal({ open, onClose, editing, onDelete }: BudgetForm
             </span>
           </span>
         </label>
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
   )

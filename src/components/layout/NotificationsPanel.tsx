@@ -16,6 +16,8 @@ import {
   Wallet,
   X,
   type LucideIcon,
+  Cake,
+  Megaphone,
 } from 'lucide-react'
 import { useNotifications, type NotificationRow } from '@/hooks/useNotifications'
 import { useApproveAccessRequest, useOwnedAccessRows, useRemoveAccessRow, useRequestedAccessRows, useSendAccessRequest } from '@/hooks/useSharing'
@@ -42,6 +44,8 @@ const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   bill_overdue: CalendarClock,
   reminder: BellRing,
   salary: Wallet,
+  birthday: Cake,
+  announcement: Megaphone,
 }
 const WARNING_KINDS = new Set<NotificationKind>(['bill_overdue', 'budget'])
 

@@ -1,3 +1,4 @@
+import { FormError } from '@/components/ui/FieldError'
 import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -125,7 +126,7 @@ export function DangerZone() {
               spellCheck={false}
               className="min-h-[44px] rounded-lg border border-app-border bg-white px-3 text-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
             />
-            {eraseError && <InlineMessage tone="error">{eraseError}</InlineMessage>}
+            <FormError message={eraseError} />
           </div>
         )}
       </Modal>
@@ -169,7 +170,7 @@ export function DangerZone() {
             spellCheck={false}
             className="min-h-[44px] rounded-lg border border-app-border bg-white px-3 text-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
           />
-          {deleteError && <InlineMessage tone="error">{deleteError}</InlineMessage>}
+          <FormError message={deleteError} />
         </div>
       </Modal>
     </Card>

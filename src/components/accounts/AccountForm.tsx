@@ -3,7 +3,8 @@ import clsx from 'clsx'
 import { Archive, ArchiveRestore } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FieldError, FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { AccountKindIcon } from '@/components/ui/AccountKindIcon'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -104,16 +105,20 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
   const [statementDay, setStatementDay] = useState(original?.statementDay != null ? String(original.statementDay) : '')
   const [dueDay, setDueDay] = useState(original?.dueDay != null ? String(original.dueDay) : '')
   const [network, setNetwork] = useState<CardNetwork | null>(original?.network ?? null)
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'owed' | 'balance' | 'limit' | 'statementDay' | 'dueDay' | 'kind'>()
   const [saving, setSaving] = useState(false)
 
   const isCard = kind === 'credit_card'
 
   const save = async (): Promise<boolean> => {
-    setError(null)
+    errors.clear()
     const value = parseBalance(isCard ? owed : balance)
     if (value === null) {
-      setError(isCard ? 'Enter what you owe as a number, like 12500.' : 'Enter the balance as a number, like 25000.')
+      errors.fail(isCard ? 'Enter what you owe as a number, like 12500.' : 'Enter the balance as a number, like 25000.', isCard ? 'owed' : 'balance')
+      return false
+    }
+    if (!isCard && value < 0) {
+      errors.fail('The balance can’t be below zero. Enter 0 or more.', 'balance')
       return false
     }
     let creditLimit: number | null = null
@@ -123,18 +128,18 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
       if (limit.trim() !== '') {
         creditLimit = parseBalance(limit)
         if (creditLimit === null || creditLimit <= 0) {
-          setError('The credit limit must be more than zero.')
+          errors.fail('The credit limit must be more than zero.', 'limit')
           return false
         }
       }
       const s = dayOrNull(statementDay)
       const d = dayOrNull(dueDay)
       if (s === 'invalid' || d === 'invalid') {
-        setError('Statement and due days are a day of the month, 1 to 31.')
+        errors.fail('Statement and due days are a day of the month, 1 to 31.', s === 'invalid' ? 'statementDay' : 'dueDay')
         return false
       }
       if ((s === null) !== (d === null)) {
-        setError('Add both the statement day and the due day, or neither.')
+        errors.fail('Add both the statement day and the due day, or neither.', s === null ? 'statementDay' : 'dueDay')
         return false
       }
       sDay = s
@@ -145,7 +150,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
       dDay = original.dueDay
     }
     if (cardCount > 0 && !isBankKind(kind)) {
-      setError('This account still has debit cards. Move them to another account or remove them first.')
+      errors.fail('This account still has debit cards. Move them to another account or remove them first.', 'kind')
       return false
     }
 
@@ -168,7 +173,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
       onSaved(account, kind)
       return true
     } catch (e) {
-      setError(friendlyAccountError(e, 'Could not save this account.'))
+      errors.fail(friendlyAccountError(e, 'Could not save this account.'))
       return false
     } finally {
       setSaving(false)
@@ -184,12 +189,12 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
 
   const isClosed = !!original?.closed
   const toggleClosed = async () => {
-    setError(null)
+    errors.clear()
     try {
       await setClosed.mutateAsync({ account, closed: !isClosed })
       onClosedChange?.(account, !isClosed)
     } catch (e) {
-      setError(friendlyAccountError(e, 'Could not update this account.'))
+      errors.fail(friendlyAccountError(e, 'Could not update this account.'))
     }
   }
 
@@ -224,7 +229,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
                 aria-pressed={kind === k}
                 onClick={() => {
                   setKind(k)
-                  setError(null)
+                  errors.clear()
                 }}
                 className={clsx(
                   'flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2 text-sm font-medium transition-colors',
@@ -245,6 +250,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
                 : `It will count as a ${ACCOUNT_KIND_LABELS[kind].toLowerCase()} from now on: its balance is shown and totalled that way everywhere.`}
             </p>
           )}
+          <FieldError message={errors.on('kind')} />
         </div>
       )}
 
@@ -258,6 +264,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
               inputMode="decimal"
               autoComplete="off"
               placeholder="0"
+              error={errors.on('owed')}
               value={owed}
               onChange={(e) => setOwed(e.target.value)}
             />
@@ -273,6 +280,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
+                error={errors.on('limit')}
                 value={limit}
                 onChange={(e) => setLimit(e.target.value)}
               />
@@ -284,6 +292,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
                   inputMode="numeric"
                   autoComplete="off"
                   placeholder="e.g. 12"
+                  error={errors.on('statementDay')}
                   value={statementDay}
                   onChange={(e) => setStatementDay(e.target.value)}
                 />
@@ -294,6 +303,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
                   inputMode="numeric"
                   autoComplete="off"
                   placeholder="e.g. 2"
+                  error={errors.on('dueDay')}
                   value={dueDay}
                   onChange={(e) => setDueDay(e.target.value)}
                 />
@@ -322,6 +332,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
             inputMode="decimal"
             autoComplete="off"
             placeholder="0"
+            error={errors.on('balance')}
             value={balance}
             onChange={(e) => setBalance(e.target.value)}
           />
@@ -338,7 +349,7 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
         </p>
       )}
 
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={errors.general} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {canClose || (canRemove && !hideActions) ? (

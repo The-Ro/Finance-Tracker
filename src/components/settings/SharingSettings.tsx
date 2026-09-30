@@ -1,8 +1,10 @@
+import clsx from 'clsx'
+import { FieldError, FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useState } from 'react'
 import { Clock, Eye, EyeOff, Search, Send, UserCheck, UserMinus, UserPlus, X } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Avatar } from '@/components/ui/Avatar'
 import { useProfiles } from '@/hooks/useProfiles'
 import {
@@ -28,7 +30,7 @@ export function SharingSettings() {
   const [email, setEmail] = useState('')
   const [found, setFound] = useState<FoundProfile | null>(null)
   const [notFound, setNotFound] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'email'>()
 
   const profileMap = profiles.data ?? {}
   const nameFor = (id: string) => profileMap[id]?.displayName || profileMap[id]?.email || 'Unknown user'
@@ -50,7 +52,7 @@ export function SharingSettings() {
   // Profiles aren't a readable directory anymore, so a new person can only be
   // found by typing their exact email (find_profile_by_email RPC).
   const handleFind = async () => {
-    setError(null)
+    errors.clear()
     setNotFound(false)
     const trimmed = email.trim()
     if (!trimmed) return
@@ -58,22 +60,22 @@ export function SharingSettings() {
       const result = await findProfile.mutateAsync(trimmed)
       if (!result) return setNotFound(true)
       if (requestedIds.has(result.id)) {
-        return setError("You've already requested (or have) access to this person's transactions.")
+        return errors.fail("You've already asked to see this person's entries (or you can already).", 'email')
       }
       setFound(result)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not look that person up.')
+      errors.fail(e instanceof Error ? e.message : 'Could not look that person up.', 'email')
     }
   }
 
   const handleSend = async () => {
-    setError(null)
-    if (!found) return setError("Enter the person's email address and find them first.")
+    errors.clear()
+    if (!found) return errors.fail("Enter the person's email address and find them first.", 'email')
     try {
       await sendRequest.mutateAsync(found.email)
       clearFound()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not send the request.')
+      errors.fail(e instanceof Error ? e.message : 'Could not send the request.')
     }
   }
 
@@ -186,6 +188,7 @@ export function SharingSettings() {
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="email"
+                  aria-invalid={errors.on('email') ? true : undefined}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value)
@@ -201,10 +204,14 @@ export function SharingSettings() {
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="min-h-[44px] w-full rounded-lg border border-app-border bg-white pl-9 pr-3 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  className={clsx(
+                    'min-h-[44px] w-full rounded-lg border bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-1',
+                    errors.on('email') ? 'border-danger ring-1 ring-danger' : 'border-app-border focus:border-accent focus:ring-accent'
+                  )}
                 />
               </div>
             )}
+            <FieldError message={errors.on('email')} />
             {notFound && !found && (
               <p className="mt-1 text-helper text-slate-400">
                 No LedgeEaze account with that exact email. Check the spelling, or ask them to sign up first.
@@ -221,7 +228,7 @@ export function SharingSettings() {
             </Button>
           )}
         </div>
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+        <FormError message={errors.general} />
 
         {outgoing.length > 0 && (
           <ul className="mt-1 flex flex-col gap-2 border-t border-app-border pt-3">

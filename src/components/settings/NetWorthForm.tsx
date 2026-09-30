@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { FormError } from '@/components/ui/FieldError'
 
 const AUTOSAVE_DELAY_MS = 800
 
@@ -24,6 +24,8 @@ export function NetWorthForm() {
 
   const assetsNum = Number(assets || 0)
   const liabilitiesNum = Number(liabilities || 0)
+  const numberError = (n: number) =>
+    !Number.isFinite(n) ? 'Enter a number, like 250000.' : n < 0 ? 'This can’t be below zero.' : null
 
   // Unlike Personal details' discrete pickers, these are free-text number
   // inputs -- saving on every keystroke would fire a request per digit
@@ -62,6 +64,7 @@ export function NetWorthForm() {
           type="number"
           step="0.01"
           min="0"
+          error={numberError(assetsNum)}
           value={assets}
           onChange={(e) => setAssets(e.target.value)}
         />
@@ -70,6 +73,7 @@ export function NetWorthForm() {
           type="number"
           step="0.01"
           min="0"
+          error={numberError(liabilitiesNum)}
           value={liabilities}
           onChange={(e) => setLiabilities(e.target.value)}
         />
@@ -80,7 +84,7 @@ export function NetWorthForm() {
         </span>
         <span className="text-sm font-semibold text-slate-900">{format(assetsNum - liabilitiesNum)}</span>
       </div>
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
     </Card>
   )
 }

@@ -2,7 +2,8 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useAuth } from '@/context/AuthContext'
 import { useAddDebitCard, useUpdateDebitCard } from '@/hooks/useDebitCards'
 import { useMyTransactions } from '@/hooks/useTransactions'
@@ -58,20 +59,20 @@ export function DebitCardForm({
   const [name, setName] = useState(card?.name ?? '')
   const [last4, setLast4] = useState(card?.last4 ?? '')
   const [network, setNetwork] = useState<CardNetwork | null>(card?.network ?? null)
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'account' | 'name' | 'last4'>()
   const saving = addCard.isPending || updateCard.isPending
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setError(null)
-    if (account === PICK_ACCOUNT) return setError('Choose the account this card spends from.')
+    errors.clear()
+    if (account === PICK_ACCOUNT) return errors.fail('Choose the account this card spends from.', 'account')
     const trimmed = name.trim()
-    if (!trimmed) return setError('Give the card a name.')
+    if (!trimmed) return errors.fail('Give the card a name.', 'name')
     let digits: string | null
     try {
       digits = normalizeLast4(last4)
     } catch {
-      return setError('The last 4 digits must be 4 numbers.')
+      return errors.fail('The last 4 digits must be 4 numbers.', 'last4')
     }
     try {
       if (card) {
@@ -88,7 +89,7 @@ export function DebitCardForm({
       }
       onSaved(trimmed)
     } catch (err) {
-      setError(friendlyAccountError(err, 'Could not save this card.'))
+      errors.fail(friendlyAccountError(err, 'Could not save this card.'))
     }
   }
 
@@ -116,6 +117,7 @@ export function DebitCardForm({
         <Dropdown
           options={account === PICK_ACCOUNT ? [PICK_ACCOUNT, ...options] : options}
           value={account}
+          error={errors.on('account')}
           aria-label="Account this card spends from"
           disabled={hasPurchases}
           onChange={(e) => setAccount(e.target.value)}
@@ -132,6 +134,7 @@ export function DebitCardForm({
           label="Card name"
           autoComplete="off"
           placeholder="e.g. HDFC Millennia Debit"
+          error={errors.on('name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -143,6 +146,7 @@ export function DebitCardForm({
           autoComplete="off"
           maxLength={4}
           placeholder="1234"
+          error={errors.on('last4')}
           value={last4}
           onChange={(e) => setLast4(e.target.value.replace(/\D/g, ''))}
         />
@@ -150,7 +154,7 @@ export function DebitCardForm({
 
       <CardNetworkPicker value={network} onChange={setNetwork} idPrefix={idPrefix} />
 
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={errors.general} />
 
       {!hideActions && (
       <div className="flex flex-wrap items-center justify-between gap-2">

@@ -2,11 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useConvertAccountToDebitCard, type ConvertResult } from '@/hooks/useDebitCards'
 import { normalizeLast4 } from '@/lib/debitCards'
 import { friendlyAccountError } from './accountErrors'
 import { guessLinkedAccount } from './linkedAccountGuess'
+import { FormError } from '@/components/ui/FieldError'
 
 const PICK_ACCOUNT = 'Choose an account'
 
@@ -95,7 +95,7 @@ export function ConvertDebitCardForm({ account, bankAccounts, transactionCount, 
         <li>Its starting balance is added to {target}’s, and the separate account goes away.</li>
       </ul>
 
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={convert.isPending}>

@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FieldError, FormError } from '@/components/ui/FieldError'
 import { TagsField } from './TagsField'
 import { AccountChips, type ChipGroup, type ChipOption } from './AccountChips'
 import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
@@ -88,6 +88,11 @@ const DEBIT_KEY = 'debit:'
 export function AddEntryModal({ open, onClose, transaction, initialType = 'expense', prefill }: AddEntryModalProps) {
   const [form, setForm] = useState(EMPTY_STATE)
   const [error, setError] = useState<string | null>(null)
+  // Which field the error is about (null = the whole form, shown at the top).
+  const [errorField, setErrorField] = useState<string | null>(null)
+  // "Save anyway" after the not-enough-money warning, until the sheet resets.
+  const overdrawOk = useRef(false)
+  const [overdrawPending, setOverdrawPending] = useState(false)
   // Set when the last save attempt was rejected as a duplicate -- offers a
   // "Save anyway" retry instead of just leaving the user stuck, since the
   // fingerprint check can't tell a real duplicate from two distinct
@@ -339,14 +344,14 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     return () => controller.abort()
   }, [open, isForeign, form.currency, form.date, homeCurrency])
 
-  // Live "does this overdraw the account" hint for transfers. Derived from the
+  // Live "does this overdraw the account" hint (transfers and spends). Derived from the
   // account's opening balance plus logged transaction history, so if we're
   // editing an existing transfer out of this same account, its own old amount
   // has to be added back first -- otherwise the balance already reflects this
   // transfer having happened, double-counting it.
   const fromAccountBalance = useMemo(() => {
     let balance = accountBalances.get(form.account) ?? 0
-    if (transaction?.type === 'transfer' && transaction.account === form.account) {
+    if (transaction && transaction.type !== 'income' && transaction.account === form.account) {
       balance += transaction.amount
     }
     return balance
@@ -402,6 +407,13 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // Spending on a credit-card account is, by definition, paid by credit card:
   // fill that in when the user hasn't picked a method themselves.
   const isCardAccount = accountKinds.get(form.account) === 'credit_card'
+  // Spending or moving more than a bank, cash or wallet account holds (cards can go below zero: that's what's owed).
+  const overdraws =
+    form.type !== 'income' &&
+    !!form.account &&
+    !isCardAccount &&
+    accountBalances.has(form.account) &&
+    homeAmount > fromAccountBalance + 0.005
   const toCard = isTransfer ? cardStatuses.get(form.toAccount) : undefined
   useEffect(() => {
     if (isCardAccount && !isTransfer && !form.paymentMethod) {
@@ -456,7 +468,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     }
     setSplitOn(false)
     setSplitWith('')
-    setError(null)
+    clearError()
     setDuplicatePending(false)
     setRateStatus({ state: 'idle' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -467,7 +479,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     setDetailsOpen(false)
     setSplitOn(false)
     setSplitWith('')
-    setError(null)
+    clearError()
     setDuplicatePending(false)
   }
 
@@ -491,9 +503,23 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   // change and the CSS animation wouldn't restart -- bumping shakeToken
   // into the key forces React to remount that wrapper, restarting it every
   // time. A field tucked inside a collapsed section opens that section first.
+  const clearError = () => {
+    setError(null)
+    setErrorField(null)
+    setOverdrawPending(false)
+    overdrawOk.current = false
+  }
   const fail = (message: string, field?: string) => {
     setError(message)
-    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    setErrorField(field ?? null)
+    // A field error sits under its field (scrolled to the middle); anything else at the top.
+    if (field) {
+      requestAnimationFrame(() =>
+        contentRef.current?.querySelector(`[data-field="${field}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      )
+    } else {
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    }
     if (field === 'fxRate') setDetailsOpen(true)
     if (field === 'file') setDetailsOpen(true)
     if (field) {
@@ -501,6 +527,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       setShakeToken((t) => t + 1)
     }
   }
+  const fieldErr = (field: string) => (error && errorField === field ? error : null)
   const shakeKey = (field: string) => (shakeField === field ? `${field}-${shakeToken}` : field)
   const shakeClass = (field: string) => (shakeField === field ? 'animate-shake' : undefined)
 
@@ -523,11 +550,14 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     }
   }
 
-  const handleSubmit = async (opts?: { allowDuplicate?: boolean }) => {
+  const handleSubmit = async (opts?: { allowDuplicate?: boolean; allowOverdraw?: boolean }) => {
     setError(null)
+    setErrorField(null)
     if (!opts?.allowDuplicate) setDuplicatePending(false)
+    if (opts?.allowOverdraw) overdrawOk.current = true
+    setOverdrawPending(false)
 
-    if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter a valid amount greater than zero.', 'amount')
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return fail('Enter an amount above zero.', 'amount')
     if (!form.merchant.trim()) return fail('Enter who you paid or who paid you.', 'merchant')
     if (!form.date) return fail('Choose a date.', 'date')
     if (!form.account) return fail('Choose an account.', 'account')
@@ -538,6 +568,14 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       return fail(`Enter the exchange rate from ${form.currency} to ${homeCurrency}.`, 'fxRate')
     }
     if (isForeign && homeAmount <= 0) return fail('That converts to less than 0.01. Check the amount and rate.', 'amount')
+    // A bank, cash or wallet account can't go below zero without the user saying so.
+    if (overdraws && !overdrawOk.current) {
+      setOverdrawPending(true)
+      return fail(
+        `Not enough money in ${form.account}: it has ${format(Math.max(fromAccountBalance, 0))}. Pick another account, update its balance in Settings, or tap Save anyway.`,
+        'account'
+      )
+    }
 
     const foreign = isForeign ? { currency: form.currency, amount: amountNum, rate: rateNum } : null
 
@@ -653,8 +691,12 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           <Button variant="secondary" onClick={handleClose} disabled={saving}>
             Cancel
           </Button>
-          {duplicatePending && (
-            <Button variant="secondary" onClick={() => handleSubmit({ allowDuplicate: true })} disabled={saving}>
+          {(duplicatePending || overdrawPending) && (
+            <Button
+              variant="secondary"
+              onClick={() => handleSubmit({ allowDuplicate: duplicatePending || undefined, allowOverdraw: overdrawPending || undefined })}
+              disabled={saving}
+            >
               Save anyway
             </Button>
           )}
@@ -665,7 +707,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       }
     >
       <div className="flex flex-col gap-4">
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+        <FormError message={errorField ? null : error} />
 
         <div role="group" aria-label="Entry type" className="grid grid-cols-3 gap-1 rounded-xl border border-app-border p-1">
           {(['expense', 'income', 'transfer'] as TransactionType[]).map((t) => (
@@ -698,6 +740,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             compact "INR · change" control that reveals the picker and rate. */}
         <div
           key={shakeKey('amount')}
+          data-field="amount"
           className={clsx('flex flex-col items-center gap-1.5 py-1', shakeClass('amount'))}
         >
           <label
@@ -720,9 +763,14 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               style={{ width: `${Math.min(Math.max(form.amount.length, 1), 12) + 0.75}ch` }}
-              className="amount-input min-w-[2ch] max-w-full border-0 border-b-2 border-transparent bg-transparent p-0 text-center font-serif text-5xl font-semibold tabular-nums text-slate-900 transition-colors placeholder:text-slate-300 focus:border-accent focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              aria-invalid={fieldErr('amount') ? true : undefined}
+              className={clsx(
+                'amount-input min-w-[2ch] max-w-full border-0 border-b-2 bg-transparent p-0 text-center font-serif text-5xl font-semibold tabular-nums text-slate-900 transition-colors placeholder:text-slate-300 focus:border-accent focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                fieldErr('amount') ? 'border-danger' : 'border-transparent'
+              )}
             />
           </div>
+          <FieldError message={fieldErr('amount')} />
           <div className="flex flex-wrap items-center justify-center gap-2">
           {!isTransfer && (
             <button
@@ -833,12 +881,13 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
-          <div key={shakeKey('merchant')} className={shakeClass('merchant')}>
+          <div key={shakeKey('merchant')} data-field="merchant" className={shakeClass('merchant')}>
             <TextField
               label={form.type === 'income' ? 'Received from' : isTransfer ? 'What for' : 'Paid to'}
               id="entry-merchant"
               placeholder={form.type === 'income' ? 'e.g. Salary' : isTransfer ? 'e.g. Card payment' : 'e.g. Amazon'}
               maxLength={60}
+              error={fieldErr('merchant')}
               value={form.merchant}
               onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
             />
@@ -873,11 +922,12 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               </button>
             )}
           </div>
-          <div key={shakeKey('date')} className={shakeClass('date')}>
+          <div key={shakeKey('date')} data-field="date" className={shakeClass('date')}>
             <TextField
               label="Date"
               id="entry-date"
               type="date"
+              error={fieldErr('date')}
               value={form.date}
               onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
             />
@@ -927,7 +977,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         )}
 
         {showFromPicker && (
-        <div key={shakeKey('account')} className={shakeClass('account')}>
+        <div key={shakeKey('account')} data-field="account" className={shakeClass('account')}>
           <AccountChips
             label={isTransfer ? 'From' : form.type === 'income' ? 'Into' : 'Paid with'}
             groups={fromGroups}
@@ -935,10 +985,16 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             onChange={pickFrom}
             emptyText="No accounts yet. Add one in Settings, Accounts & cards."
           />
+          <FieldError message={fieldErr('account')} />
           {selectedCard && !isTransfer && (
             <p className="mt-1 text-helper text-slate-500">
               Comes out of <span className="font-medium text-slate-700">{selectedCard.account}</span>
               {accountBalances.has(selectedCard.account) && ` · ${format(fromAccountBalance)} there now`}
+            </p>
+          )}
+          {!isTransfer && overdraws && !fieldErr('account') && (
+            <p className="mt-1 text-helper font-medium text-caution">
+              Not enough money in {form.account}: only {format(Math.max(fromAccountBalance, 0))} there
             </p>
           )}
           {isTransfer && form.account && !isCardAccount && (
@@ -957,7 +1013,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         )}
 
         {isTransfer && (
-          <div key={shakeKey('toAccount')} className={shakeClass('toAccount')}>
+          <div key={shakeKey('toAccount')} data-field="toAccount" className={shakeClass('toAccount')}>
             <AccountChips
               label="To"
               groups={toGroups}
@@ -965,6 +1021,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               onChange={(key) => setForm((f) => ({ ...f, toAccount: key.slice(ACCOUNT_KEY.length) }))}
               emptyText="No other accounts yet. Add one in Settings, Accounts & cards."
             />
+            <FieldError message={fieldErr('toAccount')} />
             {form.toAccount && (
               <p className="mt-1 text-helper text-slate-400">
                 {toCard
@@ -1096,7 +1153,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                     />
                   </div>
                   {isForeign && (
-                    <div key={shakeKey('fxRate')} className={shakeClass('fxRate')}>
+                    <div key={shakeKey('fxRate')} data-field="fxRate" className={shakeClass('fxRate')}>
                       <TextField
                         label={`1 ${form.currency} = ? ${homeCurrency}`}
                         type="number"
@@ -1104,6 +1161,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                         min="0"
                         step="any"
                         placeholder={rateStatus.state === 'loading' ? 'Looking up…' : 'Rate'}
+                        error={fieldErr('fxRate')}
                         value={form.fxRate}
                         onChange={(e) => setForm((f) => ({ ...f, fxRate: e.target.value }))}
                       />
@@ -1143,9 +1201,11 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                   aria-label="Receipt file"
                   accept="image/*,.pdf,.csv,.xls,.xlsx"
                   onChange={(e) => setForm((f) => ({ ...f, file: e.target.files?.[0] ?? null }))}
+                  data-field="file"
                   className={clsx('text-sm', shakeClass('file'))}
                 />
               )}
+              <FieldError message={fieldErr('file')} />
             </div>
           )}
         </div>

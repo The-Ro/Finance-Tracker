@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Modal, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useRules, type Rule } from '@/hooks/useRules'
 
 interface RuleFormModalProps {
@@ -14,12 +15,12 @@ export function RuleFormModal({ open, onClose, editing }: RuleFormModalProps) {
   const { create, update } = useRules()
   const [whenText, setWhenText] = useState(editing?.when_text ?? '')
   const [thenText, setThenText] = useState(editing?.then_text ?? '')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'when' | 'then'>()
 
   const handleSubmit = async () => {
-    setError(null)
-    if (!whenText.trim()) return setError('Describe when this rule should apply.')
-    if (!thenText.trim()) return setError('Describe what should happen.')
+    errors.clear()
+    if (!whenText.trim()) return errors.fail('Describe when this rule should apply.', 'when')
+    if (!thenText.trim()) return errors.fail('Describe what should happen.', 'then')
 
     try {
       if (editing) {
@@ -29,7 +30,7 @@ export function RuleFormModal({ open, onClose, editing }: RuleFormModalProps) {
       }
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save this rule.')
+      errors.fail(e instanceof Error ? e.message : 'Could not save this rule.')
     }
   }
 
@@ -43,23 +44,23 @@ export function RuleFormModal({ open, onClose, editing }: RuleFormModalProps) {
       headerActions={<SheetSaveButton onClick={handleSubmit} busy={saving} label="Save rule" />}
     >
       <div className="flex flex-col gap-4">
+        <FormError message={errors.general} />
         <TextField
           label="When (merchant contains…)"
           placeholder="e.g. starbucks"
-          value={whenText}
+          error={errors.on('when')} value={whenText}
           onChange={(e) => setWhenText(e.target.value)}
         />
         <TextField
           label="Then (category and/or tags)"
           placeholder="e.g. category: Dining, tag: coffee"
-          value={thenText}
+          error={errors.on('then')} value={thenText}
           onChange={(e) => setThenText(e.target.value)}
         />
         <p className="text-helper text-slate-500">
           Applies only to future CSV imports and new entries left at "Needs review" - never rewrites past
           transactions.
         </p>
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
   )

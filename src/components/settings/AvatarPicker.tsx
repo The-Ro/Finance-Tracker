@@ -3,7 +3,6 @@ import { Upload } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { Avatar } from '@/components/ui/Avatar'
 import { initialsFor } from '@/lib/format'
 import { useAuth } from '@/context/AuthContext'
@@ -12,6 +11,7 @@ import { useUpdateProfile } from '@/hooks/useUpdateProfile'
 import { useUploadAvatar } from '@/hooks/useUploadAvatar'
 import { AVATAR_OPTIONS } from '@/lib/avatars'
 import clsx from 'clsx'
+import { FormError } from '@/components/ui/FieldError'
 
 export function AvatarPicker() {
   const { avatar, displayName, email } = useAuth()
@@ -82,7 +82,7 @@ export function AvatarPicker() {
           Save
         </Button>
       </div>
-      {nameError && <InlineMessage tone="error">{nameError}</InlineMessage>}
+      <FormError message={nameError} />
 
       <div className="flex items-center gap-3 border-t border-app-border pt-4">
         <Avatar avatar={avatar} name={displayName || email || '?'} size={56} className="text-2xl" />
@@ -143,7 +143,7 @@ export function AvatarPicker() {
         </button>
       </div>
 
-      {avatarError && <InlineMessage tone="error">{avatarError}</InlineMessage>}
+      <FormError message={avatarError} />
     </Card>
   )
 }

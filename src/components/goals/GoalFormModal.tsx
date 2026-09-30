@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useGoals, type Goal } from '@/hooks/useGoals'
 
 interface GoalFormModalProps {
@@ -19,7 +20,8 @@ export function GoalFormModal({ open, onClose, editing, onDelete }: GoalFormModa
   const [current, setCurrent] = useState(editing ? String(editing.current_amount) : '')
   const [dueDate, setDueDate] = useState(editing?.due_date ?? '')
   const [note, setNote] = useState(editing?.note ?? '')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'name' | 'target' | 'current'>()
+  const clearErrors = errors.clear
 
   // GoalFormModal stays mounted across opens (GoalsPage just toggles `open`),
   // so the useState initializers above only ever run once, on first mount.
@@ -33,16 +35,16 @@ export function GoalFormModal({ open, onClose, editing, onDelete }: GoalFormModa
     setCurrent(editing ? String(editing.current_amount) : '')
     setDueDate(editing?.due_date ?? '')
     setNote(editing?.note ?? '')
-    setError(null)
-  }, [open, editing])
+    clearErrors()
+  }, [open, editing, clearErrors])
 
   const handleSubmit = async () => {
-    setError(null)
+    errors.clear()
     const targetNum = Number(target)
     const currentNum = current === '' ? 0 : Number(current)
-    if (!name.trim()) return setError('Give this goal a name.')
-    if (!Number.isFinite(targetNum) || targetNum <= 0) return setError('Enter a valid target amount.')
-    if (!Number.isFinite(currentNum) || currentNum < 0) return setError('Enter a valid saved amount.')
+    if (!name.trim()) return errors.fail('Give this goal a name.', 'name')
+    if (!Number.isFinite(targetNum) || targetNum <= 0) return errors.fail('Enter a valid target amount.', 'target')
+    if (!Number.isFinite(currentNum) || currentNum < 0) return errors.fail('Enter a valid saved amount.', 'current')
 
     try {
       if (editing) {
@@ -65,7 +67,7 @@ export function GoalFormModal({ open, onClose, editing, onDelete }: GoalFormModa
       }
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save this goal.')
+      errors.fail(e instanceof Error ? e.message : 'Could not save this goal.')
     }
   }
 
@@ -84,14 +86,14 @@ export function GoalFormModal({ open, onClose, editing, onDelete }: GoalFormModa
       }
     >
       <div className="flex flex-col gap-4">
-        <TextField label="Goal name" value={name} onChange={(e) => setName(e.target.value)} />
+        <FormError message={errors.general} />
+        <TextField label="Goal name" error={errors.on('name')} value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
-          <TextField label="Target amount" type="number" step="0.01" min="0.01" value={target} onChange={(e) => setTarget(e.target.value)} />
-          <TextField label="Current saved" type="number" step="0.01" min="0" value={current} onChange={(e) => setCurrent(e.target.value)} />
+          <TextField label="Target amount" type="number" step="0.01" min="0.01" error={errors.on('target')} value={target} onChange={(e) => setTarget(e.target.value)} />
+          <TextField label="Current saved" type="number" step="0.01" min="0" error={errors.on('current')} value={current} onChange={(e) => setCurrent(e.target.value)} />
         </div>
         <TextField label="Due date (optional)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         <TextField label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </div>
     </Modal>
   )

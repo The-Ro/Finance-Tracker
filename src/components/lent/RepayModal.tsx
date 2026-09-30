@@ -3,7 +3,8 @@ import { X } from 'lucide-react'
 import { Modal, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
 import { DateField } from '@/components/ui/DateField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useIous, type IouPaymentRow } from '@/hooks/useIous'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate, todayISO } from '@/lib/format'
@@ -23,29 +24,30 @@ export function RepayModal({
   const { format } = useFormatCurrency()
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(todayISO())
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'amount'>()
+  const clearErrors = errors.clear
 
   useEffect(() => {
     if (!line) return
     setAmount(String(line.left))
     setDate(todayISO())
-    setError(null)
-  }, [line])
+    clearErrors()
+  }, [line, clearErrors])
 
   if (!line) return null
   const lent = line.direction === 'lent'
   const history = payments.filter((p) => p.iou_id === line.id)
 
   const save = async () => {
-    setError(null)
+    errors.clear()
     const n = Number(amount)
-    if (!Number.isFinite(n) || n <= 0) return setError('Enter the amount.')
-    if (n > line.left + 0.001) return setError(`Only ${format(line.left)} is left.`)
+    if (!Number.isFinite(n) || n <= 0) return errors.fail('Enter the amount.', 'amount')
+    if (n > line.left + 0.001) return errors.fail(`Only ${format(line.left)} is left.`, 'amount')
     try {
       await addPayment.mutateAsync({ iouId: line.id, amount: n, date })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Couldn’t save this. Try again.')
+      errors.fail(e instanceof Error ? e.message : 'Couldn’t save this. Try again.')
     }
   }
 
@@ -57,6 +59,7 @@ export function RepayModal({
       headerActions={<SheetSaveButton onClick={save} busy={addPayment.isPending} label="Save" />}
     >
       <div className="flex flex-col gap-4">
+        <FormError message={errors.general} />
         <p className="text-sm text-slate-600">
           {format(line.left)} left of {format(line.amount)} {lent ? 'you lent' : 'you borrowed'} on {formatShortDate(line.date)}.
         </p>
@@ -76,10 +79,9 @@ export function RepayModal({
           ))}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <TextField label="Amount" type="number" inputMode="decimal" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <TextField label="Amount" type="number" inputMode="decimal" step="0.01" min="0.01" error={errors.on('amount')} value={amount} onChange={(e) => setAmount(e.target.value)} />
           <DateField label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
         {history.length > 0 && (
           <div className="flex flex-col gap-1.5 border-t border-app-border pt-3">
             <p className="text-helper font-semibold text-slate-600">Paid back so far</p>

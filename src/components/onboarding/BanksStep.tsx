@@ -1,8 +1,8 @@
+import { FormError } from '@/components/ui/FieldError'
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Check, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useAuth } from '@/context/AuthContext'
 import {
   useAccountCreatedBy,
@@ -237,7 +237,7 @@ export function BanksStep({ onBack, onDone }: BanksStepProps) {
         </div>
       </div>
 
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
 
       <div className="flex justify-between gap-2">
         <Button variant="ghost" onClick={onBack} disabled={saving}>

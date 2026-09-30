@@ -9,16 +9,17 @@ import { useUserSettings } from '@/hooks/useUserSettings'
 import { useUpdateProfile } from '@/hooks/useUpdateProfile'
 import { usePwaInstall } from '@/hooks/usePwaInstall'
 import { SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currency'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { AccountsStep } from './AccountsStep'
 import { BanksStep } from './BanksStep'
+import { SalarySettings } from '@/components/settings/SalarySettings'
+import { FormError } from '@/components/ui/FieldError'
 
 const currencyOptions = SUPPORTED_CURRENCIES.map((c) => `${c.code} - ${c.label} (${c.symbol})`)
 const labelForCode = (code: string) => currencyOptions.find((o) => o.startsWith(code + ' ')) ?? currencyOptions[0]
 
-// You -> your banks -> cards & wallets. Everything else (bills, a budget, a
-// goal, import, sharing) is the "Finish setting up" checklist on Home.
-const TOTAL_STEPS = 3
+// You -> your banks -> cards & wallets -> salary. Everything else (bills, a
+// budget, a goal, import, sharing) is the "Finish setting up" checklist on Home.
+const TOTAL_STEPS = 4
 
 function StepProgress({ step, onSkip, disabled }: { step: number; onSkip: () => void; disabled: boolean }) {
   return (
@@ -121,11 +122,28 @@ export function WelcomeModal() {
       <div className="flex flex-col gap-4">
         <StepProgress step={step} onSkip={finish} disabled={saving} />
 
-        {step === 3 ? (
+        {step === 4 ? (
+          <div className="animate-fade-in-up flex flex-col gap-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">Your salary</h3>
+              <p className="text-helper text-slate-500">Optional. You can set it later in Settings, Salary.</p>
+            </div>
+            <SalarySettings bare onSaved={finish} />
+            <div className="flex justify-between gap-2">
+              <Button variant="secondary" onClick={() => setStep(3)} disabled={saving}>
+                Back
+              </Button>
+              <Button variant="secondary" onClick={finish} disabled={saving}>
+                {saving ? 'Finishing…' : 'No salary, finish'}
+              </Button>
+            </div>
+          </div>
+        ) : step === 3 ? (
           <AccountsStep
             onBack={() => setStep(2)}
-            onDone={finish}
-            finishing={saving}
+            onDone={() => setStep(4)}
+            finishing={false}
+            nextLabel="Next"
             title="Cards and wallets"
             description="Add your credit cards with what you owe today, and wallets like Paytm. Your banks are listed too; tap one to change it."
           />
@@ -169,7 +187,7 @@ export function WelcomeModal() {
           </>
         )}
 
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
+        <FormError message={error} />
       </div>
     </Modal>
   )

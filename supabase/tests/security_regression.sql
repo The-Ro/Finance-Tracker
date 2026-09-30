@@ -743,5 +743,23 @@ begin
 end $$;
 
 reset role;
+
+-- 1.13.0: birthdays, bell notes pushed to phones, announcements in the bell.
+-- The birthday filer and both trigger functions are callable by no signed-in
+-- user (the filer is service role only: it writes other people's notes).
+do $$
+begin
+  if has_function_privilege('authenticated', 'public.file_birthday_notifications(date)', 'execute') then
+    raise exception 'FAIL: signed-in users can file birthday notes';
+  end if;
+  if has_function_privilege('authenticated', 'public.notifications_push_to_device()', 'execute')
+     or has_function_privilege('authenticated', 'public.app_announcements_notify()', 'execute') then
+    raise exception 'FAIL: a notification trigger function is callable by signed-in users';
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'notifications_push_to_device' and not tgisinternal) then
+    raise exception 'FAIL: bell notes are no longer pushed to phones';
+  end if;
+end $$;
+
 select 'ALL SECURITY CHECKS PASSED' as result;
 rollback;

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
+import { FormError } from '@/components/ui/FieldError'
+import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useGoals, type Goal } from '@/hooks/useGoals'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { addToGoal, parseDeposit } from '@/lib/goals'
@@ -21,15 +22,16 @@ export function AddMoneyModal({ goal, onClose }: AddMoneyModalProps) {
   const { update } = useGoals()
   const { format } = useFormatCurrency()
   const [amount, setAmount] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFieldErrors<'amount'>()
+  const clearErrors = errors.clear
 
   // Reset per goal opened, not on every refetch of the same goal.
   const goalId = goal?.id
   useEffect(() => {
     if (!goalId) return
     setAmount('')
-    setError(null)
-  }, [goalId])
+    clearErrors()
+  }, [goalId, clearErrors])
 
   if (!goal) return null
 
@@ -38,13 +40,13 @@ export function AddMoneyModal({ goal, onClose }: AddMoneyModalProps) {
   const after = deposit === null ? null : addToGoal(goal.current_amount, deposit)
 
   const handleSave = async () => {
-    setError(null)
-    if (deposit === null) return setError('Enter an amount above zero.')
+    errors.clear()
+    if (deposit === null) return errors.fail('Enter an amount above zero.', 'amount')
     try {
       await update.mutateAsync({ id: goal.id, currentAmount: addToGoal(goal.current_amount, deposit) })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not add money to this goal.')
+      errors.fail(e instanceof Error ? e.message : 'Could not add money to this goal.')
     }
   }
 
@@ -72,6 +74,7 @@ export function AddMoneyModal({ goal, onClose }: AddMoneyModalProps) {
           handleSave()
         }}
       >
+            <FormError message={errors.general} />
         <p className="text-sm text-slate-600">
           <span className="tabular-nums">{format(goal.current_amount)}</span> saved of{' '}
           <span className="tabular-nums">{format(goal.target_amount)}</span>
@@ -89,7 +92,7 @@ export function AddMoneyModal({ goal, onClose }: AddMoneyModalProps) {
           inputMode="decimal"
           autoComplete="off"
           placeholder="0"
-          value={amount}
+          error={errors.on('amount')} value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
         {remaining > 0 && (
@@ -107,7 +110,6 @@ export function AddMoneyModal({ goal, onClose }: AddMoneyModalProps) {
             {after >= goal.target_amount && ' · goal reached'}
           </p>
         )}
-        {error && <InlineMessage tone="error">{error}</InlineMessage>}
       </form>
     </Modal>
   )

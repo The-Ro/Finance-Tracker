@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useToast } from '@/context/ToastContext'
 import { useSendFeedback } from '@/hooks/useFeedback'
+import { FormError } from '@/components/ui/FieldError'
 
 export function FeedbackForm() {
   const [message, setMessage] = useState('')
@@ -38,7 +38,7 @@ export function FeedbackForm() {
         maxLength={2000}
         className="min-h-[100px] w-full resize-y rounded-lg border border-app-border bg-white px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
       />
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
       <div>
         <Button onClick={handleSend} disabled={sendFeedback.isPending || !message.trim()}>
           {sendFeedback.isPending ? 'Sending…' : 'Send feedback'}

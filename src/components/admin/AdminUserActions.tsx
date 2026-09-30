@@ -3,10 +3,10 @@ import { KeyRound, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useToast } from '@/context/ToastContext'
 import { useAdminUserActions } from '@/hooks/useAdmin'
 import type { AdminUserRow } from '@/types/database.types'
+import { FormError } from '@/components/ui/FieldError'
 
 type Confirm = { kind: 'admin' | 'unadmin' | 'delete' } | null
 
@@ -111,7 +111,7 @@ export function AdminUserActions({ user, isSelf }: { user: AdminUserRow; isSelf:
               least one admin.
             </p>
           )}
-          {error && <InlineMessage tone="error">{error}</InlineMessage>}
+          <FormError message={error} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={close} disabled={busy}>
               Cancel

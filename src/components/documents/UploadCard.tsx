@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useDocuments } from '@/hooks/useDocuments'
+import { FormError } from '@/components/ui/FieldError'
 
 export function UploadCard() {
   const { upload } = useDocuments()
@@ -45,7 +45,7 @@ export function UploadCard() {
       <Button onClick={() => inputRef.current?.click()} disabled={upload.isPending}>
         {upload.isPending ? 'Uploading…' : 'Choose files'}
       </Button>
-      {error && <InlineMessage tone="error">{error}</InlineMessage>}
+      <FormError message={error} />
     </Card>
   )
 }
