@@ -551,3 +551,10 @@ create policy money_reminders_own on public.money_reminders for all to authentic
   using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
 revoke all on public.money_reminders from anon, authenticated;
 grant select, insert, update, delete on public.money_reminders to authenticated;
+
+-- ===== 2026-09-30: zodiac_facts -- read-only list for signed-in users (migration 2026-09-30_zodiac_facts.sql) =====
+alter table public.zodiac_facts enable row level security;
+drop policy if exists zodiac_facts_read on public.zodiac_facts;
+create policy zodiac_facts_read on public.zodiac_facts for select to authenticated using (true);
+revoke all on public.zodiac_facts from anon, authenticated;
+grant select on public.zodiac_facts to authenticated;

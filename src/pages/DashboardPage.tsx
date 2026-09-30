@@ -39,6 +39,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, resolvePriorPeriod, isWithinRange, PERIOD_OPTIONS } from '@/lib/period'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { firstName, greetingFor, isBirthdayToday } from '@/lib/home'
+import { BirthdayFact } from '@/components/dashboard/BirthdayFact'
 import { toLocalISODate } from '@/lib/format'
 import { monthlySavings, savingsHeadline } from '@/lib/savings'
 import { todayISO } from '@/lib/format'
@@ -408,6 +409,9 @@ export function DashboardPage() {
             </button>
           </div>
         </div>
+        {birthday && settings.data?.dateOfBirth && (
+          <BirthdayFact dateOfBirth={settings.data.dateOfBirth} sign={settings.data.zodiacSign} />
+        )}
       </div>
 
       <HomeTiles balances={balances} saved={savedThisMonth} />

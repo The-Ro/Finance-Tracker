@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetSpendSummary, dueWithin, firstName, greetingFor, isBirthdayToday, sparklinePath } from './home'
+import { budgetSpendSummary, dueWithin, firstName, greetingFor, isBirthdayToday, sparklinePath, zodiacFor } from './home'
 
 describe('greetingFor', () => {
   it('splits the day into morning, afternoon and evening', () => {
@@ -105,5 +105,15 @@ describe('isBirthdayToday', () => {
     expect(isBirthdayToday('2000-02-29', '2027-02-28')).toBe(true)
     expect(isBirthdayToday('2000-02-29', '2028-02-28')).toBe(false)
     expect(isBirthdayToday('2000-02-29', '2028-02-29')).toBe(true)
+  })
+})
+
+describe('zodiacFor', () => {
+  it('finds the sun sign, including across the new year', () => {
+    expect(zodiacFor('1990-09-30')).toBe('libra')
+    expect(zodiacFor('1990-12-25')).toBe('capricorn')
+    expect(zodiacFor('1990-01-19')).toBe('capricorn')
+    expect(zodiacFor('1990-02-29')).toBe('pisces')
+    expect(zodiacFor('1990-03-21')).toBe('aries')
   })
 })

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { Plus } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { Check, Plus, X } from 'lucide-react'
 import { useCategories } from '@/hooks/useLookupLists'
 import type { CategoryKind } from '@/types/database.types'
 
@@ -60,8 +59,8 @@ export function QuickAddCategory({
 }
 
 /**
- * The full-width "New category" box: a name field with Add and Cancel under
- * it. Focuses itself and, once the keyboard is up, scrolls to the middle of
+ * The full-width "New category" box: a name field with a tick (add) and a
+ * cross (cancel) inside it. Focuses itself and, once the keyboard is up, scrolls to the middle of
  * the sheet so the field and both buttons are in view.
  */
 export function NewCategoryEditor({
@@ -106,46 +105,61 @@ export function NewCategoryEditor({
   }
 
   return (
-    <div ref={boxRef} className="animate-fade-in-up flex w-full min-w-0 flex-col gap-2 rounded-xl border border-accent bg-app-card p-3">
+    <div ref={boxRef} className="animate-fade-in-up flex w-full min-w-0 flex-col gap-1.5">
       <label htmlFor="new-category-name" className="text-helper font-medium text-slate-600">
         New {kind === 'income' ? 'income' : 'spending'} category
       </label>
-      <input
-        ref={inputRef}
-        id="new-category-name"
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value)
-          if (error) setError(null)
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            void submit()
-          } else if (e.key === 'Escape') {
-            e.preventDefault()
-            e.stopPropagation()
-            onCancel()
-          }
-        }}
-        maxLength={40}
-        placeholder="e.g. Pets"
-        enterKeyHint="done"
-        aria-invalid={error ? true : undefined}
+      {/* The tick and cross sit inside the box, which is full width so both stay on screen. */}
+      <div
         className={clsx(
-          'min-h-[44px] w-full min-w-0 rounded-lg border bg-white px-3 text-sm focus:outline-none focus:ring-1',
-          error ? 'border-danger ring-1 ring-danger' : 'border-app-border focus:border-accent focus:ring-accent'
+          'flex w-full min-w-0 items-center gap-1 rounded-xl border bg-white py-1 pl-3 pr-1',
+          error ? 'border-danger ring-1 ring-danger' : 'border-accent ring-1 ring-accent'
         )}
-      />
-      {error && <span className="text-helper font-medium text-danger">{error}</span>}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={add.isPending}>
-          Cancel
-        </Button>
-        <Button type="button" onClick={() => void submit()} disabled={add.isPending}>
-          {add.isPending ? 'Adding…' : 'Add category'}
-        </Button>
+      >
+        <input
+          ref={inputRef}
+          id="new-category-name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (error) setError(null)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void submit()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              e.stopPropagation()
+              onCancel()
+            }
+          }}
+          maxLength={40}
+          placeholder="e.g. Pets"
+          enterKeyHint="done"
+          aria-invalid={error ? true : undefined}
+          className="min-h-[40px] min-w-0 flex-1 bg-transparent text-sm focus:outline-none"
+        />
+        <button
+          type="button"
+          aria-label="Add category"
+          onClick={() => void submit()}
+          disabled={add.isPending}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-white disabled:opacity-50"
+        >
+          <Check size={18} strokeWidth={2.6} />
+        </button>
+        <button
+          type="button"
+          aria-label="Cancel new category"
+          onClick={onCancel}
+          disabled={add.isPending}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+        >
+          <X size={18} />
+        </button>
       </div>
+      {error && <span className="text-helper font-medium text-danger">{error}</span>}
     </div>
   )
 }

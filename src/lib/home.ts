@@ -1,3 +1,4 @@
+import type { ZodiacSign } from '@/types/database.types'
 import { addDaysISO, dueDatesInRange, type SchedulableItem } from '@/lib/billCalendar'
 
 /** Time-of-day greeting for the Home header: morning before noon, afternoon until 5pm. */
@@ -112,4 +113,21 @@ export function dueWithin<T extends SchedulableItem>(items: T[], today: string, 
     for (const date of dueDatesInRange(item, today, end)) rows.push({ item, date, overdue: false })
   }
   return rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+}
+
+/** Sun sign for a YYYY-MM-DD date of birth (tropical dates; same as the server's zodiac_for). */
+export function zodiacFor(dob: string): ZodiacSign {
+  const md = dob.slice(5, 10)
+  if (md >= '03-21' && md <= '04-19') return 'aries'
+  if (md >= '04-20' && md <= '05-20') return 'taurus'
+  if (md >= '05-21' && md <= '06-20') return 'gemini'
+  if (md >= '06-21' && md <= '07-22') return 'cancer'
+  if (md >= '07-23' && md <= '08-22') return 'leo'
+  if (md >= '08-23' && md <= '09-22') return 'virgo'
+  if (md >= '09-23' && md <= '10-22') return 'libra'
+  if (md >= '10-23' && md <= '11-21') return 'scorpio'
+  if (md >= '11-22' && md <= '12-21') return 'sagittarius'
+  if (md >= '12-22' || md <= '01-19') return 'capricorn'
+  if (md >= '01-20' && md <= '02-18') return 'aquarius'
+  return 'pisces'
 }
