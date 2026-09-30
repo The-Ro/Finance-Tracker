@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { InlineMessage } from '@/components/ui/InlineMessage'
 import { useToast } from '@/context/ToastContext'
 import { openInstallHelp } from '@/hooks/usePwaInstall'
-import { currentPushState, sendTestReminder, turnOffReminders, turnOnReminders, type PushState } from '@/lib/push'
+import { catchUpReminders, currentPushState, sendTestReminder, turnOffReminders, turnOnReminders, type PushState } from '@/lib/push'
 
 /**
  * Phone reminders on this device: one short note at 9 AM on days with bills
@@ -106,7 +106,11 @@ export function ReminderSettings() {
             run(async () => {
               const next = await turnOnReminders()
               setState(next)
-              if (next === 'on') show('Reminders are on for this device.', { tone: 'success' })
+              if (next === 'on') {
+                show('Reminders are on for this device.', { tone: 'success' })
+                // Turned on after today's 9 AM run? Get today's note now.
+                catchUpReminders().catch(() => undefined)
+              }
             })
           }
         >

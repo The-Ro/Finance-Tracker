@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Eye, EyeOff, Search, Send, UserMinus, X } from 'lucide-react'
+import { Clock, Eye, EyeOff, Search, Send, UserCheck, UserMinus, UserPlus, X } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { InlineMessage } from '@/components/ui/InlineMessage'
@@ -83,7 +83,8 @@ export function SharingSettings() {
         <div>
           <h3 className="text-sm font-semibold text-slate-800">People who can see your transactions</h3>
           <p className="mt-1 text-helper text-slate-500">
-            Tap the eye to pause someone for now, or Remove to stop sharing with them.
+            Tap the person-plus to ask to see theirs too, the eye to pause someone for now, or Remove to stop
+            sharing with them.
           </p>
         </div>
         {approvedViewers.length === 0 ? (
@@ -92,6 +93,10 @@ export function SharingSettings() {
           <ul className="flex flex-col gap-2">
             {approvedViewers.map((r) => {
               const paused = r.status === 'paused'
+              // Follow back: do you see *their* transactions too?
+              const theirs = outgoing.find((o) => o.owner_user_id === r.requester_user_id)
+              const theirEmail = profileMap[r.requester_user_id]?.email
+              const name = nameFor(r.requester_user_id)
               return (
                 <li
                   key={r.id}
@@ -106,6 +111,29 @@ export function SharingSettings() {
                     {paused && <span className="shrink-0 text-helper text-slate-400">Paused</span>}
                   </div>
                   <div className="flex shrink-0 items-center">
+                    {theirs ? (
+                      <span
+                        role="img"
+                        aria-label={theirs.status === 'pending' ? `Waiting for ${name} to say yes` : `You can see ${name}'s transactions`}
+                        title={theirs.status === 'pending' ? 'Asked to see theirs -- waiting for a yes' : 'You can see theirs too'}
+                        className={
+                          'flex h-9 w-9 items-center justify-center rounded-full ' +
+                          (theirs.status === 'pending' ? 'text-slate-400' : 'text-positive')
+                        }
+                      >
+                        {theirs.status === 'pending' ? <Clock size={16} /> : <UserCheck size={16} />}
+                      </span>
+                    ) : theirEmail ? (
+                      <button
+                        aria-label={`Ask to see ${name}'s transactions too`}
+                        title="Ask to see theirs too"
+                        onClick={() => sendRequest.mutate(theirEmail)}
+                        disabled={sendRequest.isPending}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-accent-dark hover:bg-accent-light disabled:opacity-50"
+                      >
+                        <UserPlus size={16} />
+                      </button>
+                    ) : null}
                     <button
                       aria-label={paused ? `Resume ${nameFor(r.requester_user_id)}'s access` : `Pause ${nameFor(r.requester_user_id)}'s access`}
                       aria-pressed={!paused}

@@ -1,16 +1,20 @@
 // send-reminders: LedgeEaze's daily phone reminders (Web Push).
 //
-// Two ways in:
+// Three ways in:
 // - The daily job (pg_cron, 09:00 IST, migration 2026-09-29_push_reminders.sql)
 //   POSTs with the `x-cron-secret` header. push_digest() says what each person
 //   should hear about today; every device they turned reminders on for gets one
 //   notification. Dead subscriptions (404/410) are removed.
-// - The app's "Send a test" button POSTs {"test": true} with the signed-in
-//   user's token; only that user's own devices get a test notification.
+// - Catch-up: the app POSTs {"catchUp": true} with the signed-in user's token
+//   when reminders are turned on or the app is opened. After 09:00 IST, that
+//   user's devices that missed today's note (turned on after the run, or
+//   offline) get it now. last_sent_on still stops a second send the same day.
+// - "Send a test" POSTs {"test": true} with the user's token; only that user's
+//   own devices get a test notification.
 //
 // Keys come from Vault via push_server_config() (service role only); nothing
 // secret is in this file. Deployed with verify_jwt = false because the daily
-// job has no user token; both paths check their own credentials below.
+// job has no user token; every path checks its own credentials below.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import * as webpush from 'jsr:@negrel/webpush@0.5.0'
@@ -25,6 +29,9 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+/** The daily run is at 09:00 India time; catch-up never sends earlier than that. */
+const SEND_HOUR_IST = 9
+
 interface Subscription {
   id: string
   owner_user_id: string
@@ -38,6 +45,8 @@ interface Message {
   body: string
   url: string
 }
+
+type DigestRow = Message & { owner_user_id: string }
 
 let server: Promise<{ app: webpush.ApplicationServer; cronSecret: string }> | null = null
 function getServer() {
@@ -54,9 +63,12 @@ function getServer() {
   return server
 }
 
-/** Today's date in India (the job runs at 09:00 IST). */
-function todayIst(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+/** Today's date and hour in India. */
+function nowIst(): { date: string; hour: number } {
+  const now = new Date()
+  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now)
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }).format(now))
+  return { date, hour }
 }
 
 async function sendTo(app: webpush.ApplicationServer, sub: Subscription, message: Message) {
@@ -75,41 +87,8 @@ async function sendTo(app: webpush.ApplicationServer, sub: Subscription, message
   }
 }
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
-
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
-
-  let body: { test?: boolean } = {}
-  try {
-    body = await req.json()
-  } catch {
-    // Empty body from the daily job is fine.
-  }
-  const { app, cronSecret } = await getServer()
-
-  // "Send a test" from the app: the caller's own devices only.
-  if (body.test) {
-    const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-    const { data: userData, error } = await supabase.auth.getUser(token)
-    if (error || !userData.user) return json({ error: 'Sign in first' }, 401)
-    const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('owner_user_id', userData.user.id)
-    const results = await Promise.all(
-      (subs ?? []).map((s: Subscription) =>
-        sendTo(app, s, { title: 'Reminders are on', body: 'You will get a short note on days with bills or money due.', url: '/settings/reminders' })
-      )
-    )
-    return json({ devices: results.length, sent: results.filter((r) => r === 'sent').length })
-  }
-
-  // The daily job.
-  if (!cronSecret || req.headers.get('x-cron-secret') !== cronSecret) return json({ error: 'Not allowed' }, 401)
-  const today = todayIst()
-  const { data: digest, error } = await supabase.rpc('push_digest', { p_today: today })
-  if (error) return json({ error: error.message }, 500)
-  const rows = (digest ?? []) as (Message & { owner_user_id: string })[]
+/** Sends today's note to each person's not-yet-notified devices and files it in their history. */
+async function deliver(app: webpush.ApplicationServer, rows: DigestRow[], today: string) {
   let sent = 0
   let gone = 0
   let failed = 0
@@ -135,5 +114,58 @@ Deno.serve(async (req) => {
         { onConflict: 'owner_user_id,ref', ignoreDuplicates: true }
       )
   }
-  return json({ date: today, people: rows.length, sent, gone, failed })
+  return { people: rows.length, sent, gone, failed }
+}
+
+async function signedInUser(req: Request) {
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
+  const { data, error } = await supabase.auth.getUser(token)
+  return error ? null : data.user
+}
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
+
+  let body: { test?: boolean; catchUp?: boolean } = {}
+  try {
+    body = await req.json()
+  } catch {
+    // Empty body from the daily job is fine.
+  }
+  const { app, cronSecret } = await getServer()
+  const { date: today, hour } = nowIst()
+
+  // "Send a test" from the app: the caller's own devices only.
+  if (body.test) {
+    const user = await signedInUser(req)
+    if (!user) return json({ error: 'Sign in first' }, 401)
+    const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('owner_user_id', user.id)
+    const results = await Promise.all(
+      (subs ?? []).map((s: Subscription) =>
+        sendTo(app, s, { title: 'Reminders are on', body: 'You will get a short note on days with bills or money due.', url: '/settings/reminders' })
+      )
+    )
+    return json({ devices: results.length, sent: results.filter((r) => r === 'sent').length })
+  }
+
+  // Catch-up for the caller's devices that missed today's 9 AM note.
+  if (body.catchUp) {
+    const user = await signedInUser(req)
+    if (!user) return json({ error: 'Sign in first' }, 401)
+    if (hour < SEND_HOUR_IST) return json({ date: today, waiting: true })
+    const { data: digest, error } = await supabase.rpc('push_digest', { p_today: today })
+    if (error) return json({ error: error.message }, 500)
+    const rows = ((digest ?? []) as DigestRow[]).filter((r) => r.owner_user_id === user.id)
+    return json({ date: today, ...(await deliver(app, rows, today)) })
+  }
+
+  // The daily job.
+  if (!cronSecret || req.headers.get('x-cron-secret') !== cronSecret) return json({ error: 'Not allowed' }, 401)
+  const { data: digest, error } = await supabase.rpc('push_digest', { p_today: today })
+  if (error) return json({ error: error.message }, 500)
+  return json({ date: today, ...(await deliver(app, (digest ?? []) as DigestRow[], today)) })
 })

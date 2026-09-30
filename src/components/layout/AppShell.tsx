@@ -8,6 +8,8 @@ import { OfflineBanner } from './OfflineBanner'
 import { GlobalModalsProvider } from '@/context/GlobalModalsContext'
 import { WelcomeModal } from '@/components/onboarding/WelcomeModal'
 import { WhatsNewModal } from '@/components/onboarding/WhatsNewModal'
+import { catchUpOncePerDay } from '@/lib/push'
+import { todayISO } from '@/lib/format'
 
 export function AppShell() {
   const location = useLocation()
@@ -17,6 +19,12 @@ export function AppShell() {
   // Transactions, ...) keeps whatever scroll offset the previous page was
   // at, so a short new page can open already scrolled past its own content,
   // or land in the middle of nowhere instead of at the top.
+  // Phone reminders: a device that missed today's 9 AM note (turned on later,
+  // or offline) gets it the first time the app opens after that.
+  useEffect(() => {
+    catchUpOncePerDay(todayISO()).catch(() => undefined)
+  }, [])
+
   useEffect(() => {
     window.scrollTo({ top: 0 })
   }, [location.pathname])

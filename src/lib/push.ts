@@ -86,3 +86,32 @@ export async function sendTestReminder(): Promise<{ devices: number; sent: numbe
   if (error) throw error
   return data as { devices: number; sent: number }
 }
+
+/**
+ * Asks the server to send today's note to this user's devices that missed the
+ * 9 AM run (turned on later, or offline). The server does nothing before 9 AM
+ * India time and never sends twice a day, so calling it often is harmless.
+ */
+export async function catchUpReminders(): Promise<void> {
+  await supabase.functions.invoke('send-reminders', { body: { catchUp: true } })
+}
+
+const CATCH_UP_KEY = 'ledgeeaze:reminder-catch-up'
+
+/** Once per day per device, when the app opens with reminders on. */
+export async function catchUpOncePerDay(today: string): Promise<void> {
+  // Before 9 AM the day's run hasn't happened yet; try again on a later open.
+  if (new Date().getHours() < 9) return
+  try {
+    if (localStorage.getItem(CATCH_UP_KEY) === today) return
+  } catch {
+    // Storage blocked: still fine to ask; the server dedupes.
+  }
+  if ((await currentPushState()) !== 'on') return
+  await catchUpReminders()
+  try {
+    localStorage.setItem(CATCH_UP_KEY, today)
+  } catch {
+    // ignore
+  }
+}

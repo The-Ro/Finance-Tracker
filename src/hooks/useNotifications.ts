@@ -6,7 +6,10 @@ import { useBudgetAlerts } from '@/hooks/useBudgets'
 import { useOverdueRecurringItems } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { formatShortDate, todayISO } from '@/lib/format'
-import { budgetNotice, overdueNotice } from '@/lib/notifications'
+import { budgetNotice, overdueNotice, salaryNotice } from '@/lib/notifications'
+import { SALARY_TAG, salaryPromptDue } from '@/lib/salary'
+import { useUserSettings } from '@/hooks/useUserSettings'
+import { useMyTransactions } from '@/hooks/useTransactions'
 import type { Database } from '@/types/database.types'
 
 export type NotificationRow = Database['public']['Tables']['notifications']['Row']
@@ -80,7 +83,20 @@ export function useFileOwnAlerts(existing: readonly NotificationRow[] | undefine
   const budgetAlerts = useBudgetAlerts()
   const overdue = useOverdueRecurringItems()
   const { format } = useFormatCurrency()
+  const settings = useUserSettings()
+  const { data: transactions } = useMyTransactions(userId)
   const tried = useRef(new Set<string>())
+
+  // Pay day: same rule as Home's SalaryPrompt (from pay day until confirmed,
+  // or until an income tagged #salary is logged this month).
+  const salary = settings.data?.salary ?? null
+  const salaryDue = useMemo(() => {
+    if (!salary || !transactions) return null
+    const today = todayISO()
+    const month = today.slice(0, 7)
+    const logged = transactions.some((t) => t.type === 'income' && t.date.startsWith(month) && t.tags.includes(SALARY_TAG))
+    return salaryPromptDue(salary, today, logged)
+  }, [salary, transactions])
 
   const notices = useMemo(() => {
     const month = todayISO().slice(0, 7)
@@ -93,8 +109,9 @@ export function useFileOwnAlerts(existing: readonly NotificationRow[] | undefine
         )
       ),
       ...overdue.map((item) => overdueNotice(item, format, formatShortDate)),
+      ...(salaryDue && salary ? [salaryNotice(salaryDue.month, salary.amount, salary.account, format)] : []),
     ]
-  }, [budgetAlerts, overdue, format])
+  }, [budgetAlerts, overdue, format, salaryDue, salary])
 
   useEffect(() => {
     if (!userId || !existing) return

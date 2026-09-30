@@ -33,7 +33,7 @@ export function timeAgo(iso: string, now: Date = new Date()): string {
 
 export interface OwnAlert {
   ref: string
-  kind: 'budget' | 'bill_overdue'
+  kind: 'budget' | 'bill_overdue' | 'salary'
   title: string
   body: string
   url: string
@@ -69,5 +69,16 @@ export function overdueNotice(
     title: `${item.name} is overdue`,
     body: `${format(item.amount)} was due ${formatDate(item.next_date)}. Mark it paid on Bills once it's done.`,
     url: '/bills',
+  }
+}
+
+/** Pay day: once per month, until the salary is confirmed. */
+export function salaryNotice(month: string, amount: number, account: string, format: (n: number) => string): OwnAlert {
+  return {
+    ref: `salary:${month}`,
+    kind: 'salary',
+    title: 'Did your salary arrive?',
+    body: `${format(amount)} was due in ${account}. Tap to confirm it on Home.`,
+    url: '/',
   }
 }

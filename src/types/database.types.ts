@@ -74,6 +74,7 @@ export type NotificationKind =
   | 'budget'
   | 'bill_overdue'
   | 'reminder'
+  | 'salary'
 export type Cadence = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'annual'
 export type DocumentStatus = 'stored' | 'review'
 export type SelectedPeriod =
@@ -296,7 +297,7 @@ export interface Database {
         }
         Insert: {
           owner_user_id: string
-          kind: 'budget' | 'bill_overdue'
+          kind: 'budget' | 'bill_overdue' | 'salary'
           title: string
           body?: string | null
           url?: string | null

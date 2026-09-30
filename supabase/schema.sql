@@ -2273,3 +2273,9 @@ as $$
 $$;
 revoke execute on function public.account_exists_for_reset(text) from public;
 grant execute on function public.account_exists_for_reset(text) to anon, authenticated;
+
+-- ===== Pay day in the bell history (2026-09-30_salary_notifications.sql) =====
+alter table public.notifications drop constraint if exists notifications_kind_check;
+alter table public.notifications add constraint notifications_kind_check check (kind in (
+  'access_request', 'access_approved', 'access_declined', 'feedback_reply',
+  'split_added', 'split_settled', 'budget', 'bill_overdue', 'reminder', 'salary'));

@@ -13,6 +13,7 @@ import {
   UserCheck,
   UserPlus,
   UserX,
+  Wallet,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -35,6 +36,7 @@ const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   budget: PiggyBank,
   bill_overdue: CalendarClock,
   reminder: BellRing,
+  salary: Wallet,
 }
 const WARNING_KINDS = new Set<NotificationKind>(['bill_overdue', 'budget'])
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetNotice, filterNotifications, overdueNotice, timeAgo } from './notifications'
+import { budgetNotice, filterNotifications, overdueNotice, salaryNotice, timeAgo } from './notifications'
 
 describe('filterNotifications', () => {
   const list = [
@@ -32,6 +32,11 @@ describe('own alerts', () => {
     expect(n).toMatchObject({ ref: 'budget:b1:2026-09:over', title: 'Dining is over budget', url: '/budgets' })
     const near = budgetNotice({ budgetId: 'b1', category: 'Dining', spent: 4600, limit: 5000, status: 'approaching' }, '2026-09', format)
     expect(near.body).toBe('₹4600 of ₹5000 spent. ₹400 left this month.')
+  })
+  it('keys the pay-day note by month', () => {
+    const n = salaryNotice('2026-09', 59000, 'HDFC Bank', format)
+    expect(n).toMatchObject({ ref: 'salary:2026-09', kind: 'salary', title: 'Did your salary arrive?', url: '/' })
+    expect(n.body).toBe('₹59000 was due in HDFC Bank. Tap to confirm it on Home.')
   })
   it('keys an overdue bill by its due date', () => {
     const n = overdueNotice({ id: 'r1', name: 'Rent', amount: 12000, next_date: '2026-09-28' }, format, () => 'Sep 28')
