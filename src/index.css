@@ -836,3 +836,27 @@ button {
 
 /* Sign-in pages (AuthLayout) keep the coin in the theme colour, whatever the gold setting. */
 .coin-theme { --coin: var(--accent-dark); }
+
+/* Entries kept to yourself (Activity): the row's content blurs with a soft
+   fade, and a "tap to see" pill sits over it; peeking eases the blur away.
+   Locking or unlocking animates the same way. Opacity/filter only -- no
+   layout or heavy layers (iOS dropped the bottom bar once on this page). */
+.private-content {
+  transition: filter 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.private-content.is-hidden {
+  filter: blur(7px);
+  opacity: 0.7;
+  user-select: none;
+}
+.private-veil {
+  animation: private-veil-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes private-veil-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .private-content { transition: none; }
+  .private-veil { animation: none; }
+}

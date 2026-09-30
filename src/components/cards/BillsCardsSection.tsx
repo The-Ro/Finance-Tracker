@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useCardStatuses } from '@/hooks/useCards'
+import { useAccountDetails } from '@/hooks/useLookupLists'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { formatShortDate, todayISO } from '@/lib/format'
@@ -17,6 +18,7 @@ import { cardPagePath } from './cardPath'
  */
 export function BillsCardsSection() {
   const statuses = useCardStatuses()
+  const { data: details } = useAccountDetails()
   const { format } = useFormatCurrency()
   const { openAddEntry } = useGlobalModals()
   const today = todayISO()
@@ -30,6 +32,7 @@ export function BillsCardsSection() {
         {cards.map(([name, s]) => {
           const bill = s.bill
           const overdue = !!bill && bill.due > 0 && bill.dueDate < today
+          const payFrom = details?.get(name)?.payFrom ?? null
           return (
             <li key={name} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
               <Link to={cardPagePath(name)} className="-m-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1.5 hover:bg-slate-50">
@@ -54,6 +57,7 @@ export function BillsCardsSection() {
                         ? `Bill ${format(bill.due)} · ${overdue ? 'was due' : 'due'} ${formatShortDate(bill.dueDate)}`
                         : 'Last bill paid'}
                   </span>
+                  {payFrom && <span className="text-helper text-slate-500">Paid from {payFrom}</span>}
                 </span>
                 <ChevronRight size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
               </Link>
@@ -61,7 +65,7 @@ export function BillsCardsSection() {
                 <Button
                   variant="secondary"
                   className="shrink-0"
-                  onClick={() => openAddEntry('transfer', { toAccount: name, amount: bill.due, merchant: name + ' bill payment' })}
+                  onClick={() => openAddEntry('transfer', { toAccount: name, amount: bill.due, merchant: name + ' bill payment', account: payFrom ?? undefined })}
                 >
                   Pay
                 </Button>

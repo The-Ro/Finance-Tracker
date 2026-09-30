@@ -42,6 +42,8 @@ export interface UserSettings {
   setupChecklistVersion: number
   /** On their birthday, the people they share with get a note to wish them. */
   shareBirthday: boolean
+  /** Late-month salary counts toward the next month in summaries (src/lib/salaryMonth.ts). */
+  salaryNextMonth: boolean
   /** Salary day (Settings -> Salary); null when not set up. */
   salary: SalaryConfig | null
 }
@@ -69,6 +71,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   setupChecklistDismissed: false,
   setupChecklistVersion: 1,
   shareBirthday: true,
+  salaryNextMonth: false,
   salary: null,
 }
 
@@ -117,6 +120,7 @@ export function useUserSettings() {
         setupChecklistDismissed: data.setup_checklist_dismissed ?? false,
         setupChecklistVersion: data.setup_checklist_version ?? 1,
         shareBirthday: data.share_birthday ?? true,
+        salaryNextMonth: data.salary_next_month ?? false,
         salary:
           data.salary_amount != null && data.salary_account && data.salary_day != null
             ? {
@@ -291,6 +295,14 @@ export function useUserSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
   })
 
+  const updateSalaryNextMonth = useMutation({
+    mutationFn: async (on: boolean) => {
+      const { error } = await supabase.from('user_settings').update({ salary_next_month: on }).eq('owner_user_id', userId!)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
+  })
+
   const dismissSetupChecklist = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -323,6 +335,7 @@ export function useUserSettings() {
     updatePersonalDetails,
     completeOnboarding,
     dismissSetupChecklist,
+    updateSalaryNextMonth,
     updateSalary,
     markSalaryAnswered,
     markWhatsNewSeen,

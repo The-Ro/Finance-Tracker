@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import clsx from 'clsx'
 import { CheckSquare, ListFilter, Lock, LockOpen, Pencil, Receipt, Search, Split, Trash2, X } from 'lucide-react'
 import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
@@ -294,6 +294,46 @@ export function TransactionTable({
     })
   }
 
+  // Your own entries kept to yourself are blurred here too; a tap peeks for a
+  // few seconds, then the blur comes back.
+  const [peeked, setPeeked] = useState<Set<string>>(() => new Set())
+  const peekTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  useEffect(() => {
+    const timers = peekTimers.current
+    return () => timers.forEach(clearTimeout)
+  }, [])
+  const peek = (id: string) => {
+    setPeeked((prev) => new Set(prev).add(id))
+    clearTimeout(peekTimers.current.get(id))
+    peekTimers.current.set(
+      id,
+      setTimeout(() => {
+        setPeeked((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        peekTimers.current.delete(id)
+      }, 5000)
+    )
+  }
+  const veil = (t: Transaction, style: { left: number; right: number }) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        peek(t.id)
+      }}
+      aria-label={`Show ${t.merchant} (only you can see this)`}
+      className="private-veil absolute inset-y-0 z-[1] flex items-center justify-center"
+      style={style}
+    >
+      <span className="flex items-center gap-1.5 rounded-full border border-app-border bg-app-card/95 px-3 py-1 text-helper font-semibold text-slate-600 shadow-card">
+        <Lock size={12} aria-hidden="true" /> Only you · tap to see
+      </span>
+    </button>
+  )
+
   // Tap the lock on your own entry: keep it to yourself, or share it again.
   const toggleShared = (t: Transaction) => {
     const shared = t.shared === false
@@ -337,7 +377,7 @@ export function TransactionTable({
     const owner = profiles[p.owner_user_id]
     const name = owner?.displayName || owner?.email || 'Someone'
     return (
-      <li key={'private-' + p.id} className="flex items-center gap-3 border-b border-app-border px-4 py-3 last:border-b-0">
+      <li key={'private-' + p.id} className="private-veil flex items-center gap-3 border-b border-app-border px-4 py-3 last:border-b-0">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
           <Lock size={17} aria-hidden="true" />
         </span>
@@ -361,6 +401,9 @@ export function TransactionTable({
   const renderRow = (t: Transaction) => {
     const owner = profiles[t.owner_user_id]
     const editable = t.owner_user_id === currentUserId
+    const locked = editable && t.shared === false
+    const hidden = locked && !peeked.has(t.id)
+    const blur = locked ? clsx('private-content', hidden && 'is-hidden') : undefined
     const amountTone = t.type === 'income' ? 'text-positive' : t.type === 'expense' ? 'text-danger' : 'text-slate-600'
     const amountClassName = 'text-sm font-serif font-semibold ' + amountTone
     const amountLabel = t.type === 'income' ? 'Credit' : t.type === 'expense' ? 'Debit' : 'Transfer'
@@ -448,7 +491,8 @@ export function TransactionTable({
             onOpenChange={(o) => setOpenRowId((prev) => (o ? t.id : prev === t.id ? null : prev))}
             label={t.merchant}
           >
-            <div className="flex items-center gap-3 px-4 py-3">
+            <div className="relative flex items-center gap-3 px-4 py-3">
+              {hidden && veil(t, { left: 16, right: 16 })}
               {showMobileCheckboxes && checkbox && (
                 <label className="-my-2 -ml-2 flex h-11 w-9 shrink-0 cursor-pointer items-center justify-center">
                   {checkbox}
@@ -458,7 +502,8 @@ export function TransactionTable({
                 aria-hidden="true"
                 className={clsx(
                   'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold',
-                  TONE_CLASSES[avatarTone(t.category, t.type)]
+                  TONE_CLASSES[avatarTone(t.category, t.type)],
+                  blur
                 )}
               >
                 <CategoryIcon category={t.category} type={t.type} iconKey={t.category ? categoryIcons.get(t.category) : null} size={19} strokeWidth={2} />
@@ -466,7 +511,7 @@ export function TransactionTable({
               {/* Left: merchant, then category. Right: amount, then the account (or
                   card) tag; the payment mode sits on the next line, right side -- grey text in one truncated
                   line was easy to miss. */}
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <div className={clsx('flex min-w-0 flex-1 flex-col gap-0.5', blur)}>
                 <div className="flex min-w-0 items-baseline justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-1.5 self-center">
                     <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
@@ -539,14 +584,15 @@ export function TransactionTable({
         </div>
 
         {/* No Date cell: the day heading above the group already says it. */}
-        <div className={clsx('hidden items-center gap-3 px-4 py-3 md:grid', desktopGrid)}>
+        <div className={clsx('relative hidden items-center gap-3 px-4 py-3 md:grid', desktopGrid)}>
+          {hidden && veil(t, { left: 56, right: 128 })}
           <div className="flex items-center justify-center">{checkbox}</div>
           {scope === 'everyone' && (
             <div className="flex items-center justify-center">
               {owner && <Avatar avatar={owner.avatar} name={owner.displayName} size={22} />}
             </div>
           )}
-          <div className="flex min-w-0 flex-col">
+          <div className={clsx('flex min-w-0 flex-col', blur)}>
             <div className="flex min-w-0 items-center gap-1.5">
               <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
                 {t.merchant}
@@ -581,7 +627,7 @@ export function TransactionTable({
               </span>
             )}
           </div>
-          <div className="min-w-0">
+          <div className={clsx('min-w-0', blur)}>
             {t.type === 'transfer' ? (
               <span className="w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
                 Transfer
@@ -590,16 +636,16 @@ export function TransactionTable({
               <InlineCategoryEditor transactionId={t.id} category={t.category ?? ''} type={t.type} editable={editable} />
             )}
           </div>
-          <div className="min-w-0">
+          <div className={clsx('min-w-0', blur)}>
             <div className="truncate text-sm font-medium text-slate-700" title={accountDisplay}>
               {accountDisplay}
             </div>
             {methodNote && <div className="truncate text-helper text-slate-500">{methodNote}</div>}
           </div>
-          <div className="hidden min-w-0 xl:block">
+          <div className={clsx('hidden min-w-0 xl:block', blur)}>
             <InlineTagEditor transactionId={t.id} tags={t.tags} editable={editable} />
           </div>
-          <div className="min-w-0 text-right">
+          <div className={clsx('min-w-0 text-right', blur)}>
             <div className={amountClassName}>{formatSigned(t.amount, t.type)}</div>
             <div className="truncate text-helper text-slate-400">
               {t.original_currency && t.original_amount != null

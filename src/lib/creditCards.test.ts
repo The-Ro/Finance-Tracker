@@ -9,6 +9,7 @@ import {
   isFundedAccount,
   normalizeAccountKind,
   lastStatementDate,
+  nextStatementDate,
   openingToOwed,
   owedToOpening,
   statementHistory,
@@ -166,5 +167,14 @@ describe('daysUntil', () => {
     expect(daysUntil('2026-10-02', '2026-09-27')).toBe(5)
     expect(daysUntil('2026-09-20', '2026-09-27')).toBe(-7)
     expect(daysUntil('2026-09-27', '2026-09-27')).toBe(0)
+  })
+})
+
+describe('nextStatementDate', () => {
+  it('is this month’s statement date if not passed yet, else next month’s (clamped)', () => {
+    expect(nextStatementDate(12, '2026-10-01')).toBe('2026-10-12')
+    expect(nextStatementDate(12, '2026-10-12')).toBe('2026-10-12')
+    expect(nextStatementDate(12, '2026-10-13')).toBe('2026-11-12')
+    expect(nextStatementDate(31, '2026-02-10')).toBe('2026-02-28')
   })
 })

@@ -58,6 +58,8 @@ export interface EntryPrefill {
   merchant?: string
   amount?: number
   toAccount?: string
+  /** The "from" account, e.g. the bank a card bill is paid from. */
+  account?: string
 }
 
 const EMPTY_STATE = {
@@ -462,6 +464,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     ...(prefill?.merchant ? { merchant: prefill.merchant } : {}),
     ...(prefill?.amount ? { amount: String(prefill.amount) } : {}),
     ...(prefill?.toAccount ? { toAccount: prefill.toAccount } : {}),
+    ...(prefill?.account ? { account: prefill.account } : {}),
   })
 
   // Prefill from the transaction being edited (or reset to a blank form)

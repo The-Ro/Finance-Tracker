@@ -153,6 +153,8 @@ export interface Database {
           closed_at: string | null
           /** Credit cards only (set_card_network). A RuPay card can pay by UPI. */
           card_network: CardNetwork | null
+          /** Credit cards only (set_card_pay_from): the account its bill is paid from. */
+          bill_pay_account: string | null
         }
         Insert: { owner_user_id: string; name: string; created_by?: string | null }
         Update: never
@@ -637,6 +639,7 @@ export interface Database {
           setup_checklist_dismissed: boolean
           setup_checklist_version: number
           share_birthday: boolean
+          salary_next_month: boolean
           salary_amount: number | null
           salary_account: string | null
           salary_day: number | null
@@ -668,6 +671,7 @@ export interface Database {
           setup_checklist_dismissed?: boolean
           setup_checklist_version?: number
           share_birthday?: boolean
+          salary_next_month?: boolean
           salary_amount?: number | null
           salary_account?: string | null
           salary_day?: number | null
@@ -696,6 +700,7 @@ export interface Database {
           setup_checklist_dismissed: boolean
           setup_checklist_version: number
           share_birthday: boolean
+          salary_next_month: boolean
           salary_amount: number | null
           salary_account: string | null
           salary_day: number | null
@@ -718,6 +723,10 @@ export interface Database {
       }
       set_card_network: {
         Args: { p_account: string; p_network: CardNetwork | null }
+        Returns: undefined
+      }
+      set_card_pay_from: {
+        Args: { p_account: string; p_from: string | null }
         Returns: undefined
       }
       admin_overview: {

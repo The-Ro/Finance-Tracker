@@ -2978,3 +2978,44 @@ end;
 $$;
 revoke execute on function public.file_money_reminder_notifications(date) from public, anon, authenticated;
 grant execute on function public.file_money_reminder_notifications(date) to service_role;
+
+-- ===== Card bill paid from (migration 2026-10-01_card_bill_pay_from.sql) =====
+alter table public.accounts add column if not exists bill_pay_account text;
+
+create or replace function public.set_card_pay_from(p_account text, p_from text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_kind text;
+  v_from_kind text;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  select kind into v_kind from public.accounts where owner_user_id = auth.uid() and name = p_account;
+  if not found then
+    raise exception 'Account not found';
+  end if;
+  if v_kind <> 'credit_card' then
+    raise exception 'Only a credit card has a bill to pay';
+  end if;
+  if p_from is not null then
+    select kind into v_from_kind from public.accounts where owner_user_id = auth.uid() and name = p_from;
+    if not found then
+      raise exception 'Account not found';
+    end if;
+    if v_from_kind = 'credit_card' then
+      raise exception 'Pay a card bill from a bank, cash or wallet account';
+    end if;
+  end if;
+  update public.accounts set bill_pay_account = p_from where owner_user_id = auth.uid() and name = p_account;
+end;
+$$;
+revoke execute on function public.set_card_pay_from(text, text) from public, anon;
+grant execute on function public.set_card_pay_from(text, text) to authenticated;
+
+-- ===== Salary toward the next month (migration 2026-10-01_salary_next_month.sql) =====
+alter table public.user_settings add column if not exists salary_next_month boolean not null default false;

@@ -65,7 +65,8 @@ begin
       'public.delete_tag(text)', 'public.set_card_network(text,text)',
       'public.save_push_subscription(text,text,text)', 'public.account_exists_for_reset(text)',
       'public.admin_grant_admin(uuid)', 'public.admin_revoke_admin(uuid)', 'public.admin_delete_user(uuid)',
-      'public.admin_note_reset_sent(uuid)', 'public.admin_audit_log(integer)'
+      'public.admin_note_reset_sent(uuid)', 'public.admin_audit_log(integer)',
+      'public.set_card_pay_from(text,text)', 'public.private_entries_shared_with_me(date,date)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then

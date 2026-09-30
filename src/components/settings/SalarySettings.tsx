@@ -134,6 +134,38 @@ export function SalarySettings({ bare, onSaved }: { bare?: boolean; onSaved?: ()
         </div>
       </div>
       {dayNote && <p className="-mt-1 text-helper text-slate-500">{dayNote}</p>}
+      {/* Paid at the end of the month: count it where it's spent (src/lib/salaryMonth.ts). */}
+      <label className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-app-border px-3 py-2">
+        <span className="flex min-w-0 flex-col">
+          <span className="text-sm font-medium text-slate-800">Count my salary toward the next month</span>
+          <span className="text-helper text-slate-500">
+            {lastDay || Number(day) >= 24
+              ? 'Good for a salary at the month end: '
+              : 'For a salary paid at the month end: '}
+            a salary in the last 7 days of a month counts in the next month on Home and in Monthly review. Activity and balances keep the real date.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={settings.data?.salaryNextMonth ?? false}
+          onChange={(e) => settings.updateSalaryNextMonth.mutate(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span
+          aria-hidden="true"
+          className={clsx(
+            'relative h-6 w-11 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2',
+            settings.data?.salaryNextMonth ? 'bg-accent' : 'bg-slate-300'
+          )}
+        >
+          <span
+            className={clsx(
+              'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+              settings.data?.salaryNextMonth ? 'translate-x-[22px]' : 'translate-x-0.5'
+            )}
+          />
+        </span>
+      </label>
       <div className="flex flex-wrap gap-2">
         <Button onClick={save} disabled={settings.updateSalary.isPending || unchanged}>
           {settings.updateSalary.isPending ? (

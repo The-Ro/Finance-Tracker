@@ -140,7 +140,7 @@ export function useAccountDetails() {
     queryFn: async (): Promise<Map<string, AccountDetails>> => {
       const { data, error } = await supabase
         .from('accounts')
-        .select('name, kind, credit_limit, statement_day, due_day, closed_at, card_network')
+        .select('name, kind, credit_limit, statement_day, due_day, closed_at, card_network, bill_pay_account')
         .eq('owner_user_id', userId!)
       if (error) throw error
       return new Map(
@@ -153,6 +153,7 @@ export function useAccountDetails() {
             dueDay: r.due_day,
             closed: r.closed_at != null,
             network: r.card_network ?? null,
+            payFrom: r.bill_pay_account ?? null,
           },
         ])
       )
@@ -189,6 +190,19 @@ export function useSetCardNetwork() {
   return useMutation({
     mutationFn: async ({ account, network }: { account: string; network: CardNetwork | null }) => {
       const { error } = await supabase.rpc('set_card_network', { p_account: account, p_network: network })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),
+  })
+}
+
+/** Sets which account a credit card's bill is paid from (narrow RPC; null clears it). */
+export function useSetCardPayFrom() {
+  const { userId } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ account, from }: { account: string; from: string | null }) => {
+      const { error } = await supabase.rpc('set_card_pay_from', { p_account: account, p_from: from })
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts', userId] }),

@@ -13,6 +13,7 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useAccountKinds, useCardBills } from '@/hooks/useCards'
+import { useAccountDetails } from '@/hooks/useLookupLists'
 import { addDaysISO, dueDatesInRange, monthGrid, totalDueWithin } from '@/lib/billCalendar'
 import { formatShortDate, todayISO } from '@/lib/format'
 import { cardPagePath } from '@/components/cards/cardPath'
@@ -46,6 +47,7 @@ export function BillsPage() {
   // Credit-card bills (statement amount still unpaid) sit alongside recurring
   // items: on the calendar at their due date and in Coming up with "Pay bill".
   const cardBills = useCardBills()
+  const { data: accountDetails } = useAccountDetails()
   const { openAddEntry } = useGlobalModals()
   const today = todayISO()
   const [month, setMonth] = useState(() => {
@@ -285,7 +287,14 @@ export function BillsPage() {
                   </Link>
                   <Button
                     variant="secondary"
-                    onClick={() => openAddEntry('transfer', { toAccount: b.account, amount: b.due, merchant: b.account + ' bill payment' })}
+                    onClick={() =>
+                      openAddEntry('transfer', {
+                        toAccount: b.account,
+                        amount: b.due,
+                        merchant: b.account + ' bill payment',
+                        account: accountDetails?.get(b.account)?.payFrom ?? undefined,
+                      })
+                    }
                   >
                     Pay bill
                   </Button>

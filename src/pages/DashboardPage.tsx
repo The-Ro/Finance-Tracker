@@ -40,6 +40,7 @@ import { resolvePeriod, resolvePriorPeriod, isWithinRange, PERIOD_OPTIONS } from
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { firstName, greetingFor, isBirthdayToday } from '@/lib/home'
 import { BirthdayFact } from '@/components/dashboard/BirthdayFact'
+import { useSalaryShift } from '@/hooks/useSalaryShift'
 import { toLocalISODate } from '@/lib/format'
 import { monthlySavings, savingsHeadline } from '@/lib/savings'
 import { todayISO } from '@/lib/format'
@@ -184,13 +185,13 @@ export function DashboardPage() {
   const range = useMemo(() => resolvePeriod(period), [period])
   const priorRange = useMemo(() => resolvePriorPeriod(period), [period])
 
-  const inPeriod = useMemo(
-    () => (myTransactions.data ?? []).filter((t) => isWithinRange(t.date, range)),
-    [myTransactions.data, range]
-  )
+  // Totals by period: a late-month salary counts toward the next month when
+  // that setting is on (entries keep their real date everywhere else).
+  const monthly = useSalaryShift(myTransactions.data)
+  const inPeriod = useMemo(() => monthly.filter((t) => isWithinRange(t.date, range)), [monthly, range])
   const inPriorPeriod = useMemo(
-    () => (priorRange ? (myTransactions.data ?? []).filter((t) => isWithinRange(t.date, priorRange)) : []),
-    [myTransactions.data, priorRange]
+    () => (priorRange ? monthly.filter((t) => isWithinRange(t.date, priorRange)) : []),
+    [monthly, priorRange]
   )
 
   const income = inPeriod.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
@@ -217,8 +218,8 @@ export function DashboardPage() {
     [kinds]
   )
   const savingsRows = useMemo(
-    () => monthlySavings(myTransactions.data ?? [], todayISO(), 6, cardAccounts),
-    [myTransactions.data, cardAccounts]
+    () => monthlySavings(monthly, todayISO(), 6, cardAccounts),
+    [monthly, cardAccounts]
   )
   const savedThisMonth = useMemo(() => savingsHeadline(savingsRows), [savingsRows])
 

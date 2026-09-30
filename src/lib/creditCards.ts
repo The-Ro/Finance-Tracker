@@ -40,6 +40,8 @@ export interface AccountDetails {
   closed?: boolean
   /** Credit cards only: Visa, Mastercard, RuPay, ... A RuPay credit card can pay by UPI. */
   network?: CardNetwork | null
+  /** Credit cards only: the bank/cash/wallet account the bill is usually paid from. */
+  payFrom?: string | null
 }
 
 export interface FlowTransaction {
@@ -67,6 +69,13 @@ export function lastStatementDate(statementDay: number, today: string): string {
   const [y, m] = today.split('-').map(Number)
   const thisMonth = dayOfMonth(y, m - 1, statementDay)
   return thisMonth <= today ? thisMonth : dayOfMonth(y, m - 2, statementDay)
+}
+
+/** The next statement date on or after `today` (a card EMI is billed on it). */
+export function nextStatementDate(statementDay: number, today: string): string {
+  const [y, m] = today.split('-').map(Number)
+  const thisMonth = dayOfMonth(y, m - 1, statementDay)
+  return thisMonth >= today ? thisMonth : dayOfMonth(y, m, statementDay)
 }
 
 /** The first `dueDay` strictly after the statement date (same month if it's later, else next month). */

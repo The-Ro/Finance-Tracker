@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAccountKinds } from '@/hooks/useCards'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
@@ -9,7 +9,11 @@ import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
-import { useCategories, useAccounts } from '@/hooks/useLookupLists'
+import { useCategories, useAccounts, useAccountDetails, useSetCardPayFrom } from '@/hooks/useLookupLists'
+import { useAccountsInUse } from '@/hooks/useAccountsInUse'
+import { useAddTransaction } from '@/hooks/useTransactions'
+import { useToast } from '@/context/ToastContext'
+import { nextStatementDate } from '@/lib/creditCards'
 import { useRecurringMutations, type RecurringItem, type RecurringLoanInput } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { todayISO } from '@/lib/format'
@@ -62,6 +66,12 @@ function loanFormState(item: RecurringItem | null | undefined) {
   }
 }
 
+/** "st", "nd", "rd" or "th" for a day of the month. */
+function ordinal(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th'
+  return ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'
+}
+
 export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDelete }: RecurringFormModalProps) {
   const { format } = useFormatCurrency()
   // Recurring/subscription detection only ever runs over expense transactions
@@ -72,6 +82,8 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   // A loan's EMI is either added to a credit card bill or taken from a bank
   // account; picking one narrows the account list (null = follow the account).
   const [emiBy, setEmiBy] = useState<'card' | 'bank' | null>(null)
+  // Set once the user picks the next date themselves (then a card's statement date doesn't override it).
+  const [nextDateTouched, setNextDateTouched] = useState(false)
   const { addManual, update } = useRecurringMutations()
   const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
 
@@ -114,15 +126,54 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
       ...(!editing && prefill?.loan ? { isLoan: true } : {}),
     })
     setEmiBy(null)
+    setNextDateTouched(false)
+    setProcessingFee('')
     errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, prefill])
 
+  const isCard = (a: string) => kinds.get(a) === 'credit_card'
+  const paidBy = emiBy ?? (isCard(form.account) ? 'card' : 'bank')
+  // With a loan, only cards (EMI on the card bill) or only non-cards (from the bank).
+  const accountOptions = form.isLoan ? accounts.filter((a) => (paidBy === 'card' ? isCard(a) : !isCard(a))) : accounts
+  const choosePaidBy = (by: 'card' | 'bank') => {
+    setEmiBy(by)
+    setForm((f) => (isCard(f.account) === (by === 'card') ? f : { ...f, account: '' }))
+  }
+
+  // A blank account takes the first one that fits (a card for a card EMI).
+  const firstOption = accountOptions[0]
   useEffect(() => {
-    if (!form.account && accounts.length > 0) {
-      setForm((f) => ({ ...f, account: accounts[0] }))
+    if (!form.account && firstOption) {
+      setForm((f) => ({ ...f, account: firstOption }))
     }
-  }, [accounts, form.account])
+  }, [firstOption, form.account])
+
+  // Card EMIs: billed on the card's statement date, and the card's bill is
+  // paid from a bank account (saved on the card, used to pre-fill "Pay").
+  const { data: accountDetails } = useAccountDetails()
+  const { inUse } = useAccountsInUse()
+  const setCardPayFrom = useSetCardPayFrom()
+  const addTransaction = useAddTransaction()
+  const { show } = useToast()
+  const cardEmi = form.isLoan && paidBy === 'card' && isCard(form.account)
+  const card = cardEmi ? accountDetails?.get(form.account) : undefined
+  const [payFrom, setPayFrom] = useState('')
+  const [processingFee, setProcessingFee] = useState('')
+  useEffect(() => {
+    setPayFrom(card?.payFrom ?? '')
+  }, [form.account, card?.payFrom])
+  const payFromOptions = useMemo(
+    () => ['', ...[...inUse].filter((a) => !isCard(a) && !accountDetails?.get(a)?.closed).sort((a, b) => a.localeCompare(b))],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inUse, accountDetails, kinds]
+  )
+  useEffect(() => {
+    if (editing || !cardEmi || nextDateTouched || !card?.statementDay) return
+    const billed = nextStatementDate(card.statementDay, todayISO())
+    setForm((f) => (f.nextDate === billed ? f : { ...f, nextDate: billed }))
+  }, [editing, cardEmi, nextDateTouched, card?.statementDay])
+
 
   const handleSubmit = async () => {
     errors.clear()
@@ -172,13 +223,46 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           loan,
         })
       }
+      // The card's "paid from" account and a new EMI's processing fee: the item
+      // is saved either way; a failure here is said once in a toast.
+      if (cardEmi && payFrom !== (card?.payFrom ?? '')) {
+        await setCardPayFrom.mutateAsync({ account: form.account, from: payFrom || null }).catch(() => show('Saved, but the card’s “paid from” account didn’t change.', { tone: 'error' }))
+      }
+      const fee = Number(processingFee)
+      if (!editing && cardEmi && fee > 0) {
+        await addTransaction
+          .mutateAsync({
+            type: 'expense',
+            amount: Math.round(fee * 1.18 * 100) / 100,
+            merchant: `${form.name.trim()} EMI processing fee`,
+            date: todayISO(),
+            category: allExpenseCategories.includes('Fees & charges') ? 'Fees & charges' : 'Needs review',
+            account: form.account,
+            remarks: 'Includes 18% GST',
+            tags: ['emi'],
+            receipt: false,
+            allowDuplicate: true,
+          })
+          .catch(() => show('Saved, but the processing fee wasn’t logged.', { tone: 'error' }))
+      }
       onClose()
     } catch (e) {
       errors.fail(e instanceof Error ? e.message : 'Could not save.')
     }
   }
 
-  const saving = addManual.isPending || update.isPending
+  const saving = addManual.isPending || update.isPending || setCardPayFrom.isPending || addTransaction.isPending
+  // Card EMIs: the bank adds 18% GST on each month's interest. With a rate, the
+  // interest over the whole loan is EMIs minus the amount borrowed.
+  const gst = (() => {
+    const n = Number(form.loanTenure)
+    const principal = Number(form.loanAmount)
+    const rate = Number(form.loanRate)
+    if (!form.isLoan || !(n > 0) || !(principal > 0) || !(rate > 0)) return null
+    const emi = emiFor(principal, rate, n)
+    const total = Math.round(Math.max(0, emi * n - principal) * 0.18 * 100) / 100
+    return { total, monthly: Math.round((total / n) * 100) / 100, emi }
+  })()
   // Live "EMI x of y" preview while the loan fields are filled in.
   const preview =
     form.isLoan && Number(form.loanTenure) > 0 && MONTH_KEY.test(form.loanStart) && Number(form.amount) > 0
@@ -195,15 +279,6 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     form.isLoan && Number(form.loanAmount) > 0 && form.loanRate.trim() !== '' && Number(form.loanTenure) > 0
       ? emiFor(Number(form.loanAmount), Number(form.loanRate), Number(form.loanTenure))
       : null
-
-  const isCard = (a: string) => kinds.get(a) === 'credit_card'
-  const paidBy = emiBy ?? (isCard(form.account) ? 'card' : 'bank')
-  // With a loan, only cards (EMI on the card bill) or only non-cards (from the bank).
-  const accountOptions = form.isLoan ? accounts.filter((a) => (paidBy === 'card' ? isCard(a) : !isCard(a))) : accounts
-  const choosePaidBy = (by: 'card' | 'bank') => {
-    setEmiBy(by)
-    setForm((f) => (isCard(f.account) === (by === 'card') ? f : { ...f, account: '' }))
-  }
 
   return (
     <Modal
@@ -256,7 +331,10 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             type="date"
             error={errors.on('nextDate')}
             value={form.nextDate}
-            onChange={(e) => setForm((f) => ({ ...f, nextDate: e.target.value }))}
+            onChange={(e) => {
+              setNextDateTouched(true)
+              setForm((f) => ({ ...f, nextDate: e.target.value }))
+            }}
           />
         </div>
         {/* Full width: inside the half-width Category column the add box spilled over. */}
@@ -326,6 +404,25 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                       : 'Each EMI is taken straight from your bank account (home, car or personal loans).'}
                   </p>
                 </div>
+                {cardEmi && (
+                  <>
+                    <p className="text-helper text-slate-500">
+                      {card?.statementDay
+                        ? `Card EMIs are billed on the statement date (the ${card.statementDay}${ordinal(card.statementDay)} of each month)${!editing && !nextDateTouched ? ', so the next date is set to it.' : '.'}`
+                        : 'Add this card’s statement day in Settings, Accounts & cards, and the EMI date will follow it.'}
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-helper font-medium text-slate-600">Card bill paid from</label>
+                      <Dropdown
+                        options={payFromOptions.includes(payFrom) ? payFromOptions : [...payFromOptions, payFrom]}
+                        value={payFrom}
+                        aria-label="Account the card bill is paid from"
+                        onChange={(e) => setPayFrom(e.target.value)}
+                      />
+                      <p className="text-helper text-slate-500">Used when you tap Pay on this card’s bill.</p>
+                    </div>
+                  </>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <MoneyField
                     label="Loan amount"
@@ -364,6 +461,30 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                     onChange={(loanStart) => setForm((f) => ({ ...f, loanStart }))}
                   />
                 </div>
+                {cardEmi && (
+                  <p className="text-helper text-slate-500">
+                    {gst
+                      ? <>
+                          The bank also adds 18% GST on the interest: about {format(gst.monthly)} a month ({format(gst.total)} in all), a bit more at the start.{' '}
+                          {Math.abs(Number(form.amount) - gst.emi) < 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, amount: (gst.emi + gst.monthly).toFixed(2) }))}
+                              className="font-medium text-accent-dark hover:underline"
+                            >
+                              Add it to the EMI
+                            </button>
+                          )}
+                        </>
+                      : 'No-cost EMI? The bank still adds 18% GST on the interest it books, so use the EMI amount from your statement.'}
+                  </p>
+                )}
+                {cardEmi && !editing && (
+                  <div className="flex flex-col gap-1">
+                    <MoneyField label="Processing fee (optional)" value={processingFee} onChange={setProcessingFee} />
+                    <p className="text-helper text-slate-500">Charged once on the first bill. Logged on the card with 18% GST added.</p>
+                  </div>
+                )}
                 {suggestedEmi !== null && suggestedEmi > 0 && Math.abs(suggestedEmi - Number(form.amount)) >= 1 && (
                   <button
                     type="button"

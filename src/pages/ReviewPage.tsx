@@ -18,6 +18,7 @@ import { buildMonthlyReview, donutSegments, subscriptionSummary } from '@/lib/mo
 import { monthGrid } from '@/lib/billCalendar'
 import { todayISO } from '@/lib/format'
 import { monthEndBalances } from '@/lib/balanceHistory'
+import { useSalaryShift } from '@/hooks/useSalaryShift'
 import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
 
 function monthRange(year: number, index: number) {
@@ -35,6 +36,9 @@ export function ReviewPage() {
   const { format, formatCompact } = useFormatCurrency()
   const { data: transactions = [] } = useMyTransactions(userId)
   const { data: budgets = [] } = useBudgets()
+  // The recap counts a late-month salary toward the next month when that
+  // setting is on; month-end balances below stay on real dates.
+  const monthly = useSalaryShift(transactions)
   const { data: recurring = [] } = useRecurringItemsRaw()
   const { data: openings } = useAccountOpeningBalances()
   // Balance trend: starting balances + logged income/expenses, month by month.
@@ -57,8 +61,8 @@ export function ReviewPage() {
     const limits = applyRollover(budgets, transactions)
       .filter((b) => b.active)
       .map((b) => ({ category: b.category, limit: b.monthly_limit }))
-    return buildMonthlyReview(transactions, range, prior, limits)
-  }, [transactions, budgets, range.start, prior.start]) // eslint-disable-line react-hooks/exhaustive-deps
+    return buildMonthlyReview(monthly, range, prior, limits)
+  }, [monthly, transactions, budgets, range.start, prior.start]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const subscriptions = useMemo(
     () => subscriptionSummary(recurring, range),

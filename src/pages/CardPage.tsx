@@ -131,7 +131,12 @@ export function CardPage() {
   const bill = status.bill
   const billDays = bill ? daysUntil(bill.dueDate, today) : 0
   const payBill = () =>
-    openAddEntry('transfer', { toAccount: account, amount: bill?.due || undefined, merchant: account + ' bill payment' })
+    openAddEntry('transfer', {
+      toAccount: account,
+      amount: bill?.due || undefined,
+      merchant: account + ' bill payment',
+      account: detailsMap?.get(account)?.payFrom ?? undefined,
+    })
   const unbilledShown = unbilled ? (showAllUnbilled ? unbilled.transactions : unbilled.transactions.slice(0, UNBILLED_ROWS)) : []
 
   return (
