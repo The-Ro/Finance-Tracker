@@ -226,6 +226,7 @@ describe("re-importing this app's own export", () => {
     original_currency: null,
     original_amount: null,
     fx_rate: null,
+    shared: true,
   }
 
   it('keeps expenses as expenses and skips transfers', () => {

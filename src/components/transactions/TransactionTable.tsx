@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { CheckSquare, ListFilter, Pencil, Receipt, Search, Split, Trash2, X } from 'lucide-react'
+import { CheckSquare, ListFilter, Lock, Pencil, Receipt, Search, Split, Trash2, X } from 'lucide-react'
 import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
 import { CategoryIcon } from '@/components/ui/CategoryIcon'
 import { useAccountKinds } from '@/hooks/useCards'
@@ -404,6 +404,9 @@ export function TransactionTable({
                     <span className="truncate text-[15px] font-semibold text-slate-900" title={t.merchant}>
                       {t.merchant}
                     </span>
+                    {t.shared === false && (
+                      <Lock size={12} className="shrink-0 text-slate-400" aria-label="Only you can see this" />
+                    )}
                     {t.receipt &&
                       (t.receipt_document_id ? (
                         <button
@@ -482,6 +485,7 @@ export function TransactionTable({
               <span className="truncate text-sm font-medium text-slate-900" title={t.merchant}>
                 {t.merchant}
               </span>
+              {t.shared === false && <Lock size={12} className="shrink-0 text-slate-400" aria-label="Only you can see this" />}
               {t.receipt &&
                 (t.receipt_document_id ? (
                   <button

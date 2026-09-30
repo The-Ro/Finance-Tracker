@@ -76,6 +76,8 @@ const EMPTY_STATE = {
   /** '' = the user's home currency. */
   currency: '',
   fxRate: '',
+  /** "Share with everyone": people approved to see your transactions see this one. */
+  shared: true,
 }
 
 const CURRENCY_CODES = SUPPORTED_CURRENCIES.map((c) => c.code)
@@ -440,6 +442,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         paymentMethod: transaction.payment_method ?? '',
         tags: transaction.tags,
         hasReceipt: transaction.receipt,
+        shared: transaction.shared ?? true,
         file: null,
         currency: transaction.original_currency ?? '',
         fxRate: transaction.fx_rate != null ? String(transaction.fx_rate) : '',
@@ -570,6 +573,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           debitCardId,
           tags: form.tags,
           foreign,
+          shared: form.shared,
           allowDuplicate: opts?.allowDuplicate,
         })
         reset()
@@ -598,6 +602,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
         receiptDocumentId: receipt?.id ?? null,
         rules: rules.map((r) => ({ whenText: r.when_text, thenText: r.then_text, enabled: r.enabled })),
         foreign,
+        shared: form.shared,
         allowDuplicate: opts?.allowDuplicate,
       })
 
@@ -1028,6 +1033,23 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             )}
           </div>
         )}
+
+        {/* Share with everyone: on by default; off hides this entry from the
+            people approved to see your transactions (RLS: transactions.shared). */}
+        <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border border-app-border px-3">
+          <input
+            type="checkbox"
+            checked={form.shared}
+            onChange={(e) => setForm((f) => ({ ...f, shared: e.target.checked }))}
+            className="h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
+          />
+          <span className="flex min-w-0 flex-col">
+            <span className="text-sm font-medium text-slate-800">Share with everyone</span>
+            <span className="text-helper text-slate-500">
+              {form.shared ? 'People who can see your transactions will see this.' : 'Only you will see this entry.'}
+            </span>
+          </span>
+        </label>
 
         <div className="rounded-xl border border-app-border">
           <button

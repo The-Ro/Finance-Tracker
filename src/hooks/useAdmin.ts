@@ -119,3 +119,62 @@ export function useAnnouncementMutations() {
 
   return { create, setActive, remove }
 }
+
+export interface AdminAuditRow {
+  created_at: string
+  action: 'grant_admin' | 'revoke_admin' | 'delete_user' | 'reset_password'
+  admin_email: string | null
+  target_email: string | null
+}
+
+/** Recent admin actions (admin_audit_log; admins only). */
+export function useAdminAuditLog() {
+  const isAdmin = useIsAdmin()
+  return useQuery({
+    queryKey: ['admin', 'audit'],
+    enabled: isAdmin,
+    staleTime: 30_000,
+    queryFn: async (): Promise<AdminAuditRow[]> => {
+      const { data, error } = await supabase.rpc('admin_audit_log', { p_limit: 30 })
+      if (error) throw error
+      return (data ?? []) as AdminAuditRow[]
+    },
+  })
+}
+
+/**
+ * Admin actions on a user. Each RPC checks is_admin() server-side and writes
+ * the audit log; the reset email itself is sent by Supabase Auth.
+ */
+export function useAdminUserActions() {
+  const queryClient = useQueryClient()
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin'] })
+    queryClient.invalidateQueries({ queryKey: ['is-admin'] })
+  }
+  const setAdmin = useMutation({
+    mutationFn: async ({ userId, admin }: { userId: string; admin: boolean }) => {
+      const { error } = await supabase.rpc(admin ? 'admin_grant_admin' : 'admin_revoke_admin', { p_user: userId })
+      if (error) throw error
+    },
+    onSuccess: refresh,
+  })
+  const deleteUser = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase.rpc('admin_delete_user', { p_user: userId })
+      if (error) throw error
+    },
+    onSuccess: refresh,
+  })
+  const sendReset = useMutation({
+    mutationFn: async ({ userId, email }: { userId: string; email: string }) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      await supabase.rpc('admin_note_reset_sent', { p_user: userId })
+    },
+    onSuccess: refresh,
+  })
+  return { setAdmin, deleteUser, sendReset }
+}

@@ -25,6 +25,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     original_currency: null,
     original_amount: null,
     fx_rate: null,
+    shared: true,
     ...overrides,
   }
 }

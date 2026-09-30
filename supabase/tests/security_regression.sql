@@ -44,7 +44,8 @@ begin
         'public.iou_payments_check_total()', 'public.ious_check_amount()',
         'public.notify_viewer_access()', 'public.notify_feedback_reply()', 'public.notify_split()',
         'public.notify_name(uuid)', 'public.push_money(numeric,text)', 'public.push_digest(date)',
-        'public.push_server_config()'
+        'public.push_server_config()', 'public.push_day_in_month(date,integer)',
+        'public.push_card_bill(uuid,text,numeric,integer,integer,date)', 'public.admin_log(text,uuid,text)'
       ]) as f
     ) s where fn is not null
   loop
@@ -62,7 +63,9 @@ begin
       'public.request_viewer_access(text)', 'public.convert_account_to_debit_card(text,text,text)',
       'public.admin_overview()', 'public.admin_list_users()', 'public.admin_client_errors(integer)',
       'public.delete_tag(text)', 'public.set_card_network(text,text)',
-      'public.save_push_subscription(text,text,text)', 'public.account_exists_for_reset(text)'
+      'public.save_push_subscription(text,text,text)', 'public.account_exists_for_reset(text)',
+      'public.admin_grant_admin(uuid)', 'public.admin_revoke_admin(uuid)', 'public.admin_delete_user(uuid)',
+      'public.admin_note_reset_sent(uuid)', 'public.admin_audit_log(integer)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then
@@ -177,6 +180,13 @@ begin
     raise exception 'FAIL: push_subscriptions can be written without save_push_subscription';
   end if;
 
+  -- The admin action log is only reachable through admin_audit_log().
+  if has_table_privilege('authenticated', 'public.admin_audit', 'select')
+     or has_table_privilege('authenticated', 'public.admin_audit', 'insert')
+     or has_table_privilege('anon', 'public.admin_audit', 'select') then
+    raise exception 'FAIL: admin_audit is granted to anon/authenticated';
+  end if;
+
   -- Cash is always kept: every user has an open cash account, guarded by trigger.
   if not exists (select 1 from pg_trigger where tgname = 'accounts_keep_cash'
                  and tgrelid = 'public.accounts'::regclass) then
@@ -192,6 +202,11 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 2. As QA15 (ordinary user)
 -- ---------------------------------------------------------------------------
+-- An entry QA17 keeps to themselves (QA15 is approved to see QA17's entries).
+insert into public.transactions (owner_user_id, date, merchant, category, amount, type, account, fingerprint, shared)
+select id, '2026-01-01', 'sec-test private', 'Dining', 1, 'expense', 'Cash', 'sec-test-private', false
+from auth.users where email = 'rohith24112+qa17@gmail.com';
+
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"fc22382b-37cf-444b-af9f-4827294c3330","email":"rohith24112+qa15@gmail.com","role":"authenticated"}', true);
@@ -251,6 +266,10 @@ begin
       select 1 from public.viewer_access va
       where va.owner_user_id = t.owner_user_id and va.requester_user_id = me and va.status = 'approved')
   ) then raise exception 'FAIL: QA15 can read an unshared transaction'; end if;
+  -- ...and never one its owner unticked "Share with everyone" on.
+  if exists (select 1 from public.transactions where owner_user_id <> me and not shared) then
+    raise exception 'FAIL: QA15 can read a transaction its owner kept to themselves';
+  end if;
 
   -- Feedback: only their own.
   if exists (select 1 from public.feedback where owner_user_id <> me) then
@@ -562,6 +581,22 @@ begin
 
   -- Admin dashboard: every admin_* function refuses a non-admin, and only
   -- admins can write announcements.
+  -- Admin actions refuse a non-admin.
+  begin
+    perform public.admin_grant_admin(me);
+    raise exception 'FAIL: QA15 made someone an admin';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.admin_delete_user('8330b931-4022-40ba-bef2-79af3dc8035f');
+    raise exception 'FAIL: QA15 deleted a user';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.admin_audit_log(5);
+    raise exception 'FAIL: QA15 read the admin log';
+  exception when insufficient_privilege then null;
+  end;
   begin
     perform public.admin_overview();
     raise exception 'FAIL: QA15 called admin_overview';

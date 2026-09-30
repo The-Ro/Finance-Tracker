@@ -9,11 +9,14 @@ import { Dropdown } from '@/components/ui/Dropdown'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { AdminFeedbackInbox } from '@/components/settings/AdminFeedbackInbox'
+import { AdminUserActions } from '@/components/admin/AdminUserActions'
+import { useAuth } from '@/context/AuthContext'
 import { useAdminStatus } from '@/lib/admin'
 import {
   isLiveAnnouncement,
   useAdminErrors,
   useAdminOverview,
+  useAdminAuditLog,
   useAdminUsers,
   useAnnouncementMutations,
   useAnnouncements,
@@ -115,6 +118,7 @@ function OverviewTab() {
 
 function UsersTab() {
   const { data = [], isLoading } = useAdminUsers()
+  const { userId } = useAuth()
   const [query, setQuery] = useState('')
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -140,7 +144,7 @@ function UsersTab() {
         <Card className="overflow-hidden">
           <ul className="stagger-rows divide-y divide-app-border">
             {rows.map((u) => (
-              <li key={u.id} className="flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
+              <li key={u.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     <span className="truncate text-sm font-semibold text-slate-900">{u.display_name || 'No name'}</span>
@@ -167,12 +171,45 @@ function UsersTab() {
                     </dd>
                   </div>
                 </dl>
+                <div className="sm:basis-full">
+                  <AdminUserActions user={u} isSelf={u.id === userId} />
+                </div>
               </li>
             ))}
           </ul>
         </Card>
       )}
+      <AdminAuditCard />
     </div>
+  )
+}
+
+const AUDIT_LABELS = {
+  grant_admin: 'made an admin',
+  revoke_admin: 'removed as admin',
+  delete_user: 'deleted',
+  reset_password: 'sent a password reset',
+} as const
+
+/** The last admin actions: who did what to whom. */
+function AdminAuditCard() {
+  const { data = [] } = useAdminAuditLog()
+  if (data.length === 0) return null
+  return (
+    <Card className="flex flex-col gap-2 p-4">
+      <h3 className="text-sm font-semibold text-slate-800">Recent admin actions</h3>
+      <ul className="flex flex-col divide-y divide-app-border">
+        {data.map((a, i) => (
+          <li key={i} className="flex items-baseline justify-between gap-3 py-2 text-helper">
+            <span className="min-w-0 text-slate-700">
+              <b className="font-semibold">{a.target_email ?? 'A user'}</b> {AUDIT_LABELS[a.action]}
+              <span className="text-slate-500"> by {a.admin_email ?? 'an admin'}</span>
+            </span>
+            <span className="shrink-0 text-slate-500">{timeAgo(a.created_at)}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }
 

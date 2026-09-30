@@ -30,6 +30,8 @@ export interface NewTransactionInput {
   /** Set together for a foreign-currency entry (see src/lib/fx.ts); `amount`
    *  is then the home-currency conversion. Omit/null for home currency. */
   foreign?: ForeignAmount | null
+  /** "Share with everyone": false hides this entry from people approved to see yours. Default true. */
+  shared?: boolean
 }
 
 export interface ForeignAmount {
@@ -304,6 +306,7 @@ export function useAddTransaction() {
           source: 'manual',
           fingerprint,
           ...foreignColumns(input.foreign),
+          shared: input.shared ?? true,
         })
         .select('*')
         .single()
@@ -335,6 +338,8 @@ export interface UpdateTransactionInput {
   debitCardId?: string | null
   tags: string[]
   foreign?: ForeignAmount | null
+  /** undefined leaves it as it is. */
+  shared?: boolean
 }
 
 export function useUpdateTransaction() {
@@ -364,6 +369,7 @@ export function useUpdateTransaction() {
           tags: input.tags,
           fingerprint,
           ...foreignColumns(input.foreign),
+          ...(input.shared !== undefined ? { shared: input.shared } : {}),
         })
         .eq('id', input.id)
 

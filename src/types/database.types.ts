@@ -174,6 +174,7 @@ export interface Database {
       }
       transactions: {
         Row: {
+          shared: boolean
           id: string
           owner_user_id: string
           date: string
@@ -198,6 +199,7 @@ export interface Database {
           fx_rate: number | null
         }
         Insert: {
+          shared?: boolean
           id?: string
           owner_user_id: string
           date: string
@@ -220,6 +222,7 @@ export interface Database {
           fx_rate?: number | null
         }
         Update: Partial<{
+          shared: boolean
           category: string | null
           type: TransactionType
           account: string
@@ -686,6 +689,26 @@ export interface Database {
       admin_list_users: {
         Args: Record<string, never>
         Returns: AdminUserRow[]
+      }
+      admin_grant_admin: {
+        Args: { p_user: string }
+        Returns: undefined
+      }
+      admin_revoke_admin: {
+        Args: { p_user: string }
+        Returns: undefined
+      }
+      admin_delete_user: {
+        Args: { p_user: string }
+        Returns: undefined
+      }
+      admin_note_reset_sent: {
+        Args: { p_user: string }
+        Returns: undefined
+      }
+      admin_audit_log: {
+        Args: { p_limit?: number }
+        Returns: { created_at: string; action: string; admin_email: string | null; target_email: string | null }[]
       }
       admin_client_errors: {
         Args: { p_days?: number }
