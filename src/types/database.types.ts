@@ -652,6 +652,7 @@ export interface Database {
           setup_checklist_version: number
           share_birthday: boolean
           salary_next_month: boolean
+          budget_from_payday: boolean
           salary_amount: number | null
           salary_account: string | null
           salary_day: number | null
@@ -684,6 +685,7 @@ export interface Database {
           setup_checklist_version?: number
           share_birthday?: boolean
           salary_next_month?: boolean
+          budget_from_payday?: boolean
           salary_amount?: number | null
           salary_account?: string | null
           salary_day?: number | null
@@ -713,6 +715,7 @@ export interface Database {
           setup_checklist_version: number
           share_birthday: boolean
           salary_next_month: boolean
+          budget_from_payday: boolean
           salary_amount: number | null
           salary_account: string | null
           salary_day: number | null

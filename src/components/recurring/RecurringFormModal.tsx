@@ -16,7 +16,7 @@ import { useToast } from '@/context/ToastContext'
 import { nextStatementDate } from '@/lib/creditCards'
 import { useRecurringMutations, type RecurringItem, type RecurringLoanInput } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
-import { todayISO } from '@/lib/format'
+import { formatShortDate, todayISO } from '@/lib/format'
 import { emiFor, loanDetailsOf, loanMonthLabel, loanProgress, supportsLoanDetails } from '@/lib/loans'
 import type { Cadence, RecurringKind } from '@/types/database.types'
 
@@ -82,8 +82,6 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   // A loan's EMI is either added to a credit card bill or taken from a bank
   // account; picking one narrows the account list (null = follow the account).
   const [emiBy, setEmiBy] = useState<'card' | 'bank' | null>(null)
-  // Set once the user picks the next date themselves (then a card's statement date doesn't override it).
-  const [nextDateTouched, setNextDateTouched] = useState(false)
   const { addManual, update } = useRecurringMutations()
   const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
 
@@ -126,7 +124,6 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
       ...(!editing && prefill?.loan ? { isLoan: true } : {}),
     })
     setEmiBy(null)
-    setNextDateTouched(false)
     setProcessingFee('')
     errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,10 +166,10 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     [inUse, accountDetails, kinds]
   )
   useEffect(() => {
-    if (editing || !cardEmi || nextDateTouched || !card?.statementDay) return
+    if (editing || !cardEmi || !card?.statementDay) return
     const billed = nextStatementDate(card.statementDay, todayISO())
     setForm((f) => (f.nextDate === billed ? f : { ...f, nextDate: billed }))
-  }, [editing, cardEmi, nextDateTouched, card?.statementDay])
+  }, [editing, cardEmi, card?.statementDay])
 
 
   const handleSubmit = async () => {
@@ -326,16 +323,23 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
             />
           </div>
-          <TextField
-            label="Next date"
-            type="date"
-            error={errors.on('nextDate')}
-            value={form.nextDate}
-            onChange={(e) => {
-              setNextDateTouched(true)
-              setForm((f) => ({ ...f, nextDate: e.target.value }))
-            }}
-          />
+          {/* A card EMI's date comes from the card: it's billed on the statement date. */}
+          {cardEmi && card?.statementDay ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-helper font-medium text-slate-600">Next EMI</span>
+              <span className="flex min-h-[44px] items-center rounded-lg border border-app-border bg-slate-50 px-3 text-sm text-slate-700">
+                {formatShortDate(form.nextDate)}
+              </span>
+            </div>
+          ) : (
+            <TextField
+              label="Next date"
+              type="date"
+              error={errors.on('nextDate')}
+              value={form.nextDate}
+              onChange={(e) => setForm((f) => ({ ...f, nextDate: e.target.value }))}
+            />
+          )}
         </div>
         {/* Full width: inside the half-width Category column the add box spilled over. */}
         <div className="-mt-2">
@@ -355,7 +359,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             {form.isLoan && paidBy === 'card'
               ? accountOptions.length === 0
                 ? 'Add your credit card in Settings, Accounts & cards first.'
-                : 'Mark paid adds that month’s EMI to this card’s bill. Set the next date to when it shows on the card.'
+                : 'Mark paid adds that month’s EMI to this card’s bill.'
               : isCard(form.account)
                 ? 'Marking this paid adds it to this card’s bill. You pay it when you pay the card.'
                 : 'Marking this paid logs an expense against this account.'}
@@ -408,7 +412,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                   <>
                     <p className="text-helper text-slate-500">
                       {card?.statementDay
-                        ? `Card EMIs are billed on the statement date (the ${card.statementDay}${ordinal(card.statementDay)} of each month)${!editing && !nextDateTouched ? ', so the next date is set to it.' : '.'}`
+                        ? `The EMI date comes from the card: it's billed on the statement date, the ${card.statementDay}${ordinal(card.statementDay)} of each month.`
                         : 'Add this card’s statement day in Settings, Accounts & cards, and the EMI date will follow it.'}
                     </p>
                     <div className="flex flex-col gap-1.5">

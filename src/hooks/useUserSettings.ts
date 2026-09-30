@@ -44,6 +44,8 @@ export interface UserSettings {
   shareBirthday: boolean
   /** Late-month salary counts toward the next month in summaries (src/lib/salaryMonth.ts). */
   salaryNextMonth: boolean
+  /** Budgets run from pay day to pay day (src/lib/budgetPeriod.ts). */
+  budgetFromPayday: boolean
   /** Salary day (Settings -> Salary); null when not set up. */
   salary: SalaryConfig | null
 }
@@ -72,6 +74,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   setupChecklistVersion: 1,
   shareBirthday: true,
   salaryNextMonth: false,
+  budgetFromPayday: false,
   salary: null,
 }
 
@@ -121,6 +124,7 @@ export function useUserSettings() {
         setupChecklistVersion: data.setup_checklist_version ?? 1,
         shareBirthday: data.share_birthday ?? true,
         salaryNextMonth: data.salary_next_month ?? false,
+        budgetFromPayday: data.budget_from_payday ?? false,
         salary:
           data.salary_amount != null && data.salary_account && data.salary_day != null
             ? {
@@ -303,6 +307,14 @@ export function useUserSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
   })
 
+  const updateBudgetFromPayday = useMutation({
+    mutationFn: async (on: boolean) => {
+      const { error } = await supabase.from('user_settings').update({ budget_from_payday: on }).eq('owner_user_id', userId!)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user_settings', userId] }),
+  })
+
   const dismissSetupChecklist = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -336,6 +348,7 @@ export function useUserSettings() {
     completeOnboarding,
     dismissSetupChecklist,
     updateSalaryNextMonth,
+    updateBudgetFromPayday,
     updateSalary,
     markSalaryAnswered,
     markWhatsNewSeen,

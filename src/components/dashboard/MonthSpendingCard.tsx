@@ -7,7 +7,7 @@ import { applyRollover, type Budget } from '@/hooks/useBudgets'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { spendByCategory } from '@/lib/budgets'
 import { budgetSpendSummary } from '@/lib/home'
-import { resolvePeriod } from '@/lib/period'
+import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
 
 // Segment fills, biggest spend first; the last is the "Other" bucket. Theme
 // tokens rather than fixed hex, so they follow the accent and light/dark.
@@ -29,9 +29,10 @@ interface MonthSpendingCardProps {
 export function MonthSpendingCard({ budgets, transactions, showBudgets, className }: MonthSpendingCardProps) {
   const { format, formatCompact } = useFormatCurrency()
 
+  const period = useBudgetPeriod()
   const { summary, rows } = useMemo(() => {
-    const active = applyRollover(budgets, transactions).filter((b) => b.active && b.monthly_limit > 0)
-    const spent = spendByCategory(transactions, resolvePeriod('this-month'))
+    const active = applyRollover(budgets, transactions, period.previous).filter((b) => b.active && b.monthly_limit > 0)
+    const spent = spendByCategory(transactions, period.current)
     const summary = budgetSpendSummary(
       active.map((b) => ({ category: b.category, limit: b.monthly_limit })),
       spent
@@ -44,23 +45,24 @@ export function MonthSpendingCard({ budgets, transactions, showBudgets, classNam
       .sort((a, b) => b.percent - a.percent)
       .slice(0, 3)
     return { summary, rows }
-  }, [budgets, transactions])
+  }, [budgets, transactions, period])
 
   if (summary.total <= 0) return null
 
-  const monthName = new Date().toLocaleDateString(undefined, { month: 'long' })
+  // "October spending", or "Spending since Sep 30" when budgets run from pay day.
+  const monthName = period.fromPayday ? `Spending ${period.label}` : `${new Date().toLocaleDateString(undefined, { month: 'long' })} spending`
   const over = summary.spent > summary.total
 
   return (
     <Link
       to="/budgets"
-      aria-label={`${monthName} spending: ${format(summary.spent)} of ${format(summary.total)} budgeted. Open Budgets`}
+      aria-label={`${monthName}: ${format(summary.spent)} of ${format(summary.total)} budgeted. Open Budgets`}
       className={clsx('group block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent', className)}
     >
       <Card className="card-interactive flex flex-col gap-3 p-5">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="flex items-center gap-1 text-sm font-semibold text-slate-800">
-            {monthName} spending
+            {monthName}
             <ChevronRight size={14} className="text-slate-400 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </h3>
           <span className={clsx('text-helper tabular-nums', over ? 'font-semibold text-danger' : 'text-slate-500')}>

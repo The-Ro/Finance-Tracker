@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import { useMyTransactions } from '@/hooks/useTransactions'
-import { resolvePeriod } from '@/lib/period'
+import { resolvePeriod, type DateRange } from '@/lib/period'
+import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
 import { effectiveLimit, priorMonthResult, spendByCategory } from '@/lib/budgets'
 import type { Database } from '@/types/database.types'
 
@@ -16,9 +17,10 @@ export type EffectiveBudget = Budget & { baseLimit: number; carried: number }
 /** Applies opt-in rollover to every budget -- see effectiveLimit in lib/budgets. */
 export function applyRollover(
   budgets: Budget[],
-  transactions: { type: string; category: string | null; date: string; amount: number }[]
+  transactions: { type: string; category: string | null; date: string; amount: number }[],
+  /** The period before the current one (useBudgetPeriod().previous); the calendar month by default. */
+  lastMonth: DateRange = resolvePeriod('last-month')
 ): EffectiveBudget[] {
-  const lastMonth = resolvePeriod('last-month')
   const spentLastMonth = spendByCategory(transactions, lastMonth)
   return budgets.map((b) => {
     const prior = priorMonthResult(b.monthly_limit, b.created_at, spentLastMonth.get(b.category) ?? 0, lastMonth)
@@ -101,12 +103,13 @@ export function useBudgetAlerts() {
   const { userId } = useAuth()
   const { data: budgets = [] } = useBudgets()
   const myTransactions = useMyTransactions(userId)
+  const period = useBudgetPeriod()
 
   return useMemo<BudgetAlert[]>(() => {
-    const spentByCategory = spendByCategory(myTransactions.data ?? [], resolvePeriod('this-month'))
+    const spentByCategory = spendByCategory(myTransactions.data ?? [], period.current)
 
     const alerts: BudgetAlert[] = []
-    for (const budget of applyRollover(budgets, myTransactions.data ?? [])) {
+    for (const budget of applyRollover(budgets, myTransactions.data ?? [], period.previous)) {
       if (!budget.active || budget.monthly_limit <= 0) continue
       const spent = spentByCategory.get(budget.category) ?? 0
       const percent = (spent / budget.monthly_limit) * 100
@@ -114,5 +117,5 @@ export function useBudgetAlerts() {
       else if (percent >= 90) alerts.push({ budget, spent, percent, status: 'approaching' })
     }
     return alerts.sort((a, b) => b.percent - a.percent)
-  }, [budgets, myTransactions.data])
+  }, [budgets, myTransactions.data, period])
 }

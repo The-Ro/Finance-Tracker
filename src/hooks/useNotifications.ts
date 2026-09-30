@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
@@ -93,6 +94,7 @@ export function useFileOwnAlerts(existing: readonly NotificationRow[] | undefine
 
   // Pay day: same rule as Home's SalaryPrompt (from pay day until confirmed,
   // or until an income tagged #salary is logged this month).
+  const budgetPeriodKey = useBudgetPeriod().key
   const salary = settings.data?.salary ?? null
   const salaryDue = useMemo(() => {
     if (!salary || !transactions) return null
@@ -103,7 +105,8 @@ export function useFileOwnAlerts(existing: readonly NotificationRow[] | undefine
   }, [salary, transactions])
 
   const notices = useMemo(() => {
-    const month = todayISO().slice(0, 7)
+    // Once per budget period (the month, or pay day to pay day).
+    const month = budgetPeriodKey
     return [
       ...budgetAlerts.map((a) =>
         budgetNotice(
@@ -115,7 +118,7 @@ export function useFileOwnAlerts(existing: readonly NotificationRow[] | undefine
       ...overdue.map((item) => overdueNotice(item, format, formatShortDate)),
       ...(salaryDue && salary ? [salaryNotice(salaryDue.month, salary.amount, salary.account, format)] : []),
     ]
-  }, [budgetAlerts, overdue, format, salaryDue, salary])
+  }, [budgetAlerts, overdue, format, salaryDue, salary, budgetPeriodKey])
 
   useEffect(() => {
     if (!userId || !existing) return

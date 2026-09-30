@@ -13,7 +13,8 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { useToast } from '@/context/ToastContext'
 import { BudgetCard } from '@/components/budgets/BudgetCard'
 import { BudgetFormModal } from '@/components/budgets/BudgetFormModal'
-import { resolvePeriod } from '@/lib/period'
+import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
+import { useUserSettings } from '@/hooks/useUserSettings'
 import { priorMonthResult, spendByCategory } from '@/lib/budgets'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 
@@ -67,17 +68,25 @@ export function BudgetsPage() {
     })
   }
 
-  const lastMonthRange = useMemo(() => resolvePeriod('last-month'), [])
+  // Calendar month, or pay day to pay day ("Start budgets on pay day").
+  const period = useBudgetPeriod()
+  const settings = useUserSettings()
+  const lastMonthRange = period.previous
   const spentByCategory = useMemo(
-    () => spendByCategory(myTransactions.data ?? [], resolvePeriod('this-month')),
-    [myTransactions.data]
+    () => spendByCategory(myTransactions.data ?? [], period.current),
+    [myTransactions.data, period]
   )
   const spentLastMonthByCategory = useMemo(
     () => spendByCategory(myTransactions.data ?? [], lastMonthRange),
     [myTransactions.data, lastMonthRange]
   )
 
-  const budgets = useMemo(() => applyRollover(rawBudgets, myTransactions.data ?? []), [rawBudgets, myTransactions.data])
+  const budgets = useMemo(
+    () => applyRollover(rawBudgets, myTransactions.data ?? [], period.previous),
+    [rawBudgets, myTransactions.data, period]
+  )
+  const hasSalary = !!settings.data?.salary
+  const fromPayday = settings.data?.budgetFromPayday ?? false
 
   const totalLimit = budgets.reduce((sum, b) => sum + b.monthly_limit, 0)
   const totalSpent = budgets.reduce((sum, b) => sum + (spentByCategory.get(b.category) ?? 0), 0)
@@ -97,6 +106,38 @@ export function BudgetsPage() {
           />
         }
       />
+
+      {/* Pay day to pay day instead of the 1st: spending counts from when the salary arrived. */}
+      <label className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-app-border bg-app-card px-4 py-2.5">
+        <span className="flex min-w-0 flex-col">
+          <span className="text-sm font-medium text-slate-800">Start budgets on pay day</span>
+          <span className="text-helper text-slate-500">
+            {!hasSalary
+              ? 'Set your salary day in Settings, Salary first.'
+              : fromPayday
+                ? `Counting spending ${period.label}, when your salary came in.`
+                : 'Count spending from the day your salary arrives, not the 1st.'}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={fromPayday}
+          disabled={!hasSalary}
+          onChange={(e) => settings.updateBudgetFromPayday.mutate(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span
+          aria-hidden="true"
+          className={clsx(
+            'relative h-6 w-11 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 peer-disabled:opacity-50',
+            fromPayday ? 'bg-accent' : 'bg-slate-300'
+          )}
+        >
+          <span
+            className={clsx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', fromPayday ? 'translate-x-[22px]' : 'translate-x-0.5')}
+          />
+        </span>
+      </label>
 
       {isLoading ? (
         <BudgetsSkeleton />
@@ -139,6 +180,7 @@ export function BudgetsPage() {
                   spentLastMonthByCategory.get(b.category) ?? 0,
                   lastMonthRange
                 )}
+                lastLabel={period.previousLabel}
                 onEdit={() => {
                   setEditing({ ...b, monthly_limit: b.baseLimit })
                   setModalOpen(true)

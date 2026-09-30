@@ -3028,3 +3028,6 @@ alter table public.money_reminders add column if not exists category text;
 alter table public.money_reminders drop constraint if exists money_reminders_log_entry_check;
 alter table public.money_reminders add constraint money_reminders_log_entry_check
   check (not log_entry or (account is not null and amount is not null));
+
+-- ===== Budgets from pay day (migration 2026-10-01_budget_from_payday.sql) =====
+alter table public.user_settings add column if not exists budget_from_payday boolean not null default false;

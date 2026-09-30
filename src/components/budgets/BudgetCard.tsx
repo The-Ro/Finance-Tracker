@@ -12,11 +12,13 @@ interface BudgetCardProps {
   /** Last month against the base limit. Null when the budget didn't exist
    *  last month. Only changes this month's limit when rollover is on. */
   lastMonth: PriorMonthResult | null
+  /** "Last month", or "Last pay period" when budgets run from pay day. */
+  lastLabel?: string
   onEdit: () => void
   onDelete: () => void
 }
 
-export function BudgetCard({ budget, spent, lastMonth, onEdit, onDelete }: BudgetCardProps) {
+export function BudgetCard({ budget, spent, lastMonth, lastLabel = 'Last month', onEdit, onDelete }: BudgetCardProps) {
   const { format } = useFormatCurrency()
   const remaining = budget.monthly_limit - spent
   const percent = useAnimatedNumber(budget.monthly_limit > 0 ? (spent / budget.monthly_limit) * 100 : 0)
@@ -57,11 +59,11 @@ export function BudgetCard({ budget, spent, lastMonth, onEdit, onDelete }: Budge
           : `${format(animatedRemaining)} remaining`}
       </p>
       {budget.carried > 0 && (
-        <p className="text-helper tabular-nums text-positive">Includes {format(budget.carried)} rolled over from last month</p>
+        <p className="text-helper tabular-nums text-positive">Includes {format(budget.carried)} rolled over from {lastLabel.toLowerCase()}</p>
       )}
       {lastMonth && (
         <p className="border-t border-app-border pt-2 text-helper tabular-nums text-slate-400">
-          Last month:{' '}
+          {lastLabel}:{' '}
           {lastMonth.difference >= 0
             ? `${format(lastMonth.difference)} left over`
             : `${format(-lastMonth.difference)} over`}

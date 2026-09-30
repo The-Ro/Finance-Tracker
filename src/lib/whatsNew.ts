@@ -1,10 +1,12 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.15.1'
+export const APP_VERSION = '1.15.2'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-10-17'
+export const CURRENT_WHATS_NEW_VERSION = '2026-10-18'
 
 export const WHATS_NEW_ITEMS: string[] = [
+  'Budgets can start on pay day: turn on "Start budgets on pay day" on the Budgets page and spending counts from when your salary came in.',
+  'EMIs on a credit card take their date from the card’s statement day, so there’s no date to fill in.',
   'Money to send is now the small send icon on the Bills calendar. Tick "Log it when I tap Sent" to add the entry with its account, mode and category.',
   'New categories get an icon: pick one, or keep the one guessed from the name.',
   'Entries you keep to yourself are blurred in Activity too. Tap one to peek.',
