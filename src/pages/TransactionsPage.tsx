@@ -8,6 +8,7 @@ import {
   useEveryoneTransactions,
   useMyTransactionsPaginated,
   useEveryoneTransactionsPaginated,
+  usePrivateEntries,
   TRANSACTIONS_QUERY_LIMIT,
 } from '@/hooks/useTransactions'
 import { useProfiles } from '@/hooks/useProfiles'
@@ -111,6 +112,20 @@ export function TransactionsPage() {
   const everyoneTransactionsPaginated = useEveryoneTransactionsPaginated(serverFilters, range)
   const paginated = scope === 'mine' ? myTransactionsPaginated : everyoneTransactionsPaginated
   const paginatedSource = useMemo(() => paginated.data?.pages.flat() ?? [], [paginated.data])
+
+  // Everyone view: entries people kept to themselves show as blurred rows. Only
+  // with no search/type/category/account/mode filter (nothing about them can
+  // match one), and only back to the oldest loaded day while more pages remain.
+  const unfiltered = !filters.search.trim() && !filters.type && !filters.category && !filters.account && !filters.paymentMethod
+  const privateEntries = usePrivateEntries(range, scope === 'everyone' && unfiltered)
+  const privateRows = useMemo(() => {
+    if (scope !== 'everyone' || !unfiltered) return []
+    let rows = privateEntries.data ?? []
+    if (filters.ownerId) rows = rows.filter((r) => r.owner_user_id === filters.ownerId)
+    const oldest = paginatedSource[paginatedSource.length - 1]?.date
+    if (paginated.hasNextPage && oldest) rows = rows.filter((r) => r.date >= oldest)
+    return rows
+  }, [scope, unfiltered, privateEntries.data, filters.ownerId, paginatedSource, paginated.hasNextPage])
 
   // Person-filter options come from the (unfiltered) full fetch, so picking
   // one person doesn't shrink the list of people you can pick from.
@@ -231,18 +246,23 @@ export function TransactionsPage() {
               variant="secondary"
               onClick={handleExport}
               disabled={inPeriod.length === 0}
-              className="shrink-0 gap-1 px-2.5 !text-helper sm:gap-2 sm:px-4 sm:!text-sm"
+              aria-label="Export"
+              title="Export"
+              className="shrink-0 gap-1 px-3 !text-helper sm:gap-2 sm:px-4 sm:!text-sm"
             >
-              <Download size={15} aria-hidden="true" />
-              Export
+              <Download size={16} aria-hidden="true" />
+              {/* Icon only on phones: three labelled pills were wider than an iPhone and pushed the page sideways. */}
+              <span className="hidden sm:inline">Export</span>
             </Button>
             <Button
               variant="secondary"
               onClick={() => setDuplicatesOpen(true)}
-              className="shrink-0 gap-1 px-2.5 !text-helper sm:gap-2 sm:px-4 sm:!text-sm"
+              aria-label="Duplicates"
+              title="Duplicates"
+              className="shrink-0 gap-1 px-3 !text-helper sm:gap-2 sm:px-4 sm:!text-sm"
             >
-              <Copy size={15} aria-hidden="true" />
-              Duplicates
+              <Copy size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">Duplicates</span>
               {duplicateGroups.length > 0 && (
                 <span className="rounded-full bg-caution-light px-1.5 text-helper font-semibold text-caution">
                   {duplicateGroups.length}
@@ -311,6 +331,7 @@ export function TransactionsPage() {
       ) : (
         <TransactionTable
           transactions={paginatedSource}
+          privateRows={privateRows}
           scope={scope}
           onScopeChange={setScope}
           canChooseScope={canChooseScope}

@@ -245,6 +245,23 @@ export function useMyTransactionsPaginated(userId: string | null, filters: Trans
 }
 
 /** Same as useMyTransactionsPaginated, for the "Everyone" (shared) scope. */
+/**
+ * Entries that people who share with you kept to themselves, in `range`:
+ * only id, owner and date (never what or how much), shown blurred in the
+ * Everyone view (private_entries_shared_with_me).
+ */
+export function usePrivateEntries(range: DateRange, enabled: boolean) {
+  return useQuery({
+    queryKey: ['private_entries', range.start, range.end],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('private_entries_shared_with_me', { p_from: range.start, p_to: range.end })
+      if (error) throw error
+      return (data ?? []) as { id: string; owner_user_id: string; date: string }[]
+    },
+  })
+}
+
 export function useEveryoneTransactionsPaginated(filters: TransactionFilters, range: DateRange) {
   return useInfiniteQuery({
     queryKey: ['transactions', 'everyone-paginated', filters, range],

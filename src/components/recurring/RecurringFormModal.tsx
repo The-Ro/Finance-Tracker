@@ -1,7 +1,9 @@
+import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { useAccountKinds } from '@/hooks/useCards'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { MonthField } from '@/components/ui/MonthField'
 import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
 import { Dropdown } from '@/components/ui/Dropdown'
@@ -67,6 +69,9 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   const { expense: allExpenseCategories } = useCategories()
   const { data: accounts = [] } = useAccounts()
   const kinds = useAccountKinds()
+  // A loan's EMI is either added to a credit card bill or taken from a bank
+  // account; picking one narrows the account list (null = follow the account).
+  const [emiBy, setEmiBy] = useState<'card' | 'bank' | null>(null)
   const { addManual, update } = useRecurringMutations()
   const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
 
@@ -108,6 +113,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
       ...loanFormState(editing),
       ...(!editing && prefill?.loan ? { isLoan: true } : {}),
     })
+    setEmiBy(null)
     errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, prefill])
@@ -190,6 +196,15 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
       ? emiFor(Number(form.loanAmount), Number(form.loanRate), Number(form.loanTenure))
       : null
 
+  const isCard = (a: string) => kinds.get(a) === 'credit_card'
+  const paidBy = emiBy ?? (isCard(form.account) ? 'card' : 'bank')
+  // With a loan, only cards (EMI on the card bill) or only non-cards (from the bank).
+  const accountOptions = form.isLoan ? accounts.filter((a) => (paidBy === 'card' ? isCard(a) : !isCard(a))) : accounts
+  const choosePaidBy = (by: 'card' | 'bank') => {
+    setEmiBy(by)
+    setForm((f) => (isCard(f.account) === (by === 'card') ? f : { ...f, account: '' }))
+  }
+
   return (
     <Modal
       open={open}
@@ -211,14 +226,11 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
         />
         <div className="grid grid-cols-2 gap-3">
-          <TextField
+          <MoneyField
             label="Amount"
-            type="number"
-            step="0.01"
-            min="0.01"
             error={errors.on('amount')}
             value={form.amount}
-            onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+            onChange={(v) => setForm((f) => ({ ...f, amount: v }))}
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-helper font-medium text-slate-600">Cadence</label>
@@ -252,19 +264,23 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           <QuickAddCategory variant="link" kind="expense" onAdded={(category) => setForm((f) => ({ ...f, category }))} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-helper font-medium text-slate-600">Account</label>
+          <label className="text-helper font-medium text-slate-600">
+            {form.isLoan ? (paidBy === 'card' ? 'Credit card' : 'Bank account') : 'Account'}
+          </label>
           <Dropdown
-            options={accounts}
+            options={accountOptions}
             error={errors.on('account')}
             value={form.account}
             onChange={(e) => setForm((f) => ({ ...f, account: e.target.value }))}
           />
           <p className="text-helper text-slate-500">
-            {kinds.get(form.account) === 'credit_card'
-              ? form.isLoan
-                ? 'A card EMI: each "Mark paid" adds that month’s EMI to this card’s bill, like the bank does. Don’t also log the full purchase, or it counts twice. Set the next date to when the EMI shows on the card.'
-                : 'Marking this paid adds it to this card’s bill. You pay it when you pay the card.'
-              : 'Marking this paid logs an expense against this account.'}
+            {form.isLoan && paidBy === 'card'
+              ? accountOptions.length === 0
+                ? 'Add your credit card in Settings, Accounts & cards first.'
+                : 'Mark paid adds that month’s EMI to this card’s bill. Set the next date to when it shows on the card.'
+              : isCard(form.account)
+                ? 'Marking this paid adds it to this card’s bill. You pay it when you pay the card.'
+                : 'Marking this paid logs an expense against this account.'}
           </p>
         </div>
         {kind === 'recurring' && (
@@ -276,19 +292,46 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                 onChange={(e) => setForm((f) => ({ ...f, isLoan: e.target.checked }))}
                 className="h-4 w-4"
               />
-              {kinds.get(form.account) === 'credit_card' ? 'This is an EMI on this card' : 'This is a loan / EMI'}
+              This is a loan / EMI
             </label>
             {form.isLoan && (
               <>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-helper font-medium text-slate-600">How is the EMI paid?</span>
+                  <div role="radiogroup" aria-label="How is the EMI paid" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                    {(
+                      [
+                        ['card', 'On my credit card bill'],
+                        ['bank', 'From my bank account'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={paidBy === value}
+                        onClick={() => choosePaidBy(value)}
+                        className={clsx(
+                          'min-h-[44px] rounded-lg px-2 text-helper font-semibold leading-tight transition-colors',
+                          paidBy === value ? 'bg-app-card text-slate-900 shadow-card' : 'text-slate-500'
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-helper text-slate-500">
+                    {paidBy === 'card'
+                      ? 'Bought on the card and turned into EMIs: each month’s EMI goes on the card bill, which you pay from your bank as usual. The loan still to repay is held from the card’s limit until it’s paid off. Don’t also log the full purchase.'
+                      : 'Each EMI is taken straight from your bank account (home, car or personal loans).'}
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <TextField
+                  <MoneyField
                     label="Loan amount"
-                    type="number"
-                    step="0.01"
-                    min="1"
                     error={errors.on('loanAmount')}
                     value={form.loanAmount}
-                    onChange={(e) => setForm((f) => ({ ...f, loanAmount: e.target.value }))}
+                    onChange={(v) => setForm((f) => ({ ...f, loanAmount: v }))}
                   />
                   <TextField
                     label="Tenure (months)"

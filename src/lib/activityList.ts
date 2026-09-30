@@ -132,3 +132,29 @@ export function snapOffset(offset: number, actionsWidth: number, velocity = 0): 
   if (velocity > 0.4) return 0
   return offset <= -actionsWidth / 3 ? -actionsWidth : 0
 }
+
+/** Someone else's entry they kept to themselves: only that it exists (private_entries_shared_with_me). */
+export interface PrivatePlaceholder {
+  id: string
+  owner_user_id: string
+  date: string
+}
+
+/**
+ * Adds the blurred "kept to themselves" rows to the day groups (Everyone
+ * view): each joins its day's group, or starts one for a day with nothing
+ * else loaded; groups stay newest first. They add nothing to day totals.
+ */
+export function withPrivateRows<T>(
+  groups: DayGroup<T>[],
+  placeholders: PrivatePlaceholder[]
+): (DayGroup<T> & { privateRows: PrivatePlaceholder[] })[] {
+  const byDate = new Map<string, PrivatePlaceholder[]>()
+  for (const p of placeholders) byDate.set(p.date, [...(byDate.get(p.date) ?? []), p])
+  const out = groups.map((g) => ({ ...g, privateRows: byDate.get(g.date) ?? [] }))
+  const have = new Set(groups.map((g) => g.date))
+  for (const [date, rows] of byDate) {
+    if (!have.has(date)) out.push({ date, rows: [], net: null, privateRows: rows })
+  }
+  return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+}

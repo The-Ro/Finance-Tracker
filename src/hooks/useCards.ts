@@ -12,6 +12,8 @@ import {
   type StatementSummary,
 } from '@/lib/creditCards'
 import { todayISO } from '@/lib/format'
+import { useRecurringItemsRaw } from '@/hooks/useRecurring'
+import { loanDetailsOf, outstandingPrincipal } from '@/lib/loans'
 
 /** Names of closed accounts -- hidden from pickers, balances, totals and bills (history stays). */
 export function useClosedAccounts(): Set<string> {
@@ -31,16 +33,38 @@ export function useCardStatuses(): Map<string, CardStatus> {
   const { data: transactions } = useMyTransactions(userId)
   const { data: details } = useAccountDetails()
   const { data: openings } = useAccountOpeningBalances()
+  const { data: recurring } = useRecurringItemsRaw()
   return useMemo(() => {
     const map = new Map<string, CardStatus>()
     if (!transactions || !details) return map
     const today = todayISO()
+    // EMIs on a card (active recurring loan items on it): the loan still to
+    // repay stays blocked from the limit, like the bank shows it.
+    const locked = new Map<string, number>()
+    for (const item of recurring ?? []) {
+      const loan = item.active && item.account ? loanDetailsOf(item) : null
+      if (!loan || !item.account) continue
+      const left = outstandingPrincipal(loan, Number(item.amount), item.cadence, item.next_date)
+      if (left > 0) locked.set(item.account, (locked.get(item.account) ?? 0) + left)
+    }
     for (const [name, d] of details) {
       if (d.kind !== 'credit_card' || d.closed) continue
-      map.set(name, cardStatus(name, openings?.get(name) ?? 0, transactions, d, today))
+      const s = cardStatus(name, openings?.get(name) ?? 0, transactions, d, today)
+      const emiLocked = Math.round((locked.get(name) ?? 0) * 100) / 100
+      map.set(
+        name,
+        emiLocked > 0 && s.limit
+          ? {
+              ...s,
+              emiLocked,
+              available: Math.round((s.limit - s.owed - emiLocked) * 100) / 100,
+              utilization: Math.min(100, ((s.owed + emiLocked) / s.limit) * 100),
+            }
+          : { ...s, emiLocked }
+      )
     }
     return map
-  }, [transactions, details, openings])
+  }, [transactions, details, openings, recurring])
 }
 
 export interface CardBill {

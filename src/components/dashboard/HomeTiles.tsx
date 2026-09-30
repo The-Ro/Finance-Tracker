@@ -100,7 +100,7 @@ export function HomeTiles({ balances, saved }: HomeTilesProps) {
       cardLimitTotals(
         [...cards]
           .filter(([name]) => !closed.has(name))
-          .map(([, s]) => ({ owed: s.owed, limit: s.available != null ? s.available + s.owed : null }))
+          .map(([, s]) => ({ owed: s.owed + s.emiLocked, limit: s.limit }))
       ),
     [cards, closed]
   )

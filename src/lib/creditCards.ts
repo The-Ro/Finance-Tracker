@@ -99,8 +99,16 @@ export interface CardStatus {
   owed: number
   /** Overpayment sitting on the card, if any. */
   credit: number
-  /** Limit minus owed; null without a limit. */
+  /** Limit minus owed (and minus any EMI block); null without a limit. */
   available: number | null
+  /** The card's credit limit; null when not set. */
+  limit: number | null
+  /**
+   * Loan still to repay on EMIs charged to this card (recurring loan items on
+   * it): the bank keeps that much of the limit blocked. 0 from cardStatus();
+   * useCardStatuses fills it in.
+   */
+  emiLocked: number
   /** 0-100 share of the limit in use; null without a limit. */
   utilization: number | null
   /** Set only when both statement and due days are known. */
@@ -154,6 +162,8 @@ export function cardStatus(
     owed,
     credit,
     available: limit != null ? Math.round((limit - owed) * 100) / 100 : null,
+    limit: limit ?? null,
+    emiLocked: 0,
     utilization: limit ? Math.min(100, (owed / limit) * 100) : null,
     bill,
   }

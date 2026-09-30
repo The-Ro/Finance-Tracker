@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/Card'
-import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { FormError } from '@/components/ui/FieldError'
@@ -59,23 +59,17 @@ export function NetWorthForm() {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <TextField
+        <MoneyField
           label="What you own"
-          type="number"
-          step="0.01"
-          min="0"
           error={numberError(assetsNum)}
           value={assets}
-          onChange={(e) => setAssets(e.target.value)}
+          onChange={setAssets}
         />
-        <TextField
+        <MoneyField
           label="What you owe"
-          type="number"
-          step="0.01"
-          min="0"
           error={numberError(liabilitiesNum)}
           value={liabilities}
-          onChange={(e) => setLiabilities(e.target.value)}
+          onChange={setLiabilities}
         />
       </div>
       <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">

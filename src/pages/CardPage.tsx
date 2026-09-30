@@ -168,6 +168,11 @@ export function CardPage() {
             <p className="text-helper text-slate-500">
               {format(status.available ?? 0)} available of {format(details.creditLimit)} · {Math.round(status.utilization)}% used
             </p>
+            {status.emiLocked > 0 && (
+              <p className="text-helper text-slate-500">
+                {format(status.emiLocked)} is held for EMIs on this card: the loan still to repay. It frees up as you pay the EMIs.
+              </p>
+            )}
           </div>
         ) : (
           <Link to="/settings/accounts" className="text-helper font-medium text-accent-dark hover:underline">

@@ -26,12 +26,13 @@ export function InlineCategoryEditor({ transactionId, category, type, editable }
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex min-w-0 flex-col gap-0.5">
       <Dropdown
         options={categories.includes(category) ? categories : [category, ...categories]}
         value={category}
         aria-label="Category"
-        className="min-h-[36px] min-w-0"
+        // !min-w-0: the Dropdown's own min-w-[9rem] otherwise wins and the box spills into the Account column.
+        className="min-h-[36px] !min-w-0"
         onChange={async (e) => {
           setError(false)
           try {
@@ -41,7 +42,7 @@ export function InlineCategoryEditor({ transactionId, category, type, editable }
           }
         }}
       />
-      {error && <span className="text-helper text-red-600">Couldn't save, try again.</span>}
+      {error && <span className="text-helper text-danger">Couldn't save, try again.</span>}
     </div>
   )
 }

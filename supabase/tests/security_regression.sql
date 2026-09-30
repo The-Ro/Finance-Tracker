@@ -759,6 +759,44 @@ begin
   if not exists (select 1 from pg_trigger where tgname = 'notifications_push_to_device' and not tgisinternal) then
     raise exception 'FAIL: bell notes are no longer pushed to phones';
   end if;
+  -- 1.14.0: money reminders are own-only; private entries leak only id/owner/date.
+  if has_table_privilege('anon', 'public.money_reminders', 'select') then
+    raise exception 'FAIL: anon can read money reminders';
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'money_reminders' and qual ilike '%auth.uid()%' and with_check ilike '%auth.uid()%') then
+    raise exception 'FAIL: money_reminders is not scoped to its owner';
+  end if;
+  if has_function_privilege('authenticated', 'public.file_money_reminder_notifications(date)', 'execute') then
+    raise exception 'FAIL: signed-in users can file money reminder notes';
+  end if;
+  if has_function_privilege('anon', 'public.private_entries_shared_with_me(date,date)', 'execute') then
+    raise exception 'FAIL: anon can list private entries';
+  end if;
+  if pg_get_function_result('public.private_entries_shared_with_me(date,date)'::regprocedure)
+     <> 'TABLE(id uuid, owner_user_id uuid, date date)' then
+    raise exception 'FAIL: private_entries_shared_with_me returns more than id, owner and date';
+  end if;
+  if has_table_privilege('anon', 'public.zodiac_facts', 'select') or has_table_privilege('authenticated', 'public.zodiac_facts', 'insert') then
+    raise exception 'FAIL: zodiac_facts is writable or public';
+  end if;
+end $$;
+
+-- A viewer sees only that a private entry exists, never the row.
+do $$
+declare v_owner uuid; v_viewer uuid; v_seen int;
+begin
+  select owner_user_id, requester_user_id into v_owner, v_viewer from public.viewer_access where status = 'approved' limit 1;
+  if v_owner is null then return; end if;
+  insert into public.transactions (owner_user_id, date, merchant, category, amount, type, account, fingerprint, shared)
+  values (v_owner, '2026-01-01', 'sec-test hidden', 'Dining', 1, 'expense', 'Cash', 'sec-test-hidden', false);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_viewer, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  if exists (select 1 from public.transactions where merchant = 'sec-test hidden') then
+    raise exception 'FAIL: a viewer can read an entry its owner kept private';
+  end if;
+  select count(*) into v_seen from public.private_entries_shared_with_me('2026-01-01', '2026-01-01') p where p.owner_user_id = v_owner;
+  if v_seen < 1 then raise exception 'FAIL: the private entry placeholder is missing for the viewer'; end if;
+  reset role;
 end $$;
 
 select 'ALL SECURITY CHECKS PASSED' as result;

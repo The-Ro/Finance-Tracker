@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useGoals, type Goal } from '@/hooks/useGoals'
@@ -86,14 +86,11 @@ export function AddMoneyModal({ goal, onClose }: AddMoneyModalProps) {
           )}
           .
         </p>
-        <TextField
+        <MoneyField
           label="Amount"
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
           placeholder="0"
           error={errors.on('amount')} value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={setAmount}
         />
         {remaining > 0 && (
           <button

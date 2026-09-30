@@ -29,7 +29,7 @@ export function CreditCardsCard({ className }: { className?: string }) {
     () =>
       [...statuses]
         .filter(([name]) => !closed.has(name))
-        .map(([name, s]) => ({ name, status: s, limit: s.available != null ? s.available + s.owed : null }))
+        .map(([name, s]) => ({ name, status: s, limit: s.limit }))
         .sort((a, b) => b.status.owed - a.status.owed || a.name.localeCompare(b.name)),
     [statuses, closed]
   )
@@ -90,7 +90,7 @@ export function CreditCardsCard({ className }: { className?: string }) {
                   {name}
                 </Link>
                 <span className="shrink-0 tabular-nums text-slate-500">
-                  <span className="font-semibold text-slate-900">{format(status.owed)}</span> / {format(limit)} ·{' '}
+                  <span className="font-semibold text-slate-900">{format(status.owed + status.emiLocked)}</span> / {format(limit)} ·{' '}
                   <span className={clsx('font-semibold', tone === 'danger' ? 'text-danger' : 'text-slate-900')}>{Math.round(percent)}%</span>
                 </span>
               </div>
@@ -109,6 +109,7 @@ export function CreditCardsCard({ className }: { className?: string }) {
               </div>
               <p className="text-helper tabular-nums text-slate-500">
                 {status.credit > 0 ? `${format(status.credit)} credit on the card` : `${format(available)} available`}
+                {status.emiLocked > 0 ? ` · ${format(status.emiLocked)} held for EMIs` : ''}
                 {dueText ? ` · ${dueText}` : ''}
               </p>
             </li>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { emiFor, loanDetailsOf, loanProgress, monthsBetween, supportsLoanDetails } from './loans'
+import { emiFor, loanDetailsOf, loanProgress, monthsBetween, outstandingPrincipal, supportsLoanDetails } from './loans'
 
 const bike = { amount: 250000, tenureMonths: 24, startMonth: '2025-11' }
 
@@ -65,5 +65,25 @@ describe('loanDetailsOf', () => {
         ?.interestRate
     ).toBe(10.5)
     expect(loanDetailsOf({ loan_amount: 5000, loan_tenure_months: null, loan_start_date: '2026-01-01' })).toBeNull()
+  })
+})
+
+describe('outstandingPrincipal', () => {
+  const loan = { amount: 60000, tenureMonths: 12, startMonth: '2026-01' }
+  it('is the unpaid share of the amount without a rate', () => {
+    // First EMI Jan; next due Apr -> 3 paid of 12.
+    expect(outstandingPrincipal(loan, 5000, 'monthly', '2026-04-05')).toBe(45000)
+    expect(outstandingPrincipal(loan, 5000, 'monthly', '2026-01-05')).toBe(60000)
+  })
+  it('follows the reducing balance with a rate', () => {
+    const withRate = { ...loan, interestRate: 12 }
+    const emi = emiFor(60000, 12, 12)
+    const left = outstandingPrincipal(withRate, emi, 'monthly', '2026-07-05')
+    // Half the EMIs paid leaves a bit more than half the principal (interest is front-loaded).
+    expect(left).toBeGreaterThan(30000)
+    expect(left).toBeLessThan(31500)
+  })
+  it('is 0 once paid off', () => {
+    expect(outstandingPrincipal(loan, 5000, 'monthly', '2027-01-05')).toBe(0)
   })
 })

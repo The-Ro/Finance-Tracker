@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { DateField } from '@/components/ui/DateField'
 import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useIous, type Iou } from '@/hooks/useIous'
 import { todayISO } from '@/lib/format'
+import { useToast } from '@/context/ToastContext'
+import { LogEntryToggle, PICK_ACCOUNT, useLogIouEntry } from './LogEntryToggle'
 import type { IouDirection } from '@/types/database.types'
 
 interface IouFormModalProps {
@@ -28,7 +31,12 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
   const [date, setDate] = useState(todayISO())
   const [dueDate, setDueDate] = useState('')
   const [note, setNote] = useState('')
-  const errors = useFieldErrors<'person' | 'amount' | 'dueDate'>()
+  const errors = useFieldErrors<'person' | 'amount' | 'dueDate' | 'logAccount'>()
+  const logEntry = useLogIouEntry()
+  const { show } = useToast()
+  // "Also add to my entries" (new records only): logs the money moving in or out.
+  const [logIt, setLogIt] = useState(false)
+  const [logAccount, setLogAccount] = useState(PICK_ACCOUNT)
   const clearErrors = errors.clear
 
   // Stays mounted between opens, so reset from `editing` each time it opens.
@@ -40,6 +48,8 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
     setDate(editing?.date ?? todayISO())
     setDueDate(editing?.due_date ?? '')
     setNote(editing?.note ?? '')
+    setLogIt(false)
+    setLogAccount(PICK_ACCOUNT)
     clearErrors()
   }, [open, editing, initialDirection, clearErrors])
 
@@ -49,10 +59,21 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
     if (!person.trim()) return errors.fail('Who is it? Type their name.', 'person')
     if (!Number.isFinite(amountNum) || amountNum <= 0) return errors.fail('Enter the amount.', 'amount')
     if (dueDate && dueDate < date) return errors.fail('The pay-back date can’t be before the date.', 'dueDate')
+    const logging = !editing && logIt
+    if (logging && logAccount === PICK_ACCOUNT) return errors.fail('Choose the account.', 'logAccount')
     const input = { person, direction, amount: amountNum, date, dueDate: dueDate || null, note: note.trim() || null }
     try {
       if (editing) await update.mutateAsync({ id: editing.id, ...input })
       else await create.mutateAsync(input)
+      if (logging) {
+        // The record is saved either way; a failed entry is said once, not retried.
+        try {
+          await logEntry.log(direction === 'lent' ? 'lent' : 'borrowed', person, amountNum, date, logAccount)
+          show(direction === 'lent' ? 'Saved, and logged as money out' : 'Saved, and logged as money in')
+        } catch (e) {
+          show(`Saved, but the entry wasn't added: ${e instanceof Error ? e.message : 'try again'}`, { tone: 'error' })
+        }
+      }
       onClose()
     } catch (e) {
       errors.fail(e instanceof Error ? e.message : 'Couldn’t save this. Try again.')
@@ -68,7 +89,7 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
       headerActions={
         <>
           {editing && onDelete && <SheetDeleteButton onClick={onDelete} />}
-          <SheetSaveButton onClick={save} busy={create.isPending || update.isPending} label="Save" />
+          <SheetSaveButton onClick={save} busy={create.isPending || update.isPending || logEntry.isPending} label="Save" />
         </>
       }
     >
@@ -114,14 +135,10 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
             <option key={p} value={p} />
           ))}
         </datalist>
-        <TextField
+        <MoneyField
           label="Amount"
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0.01"
           error={errors.on('amount')} value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={setAmount}
         />
         <div className="grid grid-cols-2 gap-3">
           <DateField label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -133,9 +150,21 @@ export function IouFormModal({ open, onClose, editing, initialDirection = 'lent'
           />
         </div>
         <TextField label="Note (optional)" maxLength={200} placeholder="e.g. for the trip" value={note} onChange={(e) => setNote(e.target.value)} />
-        <p className="text-helper text-slate-500">
-          This keeps track of who owes what. It doesn’t change your account balances.
-        </p>
+        {!editing && (
+          <LogEntryToggle
+            checked={logIt}
+            onCheckedChange={setLogIt}
+            account={logAccount}
+            onAccountChange={setLogAccount}
+            moneyIn={direction === 'borrowed'}
+            error={errors.on('logAccount')}
+          />
+        )}
+        {!logIt && (
+          <p className="text-helper text-slate-500">
+            This keeps track of who owes what. It doesn’t change your account balances unless you tick “Also add to my entries”.
+          </p>
+        )}
       </div>
     </Modal>
   )

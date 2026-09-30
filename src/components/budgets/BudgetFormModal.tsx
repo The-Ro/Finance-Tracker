@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { QuickAddCategory } from '@/components/ui/QuickAddCategory'
-import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
@@ -84,7 +84,7 @@ export function BudgetFormModal({ open, onClose, editing, onDelete }: BudgetForm
           <Dropdown options={categories} error={errors.on('category')} value={category} onChange={(e) => setCategory(e.target.value)} />
           <QuickAddCategory variant="link" kind="expense" onAdded={setCategory} />
         </div>
-        <TextField label="Monthly limit" type="number" step="0.01" min="0" error={errors.on('limit')} value={limit} onChange={(e) => setLimit(e.target.value)} />
+        <MoneyField label="Monthly limit" error={errors.on('limit')} value={limit} onChange={setLimit} />
         <label className="flex items-start gap-3 text-sm text-slate-700">
           <input
             type="checkbox"

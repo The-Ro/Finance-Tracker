@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { Archive, ArchiveRestore } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { FieldError, FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { AccountKindIcon } from '@/components/ui/AccountKindIcon'
@@ -274,15 +275,12 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
           </div>
           {!compact && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <TextField
+              <MoneyField
                 id={`${idPrefix}-limit`}
                 label="Credit limit (optional)"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
                 error={errors.on('limit')}
                 value={limit}
-                onChange={(e) => setLimit(e.target.value)}
+                onChange={setLimit}
               />
               <div className="grid grid-cols-2 gap-3 sm:col-span-2">
                 <TextField
@@ -325,16 +323,13 @@ export const AccountForm = forwardRef<AccountFormHandle, AccountFormProps>(funct
         </>
       ) : (
         <div className="flex flex-col gap-1">
-          <TextField
+          <MoneyField
             id={`${idPrefix}-balance`}
             label="Balance today"
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
             placeholder="0"
             error={errors.on('balance')}
             value={balance}
-            onChange={(e) => setBalance(e.target.value)}
+            onChange={setBalance}
           />
           <p className="text-helper text-slate-500">
             What’s in it right now. LedgeEaze works out the starting balance from the transactions you’ve logged.

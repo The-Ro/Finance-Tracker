@@ -47,6 +47,9 @@ export function ReviewPage() {
     const [y, m] = todayISO().split('-').map(Number)
     return { year: y, index: m - 1 }
   })
+  const selectedHistory = history.find((h) => h.month === `${month.year}-${String(month.index + 1).padStart(2, '0')}`)
+  const selectedTotal = selectedHistory?.total ?? null
+  const selectedLabel = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long' })
 
   const range = monthRange(month.year, month.index)
   const prior = monthRange(month.index === 0 ? month.year - 1 : month.year, (month.index + 11) % 12)
@@ -175,9 +178,18 @@ export function ReviewPage() {
       )}
 
       <Card className="animate-fade-in-up p-5">
-        <div className="mb-4 flex items-baseline justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-800">Balance over time</h3>
-          <span className="text-helper text-slate-500">Month end · tap a month to review it</span>
+        {/* Users asked what the bar numbers are: say it in words, and show the
+            picked month's figure in full. */}
+        <div className="mb-4 flex flex-col gap-0.5">
+          <h3 className="text-sm font-semibold text-slate-800">What you have, after card dues</h3>
+          <span className="text-helper text-slate-500">
+            All your accounts minus what you owe on cards, at the end of each month. Tap a month to review it.
+          </span>
+          {selectedTotal !== null && (
+            <span className="text-helper text-slate-600">
+              {selectedLabel}: <span className="font-semibold tabular-nums text-slate-900">{format(selectedTotal)}</span>
+            </span>
+          )}
         </div>
         {/* Each bar is a button: tapping a month reviews that month. Months
             before the first logged transaction have no history (null) and

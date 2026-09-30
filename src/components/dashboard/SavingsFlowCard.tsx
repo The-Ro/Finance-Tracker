@@ -29,7 +29,8 @@ interface SavingsFlowCardProps {
  * rather than a Recharts chart so it can follow the Motion spec's sequence:
  * the line draws itself in, the area fades in underneath, the points pop in
  * one after another (red outline for a month that spent more than it
- * earned), and this month's callout arrives last.
+ * earned), and this month's callout arrives last. Tap a month (on the chart
+ * or its label) to move the callout there: money in, out and kept.
  */
 export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
   const { format, formatCompact } = useFormatCurrency()
@@ -60,8 +61,22 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
     () => (width > 0 ? savingsChartGeometry(rows.map((r) => r.saved), width, height, { padTop: PAD_TOP, padBottom: PAD_BOTTOM }) : null),
     [rows, width, height]
   )
-  const current = rows[rows.length - 1]
-  const last = geometry?.points[geometry.points.length - 1]
+  // The month the callout is on: this month until another one is tapped.
+  const [picked, setPicked] = useState<number | null>(null)
+  const selectedIndex = picked !== null && picked < rows.length ? picked : rows.length - 1
+  const current = rows[selectedIndex]
+  const last = geometry?.points[selectedIndex]
+  // Tapping anywhere on the chart picks the nearest month.
+  const pickAt = (clientX: number) => {
+    const el = wrapRef.current
+    if (!el || !geometry) return
+    const x = clientX - el.getBoundingClientRect().left
+    let best = 0
+    geometry.points.forEach((p, i) => {
+      if (Math.abs(p.x - x) < Math.abs(geometry.points[best].x - x)) best = i
+    })
+    setPicked(best)
+  }
   const signed = (n: number) => `${n < 0 ? '−' : '+'}${format(Math.abs(n))}`
 
   return (
@@ -88,7 +103,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
         <EmptyState icon={PiggyBank} title="Nothing to chart yet" description="Log income and spending to see what you keep each month." />
       ) : (
         <>
-          <div ref={wrapRef} className="relative w-full" style={{ height }}>
+          <div ref={wrapRef} className="relative w-full cursor-pointer touch-pan-y" style={{ height }} onClick={(e) => pickAt(e.clientX)}>
             {geometry && last && current && (
               <>
                 <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block overflow-visible" aria-hidden="true">
@@ -107,7 +122,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                     strokeWidth={1}
                     strokeDasharray="4 5"
                   />
-                  <text x={width} y={geometry.zeroY - 6} textAnchor="end" className="fill-slate-400 text-xs">
+                  <text x={0} y={geometry.zeroY - 6} textAnchor="start" className="fill-slate-400 text-xs">
                     {format(0)}
                   </text>
                   {geometry.area && <path d={geometry.area} fill={`url(#${gradientId})`} className="dash-area" />}
@@ -121,7 +136,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                     className="dash-line stroke-positive"
                   />
                   {geometry.points.map((p, i) => {
-                    const isCurrent = i === geometry.points.length - 1
+                    const isCurrent = i === selectedIndex
                     const negative = p.value < 0
                     return (
                       <circle
@@ -140,11 +155,19 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                     )
                   })}
                 </svg>
-                {/* This month's callout, anchored above its point and kept inside the card. */}
+                {/* The picked month's callout (this month to start), above its point and kept inside the card. */}
                 <div
-                  aria-hidden="true"
-                  className="dash-tip pointer-events-none absolute flex flex-col items-center rounded-xl border border-app-border bg-app-card px-3 py-1.5 shadow-card"
-                  style={{ right: Math.max(0, width - last.x - 16), top: Math.max(0, last.y - 50) }}
+                  aria-live="polite"
+                  className="pointer-events-none absolute -translate-x-1/2"
+                  style={{ left: Math.min(Math.max(last.x, 72), width - 72), top: Math.max(0, last.y - 50) }}
+                >
+                <div
+                  key={current.month}
+                  className={clsx(
+                    'flex flex-col items-center rounded-xl border border-app-border bg-app-card px-3 py-1.5 shadow-card',
+                    // First showing waits for the line to draw; a tapped month just fades in.
+                    picked === null ? 'dash-tip' : 'animate-fade-in'
+                  )}
                 >
                   <span className="text-xs leading-tight text-slate-500">{monthName(current.month, 'long')}</span>
                   <span
@@ -155,6 +178,10 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                   >
                     {signed(current.saved)}
                   </span>
+                  <span className="whitespace-nowrap text-xs leading-tight tabular-nums text-slate-500">
+                    in {format(current.income)} · out {format(current.expense)}
+                  </span>
+                </div>
                 </div>
               </>
             )}
@@ -164,9 +191,15 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
             style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` }}
           >
             {rows.map((r, i) => {
-              const isCurrent = i === rows.length - 1
+              const isCurrent = i === selectedIndex
               return (
-                <li key={r.month} className="flex min-w-0 flex-col leading-snug">
+                <li key={r.month} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setPicked(i)}
+                    aria-pressed={isCurrent}
+                    className="flex w-full min-w-0 flex-col rounded-lg py-1 leading-snug hover:bg-slate-50"
+                  >
                   <span className={clsx(isCurrent && 'font-semibold text-slate-800')}>
                     <span aria-hidden="true">{monthName(r.month, 'short')}</span>
                     <span className="sr-only">{monthName(r.month, 'long')}: </span>
@@ -180,6 +213,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                     {r.saved < 0 ? '−' : ''}
                     {formatCompact(Math.abs(r.saved))}
                   </span>
+                  </button>
                 </li>
               )
             })}

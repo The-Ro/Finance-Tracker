@@ -117,3 +117,25 @@ export function loanMonthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number)
   return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
 }
+
+/**
+ * What's still owed on the loan itself (principal) after the installments
+ * counted as paid -- on a card EMI, this much of the card's limit stays
+ * blocked. With a known rate it's the reducing-balance balance; without one,
+ * the unpaid share of the amount borrowed. 0 once it's paid off.
+ */
+export function outstandingPrincipal(loan: LoanDetails, emi: number, cadence: string, nextDate: string): number {
+  const progress = loanProgress(loan, emi, cadence, nextDate)
+  if (!progress || progress.done) return 0
+  const step = STEP_MONTHS[cadence] ?? 1
+  const rate = loan.interestRate ?? 0
+  let left: number
+  if (rate > 0) {
+    const r = (rate / 100 / 12) * step
+    const grow = (1 + r) ** progress.paid
+    left = loan.amount * grow - (emi * (grow - 1)) / r
+  } else {
+    left = (loan.amount * progress.remaining) / progress.total
+  }
+  return Math.max(0, Math.min(loan.amount, Math.round(left * 100) / 100))
+}

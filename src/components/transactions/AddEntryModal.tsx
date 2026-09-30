@@ -39,6 +39,7 @@ import { SUPPORTED_CURRENCIES } from '@/lib/currency'
 import { convertToHome, fetchFxRate } from '@/lib/fx'
 import { PAYMENT_METHODS, accountsForMode, modeUsesDebitCards } from '@/lib/cardNetworks'
 import { NewCategoryEditor, QuickAddCategory } from '@/components/ui/QuickAddCategory'
+import { cleanAmountInput, groupAmountInput } from '@/lib/amountInput'
 import type { PaymentMethod, TransactionType } from '@/types/database.types'
 
 
@@ -692,10 +693,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
       contentRef={contentRef}
       footer={
         addingCategory ? undefined : (
-        <div className="flex gap-2 sm:justify-end">
-          <Button variant="secondary" onClick={handleClose} disabled={saving}>
-            Cancel
-          </Button>
+        // No Cancel: the X in the header closes (user request); Save takes the full width.
+        <div className="flex gap-2">
           {(duplicatePending || overdrawPending) && (
             <Button
               variant="secondary"
@@ -705,7 +704,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               Save anyway
             </Button>
           )}
-          <Button onClick={() => handleSubmit()} disabled={saving} className="flex-1 font-semibold sm:flex-none">
+          <Button onClick={() => handleSubmit()} disabled={saving} className="flex-1 font-semibold">
             {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Save entry'}
           </Button>
         </div>
@@ -761,14 +760,14 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             </span>
             <input
               id="entry-amount"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min="0.01"
-              step="0.01"
+              autoComplete="off"
               placeholder="0"
-              value={form.amount}
-              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              style={{ width: `${Math.min(Math.max(form.amount.length, 1), 12) + 0.75}ch` }}
+              // Shown with commas ("62,000"); the form keeps the plain number.
+              value={groupAmountInput(form.amount)}
+              onChange={(e) => setForm((f) => ({ ...f, amount: cleanAmountInput(e.target.value) }))}
+              style={{ width: `${Math.min(Math.max(groupAmountInput(form.amount).length, 1), 14) + 0.75}ch` }}
               aria-invalid={fieldErr('amount') ? true : undefined}
               className={clsx(
                 'amount-input min-w-[2ch] max-w-full border-0 border-b-2 bg-transparent p-0 text-center font-serif text-5xl font-semibold tabular-nums text-slate-900 transition-colors placeholder:text-slate-300 focus:border-accent focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
@@ -1120,7 +1119,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           <span className="flex min-w-0 flex-col">
             <span className="text-sm font-medium text-slate-800">Share with everyone</span>
             <span className="text-helper text-slate-500">
-              {form.shared ? 'People who can see your transactions will see this.' : 'Only you will see this entry.'}
+              {form.shared ? 'People who can see your transactions will see this.' : 'Only you see what it is. Others see a blurred row.'}
             </span>
           </span>
         </label>

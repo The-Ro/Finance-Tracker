@@ -27,7 +27,7 @@ import type { TransactionScope } from './ScopeToggle'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 import { DEBIT_CARD_FILTER_PREFIX, EMPTY_TRANSACTION_FILTERS, hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import { debitCardLabel, type DebitCard } from '@/lib/debitCards'
-import { avatarTone, dayHeadingLabel, groupByDay, QUICK_TYPE_CHIPS, type AvatarTone } from '@/lib/activityList'
+import { avatarTone, dayHeadingLabel, groupByDay, QUICK_TYPE_CHIPS, withPrivateRows, type AvatarTone, type PrivatePlaceholder } from '@/lib/activityList'
 
 const BULK_CATEGORY_PLACEHOLDER = 'Change category…'
 
@@ -90,6 +90,8 @@ interface TransactionTableProps {
   hasMore?: boolean
   onLoadMore?: () => void
   loadingMore?: boolean
+  /** Everyone view: others' entries they kept to themselves (shown blurred). */
+  privateRows?: PrivatePlaceholder[]
 }
 
 export function TransactionTable({
@@ -108,6 +110,7 @@ export function TransactionTable({
   hasMore,
   onLoadMore,
   loadingMore,
+  privateRows = [],
 }: TransactionTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
@@ -221,7 +224,7 @@ export function TransactionTable({
 
   // Day groups (with each day's net) over the rows loaded so far -- a "Load
   // more" page that continues a day lands in that day's existing group.
-  const groups = useMemo(() => groupByDay(transactions), [transactions])
+  const groups = useMemo(() => withPrivateRows(groupByDay(transactions), privateRows), [transactions, privateRows])
   const today = todayISO()
   const desktopGrid = scope === 'everyone' ? DESKTOP_GRID_EVERYONE : DESKTOP_GRID_MINE
   const showMobileCheckboxes = selectMode || selected.size > 0
@@ -325,6 +328,33 @@ export function TransactionTable({
       >
         {locked ? <Lock size={13} className={busy ? '' : 'animate-pop-in'} /> : <LockOpen size={13} />}
       </button>
+    )
+  }
+
+  // Someone else's entry they kept to themselves: that it exists and whose it
+  // is, the rest a blur of placeholder text (the real details never reach here).
+  const renderPrivateRow = (p: PrivatePlaceholder) => {
+    const owner = profiles[p.owner_user_id]
+    const name = owner?.displayName || owner?.email || 'Someone'
+    return (
+      <li key={'private-' + p.id} className="flex items-center gap-3 border-b border-app-border px-4 py-3 last:border-b-0">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+          <Lock size={17} aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div aria-hidden="true" className="pointer-events-none select-none blur-[5px]">
+            <p className="text-[15px] font-semibold text-slate-800">Private entry</p>
+            <p className="text-helper text-slate-500">Hidden category</p>
+          </div>
+          <p className="mt-0.5 flex items-center gap-1.5 text-helper text-slate-500">
+            {owner && <Avatar avatar={owner.avatar} name={owner.displayName} size={16} className="shrink-0" />}
+            <span className="truncate">Only {name} can see this</span>
+          </p>
+        </div>
+        <span aria-hidden="true" className="pointer-events-none shrink-0 select-none font-serif text-base font-semibold text-slate-400 blur-[6px]">
+          ₹0,000
+        </span>
+      </li>
     )
   }
 
@@ -844,7 +874,10 @@ export function TransactionTable({
                       </span>
                     )}
                   </div>
-                  <ul className="stagger-rows-soft">{group.rows.map(renderRow)}</ul>
+                  <ul className="stagger-rows-soft">
+                    {group.rows.map(renderRow)}
+                    {group.privateRows.map(renderPrivateRow)}
+                  </ul>
                 </li>
               )
             })}

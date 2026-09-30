@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { useApprovedConnections, useSplitMutations, useSplits } from '@/hooks/useSplits'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
@@ -138,14 +138,11 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
                 aria-label="Split with"
               />
             </div>
-            <TextField
+            <MoneyField
               label="They owe you"
-              type="number"
-              step="0.01"
-              min="0"
               error={errors.on('amount')}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={setAmount}
             />
             <div className="flex gap-2">
               {[2, 3, 4].map((n) => (

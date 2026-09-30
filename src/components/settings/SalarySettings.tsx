@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useToast } from '@/context/ToastContext'
@@ -97,7 +98,7 @@ export function SalarySettings({ bare, onSaved }: { bare?: boolean; onSaved?: ()
       </p>
       <FormError message={errors.general} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <TextField label="Monthly salary" inputMode="decimal" error={errors.on('amount')} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 62000" />
+        <MoneyField label="Monthly salary" error={errors.on('amount')} value={amount} onChange={setAmount} placeholder="e.g. 62000" />
         <div className="flex flex-col gap-1.5">
           <span className="text-helper font-medium text-slate-600">Paid into</span>
           <Dropdown

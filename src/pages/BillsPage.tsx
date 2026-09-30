@@ -17,6 +17,8 @@ import { addDaysISO, dueDatesInRange, monthGrid, totalDueWithin } from '@/lib/bi
 import { formatShortDate, todayISO } from '@/lib/format'
 import { cardPagePath } from '@/components/cards/cardPath'
 import { RecurringFormModal } from '@/components/recurring/RecurringFormModal'
+import { BillsCardsSection } from '@/components/cards/BillsCardsSection'
+import { MoneyReminders } from '@/components/bills/MoneyReminders'
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -139,6 +141,9 @@ export function BillsPage() {
             </Link>
           }
         />
+        {/* Cards and money reminders still show without recurring bills. */}
+        <BillsCardsSection />
+        <MoneyReminders />
       </div>
     )
   }
@@ -330,6 +335,8 @@ export function BillsPage() {
           )}
         </Card>
       </div>
+      <BillsCardsSection />
+      <MoneyReminders />
       {/* Tapping a Coming up row opens it here to check or change it. */}
       <RecurringFormModal
         open={!!editing}

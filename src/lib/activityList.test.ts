@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avatarTone, dayHeadingLabel, dayNetTotals, dragOffset, groupByDay, merchantInitial, snapOffset } from './activityList'
+import { avatarTone, dayHeadingLabel, dayNetTotals, dragOffset, groupByDay, merchantInitial, snapOffset, withPrivateRows } from './activityList'
 
 describe('groupByDay', () => {
   it('groups rows per day in first-seen order with a net per day', () => {
@@ -112,5 +112,26 @@ describe('swipe math', () => {
     expect(snapOffset(-20, 228, -0.8)).toBe(-228)
     expect(snapOffset(-200, 228, 0.8)).toBe(0)
     expect(snapOffset(-50, 0)).toBe(0)
+  })
+})
+
+describe('withPrivateRows', () => {
+  const rows = [
+    { date: '2026-09-30', type: 'expense' as const, amount: 10 },
+    { date: '2026-09-28', type: 'income' as const, amount: 50 },
+  ]
+  it('joins existing days and starts new ones, newest first, without touching totals', () => {
+    const groups = withPrivateRows(groupByDay(rows), [
+      { id: 'a', owner_user_id: 'x', date: '2026-09-30' },
+      { id: 'b', owner_user_id: 'x', date: '2026-09-29' },
+    ])
+    expect(groups.map((g) => [g.date, g.rows.length, g.privateRows.length, g.net])).toEqual([
+      ['2026-09-30', 1, 1, -10],
+      ['2026-09-29', 0, 1, null],
+      ['2026-09-28', 1, 0, 50],
+    ])
+  })
+  it('leaves groups alone with no placeholders', () => {
+    expect(withPrivateRows(groupByDay(rows), []).every((g) => g.privateRows.length === 0)).toBe(true)
   })
 })

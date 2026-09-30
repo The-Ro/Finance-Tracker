@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal, SheetDeleteButton, SheetSaveButton } from '@/components/ui/Modal'
 import { TextField } from '@/components/ui/TextField'
+import { MoneyField } from '@/components/ui/MoneyField'
 import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useGoals, type Goal } from '@/hooks/useGoals'
@@ -89,8 +90,8 @@ export function GoalFormModal({ open, onClose, editing, onDelete }: GoalFormModa
         <FormError message={errors.general} />
         <TextField label="Goal name" error={errors.on('name')} value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
-          <TextField label="Target amount" type="number" step="0.01" min="0.01" error={errors.on('target')} value={target} onChange={(e) => setTarget(e.target.value)} />
-          <TextField label="Current saved" type="number" step="0.01" min="0" error={errors.on('current')} value={current} onChange={(e) => setCurrent(e.target.value)} />
+          <MoneyField label="Target amount" error={errors.on('target')} value={target} onChange={setTarget} />
+          <MoneyField label="Current saved" error={errors.on('current')} value={current} onChange={setCurrent} />
         </div>
         <TextField label="Due date (optional)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         <TextField label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
