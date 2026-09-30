@@ -2279,3 +2279,9 @@ alter table public.notifications drop constraint if exists notifications_kind_ch
 alter table public.notifications add constraint notifications_kind_check check (kind in (
   'access_request', 'access_approved', 'access_declined', 'feedback_reply',
   'split_added', 'split_settled', 'budget', 'bill_overdue', 'reminder', 'salary'));
+
+-- ===== Clearing a notification hides it (2026-09-30_notification_dismiss.sql) =====
+alter table public.notifications add column if not exists dismissed_at timestamptz;
+
+-- ===== Coin colour: gold unless the user picks their theme (2026-09-30_coin_color.sql) =====
+alter table public.user_settings add column if not exists coin_follows_theme boolean not null default false;

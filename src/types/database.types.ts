@@ -294,6 +294,7 @@ export interface Database {
           status: 'approved' | 'declined' | null
           created_at: string
           read_at: string | null
+          dismissed_at: string | null
         }
         Insert: {
           owner_user_id: string
@@ -303,7 +304,7 @@ export interface Database {
           url?: string | null
           ref: string
         }
-        Update: { read_at?: string | null }
+        Update: { read_at?: string | null; dismissed_at?: string | null }
       }
       push_subscriptions: {
         Row: {
@@ -587,6 +588,7 @@ export interface Database {
           theme_mode: ThemeMode
           theme_accent: ThemeAccent
           theme_custom_color: string | null
+          coin_follows_theme: boolean
           gender: Gender | null
           date_of_birth: string | null
           onboarding_completed: boolean
@@ -615,6 +617,7 @@ export interface Database {
           theme_mode?: ThemeMode
           theme_accent?: ThemeAccent
           theme_custom_color?: string | null
+          coin_follows_theme?: boolean
           gender?: Gender | null
           date_of_birth?: string | null
           onboarding_completed?: boolean
@@ -640,6 +643,7 @@ export interface Database {
           theme_mode: ThemeMode
           theme_accent: ThemeAccent
           theme_custom_color: string | null
+          coin_follows_theme: boolean
           gender: Gender | null
           date_of_birth: string | null
           onboarding_completed: boolean

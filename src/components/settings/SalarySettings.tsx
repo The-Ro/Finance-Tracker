@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Wallet } from 'lucide-react'
+import clsx from 'clsx'
+import { Check, Wallet } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Dropdown } from '@/components/ui/Dropdown'
@@ -12,6 +13,7 @@ import { useAccounts } from '@/hooks/useLookupLists'
 import { useAccountKinds } from '@/hooks/useCards'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { parseBalance } from '@/lib/onboardingAccounts'
+import { LAST_DAY, payDayLabel, shortMonthNote } from '@/lib/salary'
 
 const PICK = 'Choose an account'
 
@@ -44,6 +46,15 @@ export function SalarySettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!salary])
 
+  // Nothing changed since the last save: the button says "Saved" and rests.
+  const unchanged =
+    !!salary &&
+    parseBalance(amount) === salary.amount &&
+    account === salary.account &&
+    Number(day) === salary.day
+  const lastDay = Number(day) >= LAST_DAY
+  const dayNote = Number(day) >= 1 ? shortMonthNote(Number(day)) : null
+
   const save = async () => {
     setError(null)
     const value = parseBalance(amount)
@@ -75,7 +86,7 @@ export function SalarySettings() {
       </div>
       <p className="text-helper text-slate-500">
         {salary
-          ? `${format(salary.amount)} into ${salary.account} on day ${salary.day}. On pay day Home asks if it arrived; Yes logs it with the tag #salary.`
+          ? `${format(salary.amount)} into ${salary.account} on ${payDayLabel(salary.day)}. On pay day you're asked if it arrived; Yes logs it with the tag #salary.`
           : 'Set your salary and pay day. On pay day Home asks if it arrived; Yes logs it as income with the tag #salary.'}
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -89,12 +100,42 @@ export function SalarySettings() {
             onChange={(e) => setAccount(e.target.value)}
           />
         </div>
-        <TextField label="Pay day" inputMode="numeric" value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1" maxLength={2} />
+        <div className="flex flex-col gap-1.5">
+          <TextField
+            label="Pay day"
+            inputMode="numeric"
+            value={lastDay ? '' : day}
+            onChange={(e) => setDay(e.target.value.replace(/\D/g, ''))}
+            placeholder={lastDay ? 'Last day' : 'e.g. 1'}
+            maxLength={2}
+          />
+          <button
+            type="button"
+            aria-pressed={lastDay}
+            onClick={() => setDay(lastDay ? '' : String(LAST_DAY))}
+            className={clsx(
+              'inline-flex min-h-[36px] items-center gap-1.5 self-start rounded-full border px-3 text-helper font-semibold transition-colors',
+              lastDay ? 'border-accent bg-accent-light text-accent-on-light' : 'border-app-border text-slate-600'
+            )}
+          >
+            {lastDay && <Check size={13} aria-hidden="true" />}
+            Last day of the month
+          </button>
+        </div>
       </div>
+      {dayNote && <p className="-mt-1 text-helper text-slate-500">{dayNote}</p>}
       {error && <InlineMessage tone="error">{error}</InlineMessage>}
       <div className="flex flex-wrap gap-2">
-        <Button onClick={save} disabled={settings.updateSalary.isPending}>
-          {settings.updateSalary.isPending ? 'Saving…' : 'Save salary'}
+        <Button onClick={save} disabled={settings.updateSalary.isPending || unchanged}>
+          {settings.updateSalary.isPending ? (
+            'Saving…'
+          ) : unchanged ? (
+            <>
+              <Check size={15} aria-hidden="true" /> Saved
+            </>
+          ) : (
+            'Save salary'
+          )}
         </Button>
         {salary && (
           <Button variant="secondary" onClick={clear} disabled={settings.updateSalary.isPending}>

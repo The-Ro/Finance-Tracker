@@ -39,3 +39,18 @@ export function salaryPromptDue(
   if (today < date) return null
   return { month, payDate: date }
 }
+
+/** The day used for "last day of the month" (31 always lands on the month's last day, see payDate). */
+export const LAST_DAY = 31
+
+/** Plain words for a pay day: "the last day of each month", or "day 5 of each month". */
+export function payDayLabel(day: number): string {
+  return day >= LAST_DAY ? 'the last day of each month' : `day ${day} of each month`
+}
+
+/** For a day some months don't have (29-30), what happens then; null when every month has it. */
+export function shortMonthNote(day: number): string | null {
+  if (day >= LAST_DAY) return 'Works for every month: Sep 30, Feb 28 (29 in a leap year), Jan 31.'
+  if (day >= 29) return `In months without a ${day}th (like February), it's the month's last day.`
+  return null
+}

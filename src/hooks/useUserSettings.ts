@@ -23,6 +23,8 @@ export interface UserSettings {
   themeMode: ThemeMode
   themeAccent: ThemeAccent
   themeCustomColor: string | null
+  /** The coin mark uses the accent theme (true) or stays gold (false, the default). */
+  coinFollowsTheme: boolean
   gender: Gender | null
   dateOfBirth: string | null
   onboardingCompleted: boolean
@@ -48,6 +50,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   themeMode: 'system',
   themeAccent: 'violet',
   themeCustomColor: null,
+  coinFollowsTheme: false,
   gender: null,
   dateOfBirth: null,
   onboardingCompleted: false,
@@ -93,6 +96,7 @@ export function useUserSettings() {
         themeMode: data.theme_mode,
         themeAccent: data.theme_accent,
         themeCustomColor: data.theme_custom_color,
+        coinFollowsTheme: data.coin_follows_theme ?? false,
         gender: data.gender,
         dateOfBirth: data.date_of_birth,
         onboardingCompleted: data.onboarding_completed,
@@ -159,13 +163,19 @@ export function useUserSettings() {
   })
 
   const updateTheme = useMutation({
-    mutationFn: async (input: { themeMode?: ThemeMode; themeAccent?: ThemeAccent; themeCustomColor?: string | null }) => {
+    mutationFn: async (input: {
+      themeMode?: ThemeMode
+      themeAccent?: ThemeAccent
+      themeCustomColor?: string | null
+      coinFollowsTheme?: boolean
+    }) => {
       const { error } = await supabase
         .from('user_settings')
         .update({
           ...(input.themeMode ? { theme_mode: input.themeMode } : {}),
           ...(input.themeAccent ? { theme_accent: input.themeAccent } : {}),
           ...(input.themeCustomColor !== undefined ? { theme_custom_color: input.themeCustomColor } : {}),
+          ...(input.coinFollowsTheme !== undefined ? { coin_follows_theme: input.coinFollowsTheme } : {}),
         })
         .eq('owner_user_id', userId!)
       if (error) throw error

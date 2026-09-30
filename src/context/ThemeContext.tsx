@@ -16,6 +16,9 @@ interface ThemeContextValue {
   setAccent: (accent: ThemeAccent) => void
   /** Picks an arbitrary color and switches accent to 'custom' in one step. */
   setCustomColor: (hex: string) => void
+  /** The coin mark follows the accent (true) or stays gold (false, the default). */
+  coinFollowsTheme: boolean
+  setCoinFollowsTheme: (follow: boolean) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
@@ -37,10 +40,12 @@ function resolveAccentHex(accent: ThemeAccent, customColor: string | null): stri
  * the color or light/dark mode changes. Inline properties are cleared for
  * preset accents so the CSS rules take back over normally.
  */
-function applyToDocument(mode: ThemeMode, accent: ThemeAccent, customColor: string | null) {
+function applyToDocument(mode: ThemeMode, accent: ThemeAccent, customColor: string | null, coinFollowsTheme: boolean) {
   const isDark = computeIsDark(mode)
   document.documentElement.classList.toggle('dark', isDark)
   document.documentElement.setAttribute('data-accent', accent)
+  // --coin: gold by default, or the accent (index.css :root[data-coin='theme']).
+  document.documentElement.setAttribute('data-coin', coinFollowsTheme ? 'theme' : 'gold')
 
   const root = document.documentElement.style
   if (accent === 'custom' && customColor) {
@@ -57,6 +62,7 @@ function applyToDocument(mode: ThemeMode, accent: ThemeAccent, customColor: stri
   try {
     localStorage.setItem('ledgerly-theme-mode', mode)
     localStorage.setItem('ledgerly-theme-accent', accent)
+    localStorage.setItem('ledgerly-coin', coinFollowsTheme ? 'theme' : 'gold')
   } catch {
     // Private browsing / storage blocked -- theme still applies for this load.
   }
@@ -67,25 +73,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const mode = settings?.themeMode ?? 'system'
   const accent = settings?.themeAccent ?? 'oxblood'
   const customColor = settings?.themeCustomColor ?? null
+  const coin = settings?.coinFollowsTheme ?? false
   const [isDark, setIsDark] = useState(() => computeIsDark(mode))
 
   // Re-apply whenever the saved preference changes (e.g. loaded from server, or changed on another device).
   useEffect(() => {
-    applyToDocument(mode, accent, customColor)
+    applyToDocument(mode, accent, customColor, coin)
     setIsDark(computeIsDark(mode))
-  }, [mode, accent, customColor])
+  }, [mode, accent, customColor, coin])
 
   // Live-update when the OS theme changes while in "system" mode.
   useEffect(() => {
     if (mode !== 'system') return
     const media = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = () => {
-      applyToDocument(mode, accent, customColor)
+      applyToDocument(mode, accent, customColor, coin)
       setIsDark(computeIsDark(mode))
     }
     media.addEventListener('change', handler)
     return () => media.removeEventListener('change', handler)
-  }, [mode, accent, customColor])
+  }, [mode, accent, customColor, coin])
 
   const value = useMemo<ThemeContextValue>(
     () => ({
@@ -94,20 +101,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       accentHex: resolveAccentHex(accent, customColor),
       isDark,
       setMode: (newMode) => {
-        applyToDocument(newMode, accent, customColor)
+        applyToDocument(newMode, accent, customColor, coin)
         setIsDark(computeIsDark(newMode))
         updateTheme.mutate({ themeMode: newMode })
       },
       setAccent: (newAccent) => {
-        applyToDocument(mode, newAccent, customColor)
+        applyToDocument(mode, newAccent, customColor, coin)
         updateTheme.mutate({ themeAccent: newAccent })
       },
       setCustomColor: (hex) => {
-        applyToDocument(mode, 'custom', hex)
+        applyToDocument(mode, 'custom', hex, coin)
         updateTheme.mutate({ themeAccent: 'custom', themeCustomColor: hex })
       },
+      coinFollowsTheme: coin,
+      setCoinFollowsTheme: (follow) => {
+        applyToDocument(mode, accent, customColor, follow)
+        updateTheme.mutate({ coinFollowsTheme: follow })
+      },
     }),
-    [mode, accent, customColor, isDark, updateTheme]
+    [mode, accent, customColor, coin, isDark, updateTheme]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

@@ -31,7 +31,7 @@ const ACCENTS: { value: ThemeAccent; label: string; swatch: string }[] = [
 ]
 
 export function ThemeSettings() {
-  const { mode, accent, setMode, setAccent, setCustomColor } = useTheme()
+  const { mode, accent, setMode, setAccent, setCustomColor, coinFollowsTheme, setCoinFollowsTheme } = useTheme()
   const { data } = useUserSettings()
   const { format } = useFormatCurrency()
   const customColor = data?.themeCustomColor ?? null
@@ -78,13 +78,44 @@ export function ThemeSettings() {
               Total balance
             </span>
             <span className="truncate font-serif text-2xl font-semibold text-accent-on-light sm:text-3xl">
-              {format(48231)}
+              {format(62426)}
             </span>
           </div>
         </div>
         <p className="mt-2 text-helper text-slate-500">
-          The installed app icon keeps Oxblood; the Rs mark, buttons and highlights in the app follow your accent.
+          Buttons and highlights follow your theme. The home-screen app icon doesn’t change.
         </p>
+      </div>
+
+      {/* The coin mark: gold (default) or the accent theme -- data-coin on <html>, see index.css. */}
+      <div>
+        <p className="mb-2 text-helper font-medium text-slate-600">Coin colour</p>
+        <div role="radiogroup" aria-label="Coin colour" className="flex rounded-lg border border-app-border p-1">
+          {(
+            [
+              [false, 'Gold'],
+              [true, 'My theme'],
+            ] as const
+          ).map(([follow, label]) => (
+            <button
+              key={label}
+              type="button"
+              role="radio"
+              aria-checked={coinFollowsTheme === follow}
+              onClick={() => setCoinFollowsTheme(follow)}
+              className={clsx(
+                'press flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-md py-2 text-sm font-medium',
+                coinFollowsTheme === follow ? 'bg-accent text-white' : 'text-slate-500 hover:bg-slate-50'
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={clsx('h-3.5 w-3.5 rounded-full ring-1 ring-white/60', follow ? 'bg-accent-dark' : 'bg-[#B8862B]')}
+              />
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>

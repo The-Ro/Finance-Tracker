@@ -490,3 +490,6 @@ create policy notifications_delete_own on public.notifications for delete to aut
 drop policy if exists notifications_insert_own_alerts on public.notifications;
 create policy notifications_insert_own_alerts on public.notifications for insert to authenticated
   with check (auth.uid() = owner_user_id and kind in ('budget', 'bill_overdue', 'salary'));
+
+-- ---- notifications: clearing (x) sets dismissed_at; read_at and dismissed_at are the only updatable columns.
+grant update (read_at, dismissed_at) on public.notifications to authenticated;

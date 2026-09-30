@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { payDate, salaryPromptDue } from './salary'
+import { payDate, payDayLabel, salaryPromptDue, shortMonthNote } from './salary'
 
 const config = { amount: 62000, account: 'HDFC Bank', day: 31, confirmedMonth: null }
 
@@ -20,5 +20,22 @@ describe('salaryPromptDue', () => {
   it('handles a 31st pay day in a 30-day month, and no salary set', () => {
     expect(salaryPromptDue(config, '2026-09-30', false)?.payDate).toBe('2026-09-30')
     expect(salaryPromptDue(null, '2026-09-30', false)).toBeNull()
+  })
+})
+
+describe('pay day wording', () => {
+  it('calls 31 the last day of each month', () => {
+    expect(payDayLabel(31)).toBe('the last day of each month')
+    expect(payDayLabel(5)).toBe('day 5 of each month')
+  })
+  it('explains short months only for days some months lack', () => {
+    expect(shortMonthNote(5)).toBeNull()
+    expect(shortMonthNote(30)).toBe("In months without a 30th (like February), it's the month's last day.")
+    expect(shortMonthNote(31)).toMatch(/Sep 30, Feb 28/)
+  })
+  it('lands the last day on 30, 28 and 29', () => {
+    expect(payDate('2026-09-10', 31)).toBe('2026-09-30')
+    expect(payDate('2026-02-10', 31)).toBe('2026-02-28')
+    expect(payDate('2028-02-10', 31)).toBe('2028-02-29')
   })
 })

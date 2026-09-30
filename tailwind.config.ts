@@ -43,6 +43,7 @@ export default {
           DEFAULT: withOpacity('--brass'),
           light: withOpacity('--brass-light'),
         },
+        coin: withOpacity('--coin'),
         info: {
           DEFAULT: withOpacity('--info'),
           light: withOpacity('--info-light'),

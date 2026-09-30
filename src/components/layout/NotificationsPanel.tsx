@@ -53,14 +53,14 @@ const TABS: { id: NotificationTab; label: string }[] = [
  * stays in the list showing what happened.
  */
 export function NotificationsPanel({ onClose }: { onClose: () => void }) {
-  const { data, isLoading, unreadCount, markRead, markAllRead } = useNotifications()
+  const { visible, isLoading, unreadCount, markRead, markAllRead, remove } = useNotifications()
   const isAdmin = useIsAdmin()
   const navigate = useNavigate()
   const markFeedbackSeen = useMarkFeedbackReplySeen()
   const [tab, setTab] = useState<NotificationTab>(unreadCount > 0 ? 'unread' : 'all')
 
-  const list = useMemo(() => filterNotifications(data ?? [], tab), [data, tab])
-  const counts = { all: (data ?? []).length, unread: unreadCount, read: (data ?? []).length - unreadCount }
+  const list = useMemo(() => filterNotifications(visible, tab), [visible, tab])
+  const counts = { all: visible.length, unread: unreadCount, read: visible.length - unreadCount }
 
   const open = (n: NotificationRow) => {
     if (!n.read_at) markRead.mutate([n.id])
@@ -151,7 +151,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
         ) : (
           <ul className="stagger-rows-soft divide-y divide-app-border">
             {list.map((n) => (
-              <NotificationItem key={n.id} n={n} onOpen={() => open(n)} />
+              <NotificationItem key={n.id} n={n} onOpen={() => open(n)} onClear={() => remove.mutate(n.id)} />
             ))}
           </ul>
         )}
@@ -170,12 +170,12 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-function NotificationItem({ n, onOpen }: { n: NotificationRow; onOpen: () => void }) {
+function NotificationItem({ n, onOpen, onClear }: { n: NotificationRow; onOpen: () => void; onClear: () => void }) {
   const Icon = KIND_ICON[n.kind] ?? Bell
   const unread = !n.read_at
   return (
     <li className={clsx('relative', unread && 'bg-accent-light/40')}>
-      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-start gap-3 px-4 py-3 text-left">
+      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-start gap-3 py-3 pl-4 pr-11 text-left">
         <span
           aria-hidden="true"
           className={clsx(
@@ -195,6 +195,15 @@ function NotificationItem({ n, onOpen }: { n: NotificationRow; onOpen: () => voi
           {n.body && <span className="line-clamp-3 whitespace-pre-line text-helper text-slate-500">{n.body}</span>}
           <span className="text-xs text-slate-400">{timeAgo(n.created_at)}</span>
         </span>
+      </button>
+      {/* Clears just this one (deletes it from the history). */}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Clear "${n.title}"`}
+        className="absolute right-1.5 top-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+      >
+        <X size={15} />
       </button>
       {n.kind === 'access_request' && <AccessRequestActions n={n} />}
     </li>

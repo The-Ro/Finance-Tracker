@@ -287,6 +287,13 @@ begin
   exception when insufficient_privilege then null;
   end;
   insert into public.notifications (owner_user_id, kind, title, ref) values (me, 'budget', 'sec-test', 'sec-test-own');
+  insert into public.notifications (owner_user_id, kind, title, ref) values (me, 'salary', 'sec-test', 'sec-test-salary');
+  update public.notifications set dismissed_at = now() where owner_user_id = me and ref = 'sec-test-salary';
+  begin
+    update public.notifications set title = 'hijack' where owner_user_id = me and ref = 'sec-test-salary';
+    raise exception 'FAIL: a notification title was editable';
+  exception when insufficient_privilege then null;
+  end;
   perform public.save_push_subscription('https://example.invalid/sec-test', 'k', 'a');
   if not exists (select 1 from public.push_subscriptions where owner_user_id = me and endpoint = 'https://example.invalid/sec-test') then
     raise exception 'FAIL: save_push_subscription did not save for the caller';

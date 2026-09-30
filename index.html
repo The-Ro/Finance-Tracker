@@ -28,6 +28,8 @@
           var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.classList.toggle('dark', isDark);
           document.documentElement.setAttribute('data-accent', accent);
+          // The coin is gold unless the user chose to match their theme.
+          document.documentElement.setAttribute('data-coin', localStorage.getItem('ledgerly-coin') === 'theme' ? 'theme' : 'gold');
         } catch (e) {}
       })();
     </script>

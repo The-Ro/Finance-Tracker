@@ -97,7 +97,7 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
             </clipPath>
           </defs>
         )}
-        <circle className="fill-accent-dark" cx="60" cy="60" r="60" />
+        <circle className="fill-coin" cx="60" cy="60" r="60" />
         {!small && (
           <circle
             className={`brand-coin-ring fill-none ${CUTOUT_STROKE[cutout]}`}

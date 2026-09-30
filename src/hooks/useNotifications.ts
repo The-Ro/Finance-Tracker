@@ -61,16 +61,20 @@ export function useNotifications() {
     onSuccess: invalidate,
   })
 
+  /** Clear (x): hides the note but keeps the row, so its ref stops the same alert being filed again. */
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('notifications').delete().eq('id', id)
+      const now = new Date().toISOString()
+      const { error } = await supabase.from('notifications').update({ dismissed_at: now, read_at: now }).eq('id', id)
       if (error) throw error
     },
     onSuccess: invalidate,
   })
 
-  const unreadCount = (query.data ?? []).filter((n) => !n.read_at).length
-  return { ...query, unreadCount, markRead, markAllRead, remove, invalidate }
+  // `data` keeps cleared rows (useFileOwnAlerts needs their refs); `visible` is what the bell shows.
+  const visible = (query.data ?? []).filter((n) => !n.dismissed_at)
+  const unreadCount = visible.filter((n) => !n.read_at).length
+  return { ...query, visible, unreadCount, markRead, markAllRead, remove, invalidate }
 }
 
 /**
