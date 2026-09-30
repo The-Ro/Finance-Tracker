@@ -32,7 +32,8 @@ interface AuthLayoutProps {
 export function AuthLayout({ children, headline, supportingText, title, subtitle, footer }: AuthLayoutProps) {
   return (
     // dvh, not 100vh: iOS Safari's 100vh includes the collapsing toolbar, so the page scrolled.
-    <div className="flex min-h-dvh w-full bg-app-bg">
+    // coin-theme: the sign-in pages keep the coin in the theme colour (Oxblood), not the in-app gold.
+    <div className="coin-theme flex min-h-dvh w-full bg-app-bg">
       <aside className="relative hidden w-[46%] max-w-[760px] shrink-0 flex-col gap-10 overflow-hidden bg-accent-light px-14 py-12 lg:flex">
         <svg
           aria-hidden="true"

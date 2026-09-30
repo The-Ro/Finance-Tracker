@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
-import { useAddTransaction, useMyTransactions } from '@/hooks/useTransactions'
-import { useCategories, useTags } from '@/hooks/useLookupLists'
+import { useMyTransactions } from '@/hooks/useTransactions'
+import { useSalaryConfirm } from '@/hooks/useSalaryConfirm'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { SALARY_TAG, salaryPromptDue } from '@/lib/salary'
 import { parseBalance } from '@/lib/onboardingAccounts'
@@ -33,9 +33,7 @@ export function SalaryPrompt() {
   const { userId } = useAuth()
   const settings = useUserSettings()
   const { data: transactions } = useMyTransactions(userId)
-  const { income: incomeCategories } = useCategories()
-  const { data: tags = [], add: addTag } = useTags()
-  const addTransaction = useAddTransaction()
+  const confirmSalary = useSalaryConfirm()
   const { format } = useFormatCurrency()
   const { show } = useToast()
   const today = todayISO()
@@ -57,19 +55,7 @@ export function SalaryPrompt() {
     const value = parseBalance(shown)
     if (value === null || value <= 0) return show('Enter the amount that arrived.', { tone: 'error' })
     try {
-      if (!tags.includes(SALARY_TAG)) await addTag.mutateAsync(SALARY_TAG)
-      await addTransaction.mutateAsync({
-        date: today,
-        merchant: 'Salary',
-        category: incomeCategories.includes('Salary') ? 'Salary' : (incomeCategories[0] ?? null),
-        amount: value,
-        type: 'income',
-        account: salary.account,
-        tags: [SALARY_TAG],
-        receipt: false,
-        allowDuplicate: true,
-      })
-      await settings.markSalaryAnswered.mutateAsync(due.month)
+      await confirmSalary.mutateAsync({ amount: value, month: due.month })
       show(`Logged ${format(value)} salary in ${salary.account}.`)
     } catch (e) {
       show(e instanceof Error ? e.message : 'Could not log the salary.', { tone: 'error' })
@@ -106,8 +92,8 @@ export function SalaryPrompt() {
             className="min-h-[40px] min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums focus:outline-none"
           />
         </label>
-        <Button onClick={confirm} disabled={addTransaction.isPending || settings.markSalaryAnswered.isPending}>
-          {addTransaction.isPending ? 'Logging…' : 'Yes, log it'}
+        <Button onClick={confirm} disabled={confirmSalary.isPending}>
+          {confirmSalary.isPending ? 'Logging…' : 'Yes, log it'}
         </Button>
         <Button variant="secondary" onClick={notYet}>
           Not yet

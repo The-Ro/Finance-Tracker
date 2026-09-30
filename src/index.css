@@ -833,3 +833,6 @@ button {
 /* Coin follows the accent theme when the user chose it (ThemeContext sets data-coin on <html>).
    :root[...] outranks the .dark gold above. */
 :root[data-coin='theme'] { --coin: var(--accent-dark); }
+
+/* Sign-in pages (AuthLayout) keep the coin in the theme colour, whatever the gold setting. */
+.coin-theme { --coin: var(--accent-dark); }

@@ -22,6 +22,11 @@ import { useApproveAccessRequest, useOwnedAccessRows, useRemoveAccessRow, useReq
 import { useMarkFeedbackReplySeen } from '@/hooks/useFeedback'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useIsAdmin } from '@/lib/admin'
+import { useUserSettings } from '@/hooks/useUserSettings'
+import { useSalaryConfirm } from '@/hooks/useSalaryConfirm'
+import { useOverdueRecurringItems, useRecurringMutations } from '@/hooks/useRecurring'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { useToast } from '@/context/ToastContext'
 import { filterNotifications, timeAgo, type NotificationTab } from '@/lib/notifications'
 import type { NotificationKind } from '@/types/database.types'
 import { AdminFeedbackInbox } from '@/components/settings/AdminFeedbackInbox'
@@ -173,9 +178,14 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
 function NotificationItem({ n, onOpen, onClear }: { n: NotificationRow; onOpen: () => void; onClear: () => void }) {
   const Icon = KIND_ICON[n.kind] ?? Bell
   const unread = !n.read_at
+  const confirm = useQuickConfirm(n)
   return (
     <li className={clsx('relative', unread && 'bg-accent-light/40')}>
-      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-start gap-3 py-3 pl-4 pr-11 text-left">
+      <button
+        type="button"
+        onClick={onOpen}
+        className={clsx('flex w-full min-w-0 items-start gap-3 py-3 pl-4 text-left', confirm ? 'pr-20' : 'pr-11')}
+      >
         <span
           aria-hidden="true"
           className={clsx(
@@ -196,7 +206,20 @@ function NotificationItem({ n, onOpen, onClear }: { n: NotificationRow; onOpen: 
           <span className="text-xs text-slate-400">{timeAgo(n.created_at)}</span>
         </span>
       </button>
-      {/* Clears just this one (deletes it from the history). */}
+      {/* Small tick: do the thing right here (salary arrived / bill paid). */}
+      {confirm && (
+        <button
+          type="button"
+          onClick={confirm.run}
+          disabled={confirm.busy}
+          aria-label={confirm.label}
+          title={confirm.label}
+          className="absolute right-11 top-2 flex h-9 w-9 items-center justify-center rounded-full text-positive hover:bg-positive-light disabled:opacity-50"
+        >
+          <Check size={17} strokeWidth={2.5} />
+        </button>
+      )}
+      {/* Clears just this one (hides it from the history). */}
       <button
         type="button"
         onClick={onClear}
@@ -274,4 +297,59 @@ function AccessRequestActions({ n }: { n: NotificationRow }) {
       {followBack}
     </div>
   )
+}
+
+/**
+ * The ✓ on a note that can be settled right here: pay day ("yes, it arrived"
+ * -- logs the salary exactly like Home's card) or an overdue bill ("paid" --
+ * the same Mark paid as Bills). Only while it's still open; null otherwise.
+ */
+function useQuickConfirm(n: NotificationRow): { label: string; busy: boolean; run: () => void } | null {
+  const settings = useUserSettings()
+  const confirmSalary = useSalaryConfirm()
+  const overdue = useOverdueRecurringItems()
+  const { markPaid } = useRecurringMutations()
+  const { markRead } = useNotifications()
+  const { format } = useFormatCurrency()
+  const { show } = useToast()
+
+  if (n.kind === 'salary') {
+    const salary = settings.data?.salary
+    const month = n.ref.slice('salary:'.length)
+    if (!salary || salary.confirmedMonth === month) return null
+    return {
+      label: `Yes, ${format(salary.amount)} arrived`,
+      busy: confirmSalary.isPending,
+      run: () =>
+        confirmSalary.mutate(
+          { amount: salary.amount, month },
+          {
+            onSuccess: (r) => {
+              markRead.mutate([n.id])
+              show(`Logged ${format(r.amount)} salary in ${r.account}.`)
+            },
+            onError: (e) => show(e instanceof Error ? e.message : 'Could not log the salary.', { tone: 'error' }),
+          }
+        ),
+    }
+  }
+
+  if (n.kind === 'bill_overdue') {
+    const [, id, dueDate] = n.ref.split(':')
+    const item = overdue.find((i) => i.id === id && i.next_date === dueDate)
+    if (!item || !item.account) return null
+    return {
+      label: `Mark ${item.name} paid`,
+      busy: markPaid.isPending,
+      run: () =>
+        markPaid.mutate(item, {
+          onSuccess: () => {
+            markRead.mutate([n.id])
+            show(`${item.name} marked paid. ${format(item.amount)} logged from ${item.account}.`)
+          },
+          onError: (e) => show(e instanceof Error ? e.message : 'Could not mark it paid.', { tone: 'error' }),
+        }),
+    }
+  }
+  return null
 }
