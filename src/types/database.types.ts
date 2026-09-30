@@ -338,6 +338,10 @@ export interface Database {
           note: string | null
           done_at: string | null
           created_at: string
+          log_entry: boolean
+          account: string | null
+          payment_method: string | null
+          category: string | null
         }
         Insert: {
           id?: string
@@ -347,6 +351,10 @@ export interface Database {
           due_date: string
           note?: string | null
           done_at?: string | null
+          log_entry?: boolean
+          account?: string | null
+          payment_method?: string | null
+          category?: string | null
         }
         Update: Partial<{
           title: string
@@ -354,6 +362,10 @@ export interface Database {
           due_date: string
           note: string | null
           done_at: string | null
+          log_entry: boolean
+          account: string | null
+          payment_method: string | null
+          category: string | null
         }>
       }
       ious: {

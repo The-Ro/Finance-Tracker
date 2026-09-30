@@ -10,6 +10,11 @@ export interface MoneyReminderInput {
   amount: number | null
   dueDate: string
   note: string | null
+  /** Log the entry when "Sent" is tapped (needs account and amount). */
+  logEntry: boolean
+  account: string | null
+  paymentMethod: string | null
+  category: string | null
 }
 
 /**
@@ -41,6 +46,10 @@ export function useMoneyReminders() {
     amount: input.amount,
     due_date: input.dueDate,
     note: input.note?.trim() || null,
+    log_entry: input.logEntry,
+    account: input.logEntry ? input.account : null,
+    payment_method: input.logEntry ? input.paymentMethod || null : null,
+    category: input.logEntry ? input.category || null : null,
   })
 
   const create = useMutation({

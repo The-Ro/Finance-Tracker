@@ -19,7 +19,8 @@ import { formatShortDate, todayISO } from '@/lib/format'
 import { cardPagePath } from '@/components/cards/cardPath'
 import { RecurringFormModal } from '@/components/recurring/RecurringFormModal'
 import { BillsCardsSection } from '@/components/cards/BillsCardsSection'
-import { MoneyReminders } from '@/components/bills/MoneyReminders'
+import { MoneyRemindersButton } from '@/components/bills/MoneyReminders'
+import { useMoneyReminders } from '@/hooks/useMoneyReminders'
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -47,6 +48,7 @@ export function BillsPage() {
   // Credit-card bills (statement amount still unpaid) sit alongside recurring
   // items: on the calendar at their due date and in Coming up with "Pay bill".
   const cardBills = useCardBills()
+  const { data: moneyReminders = [] } = useMoneyReminders()
   const { data: accountDetails } = useAccountDetails()
   const { openAddEntry } = useGlobalModals()
   const today = todayISO()
@@ -71,13 +73,19 @@ export function BillsPage() {
     for (const item of active) {
       for (const d of dueDatesInRange(item, monthStart, monthEnd)) map.set(d, [...(map.get(d) ?? []), item])
     }
+    // Money to send (open reminders) shows on its day too.
+    for (const r of moneyReminders) {
+      if (!r.done_at && r.due_date >= monthStart && r.due_date <= monthEnd) {
+        map.set(r.due_date, [...(map.get(r.due_date) ?? []), { id: 'send:' + r.id, name: 'Send: ' + r.title, amount: r.amount ?? 0 }])
+      }
+    }
     for (const b of cardBills) {
       if (b.dueDate >= monthStart && b.dueDate <= monthEnd) {
         map.set(b.dueDate, [...(map.get(b.dueDate) ?? []), { id: 'card:' + b.account, name: b.account + ' bill', amount: b.due }])
       }
     }
     return map
-  }, [active, cardBills, monthStart, monthEnd])
+  }, [active, cardBills, moneyReminders, monthStart, monthEnd])
 
   const weekEnd = addDaysISO(today, windowDays - 1)
   const dueSoon = useMemo(() => {
@@ -132,7 +140,7 @@ export function BillsPage() {
   if (!isLoading && active.length === 0 && cardBills.length === 0) {
     return (
       <div className="flex flex-col gap-5">
-        <PageHeader title="Bills" />
+        <PageHeader title="Bills" actions={<MoneyRemindersButton />} />
         <EmptyState
           icon={CalendarDays}
           title="No bills to show yet"
@@ -145,7 +153,6 @@ export function BillsPage() {
         />
         {/* Cards and money reminders still show without recurring bills. */}
         <BillsCardsSection />
-        <MoneyReminders />
       </div>
     )
   }
@@ -187,7 +194,9 @@ export function BillsPage() {
         <Card className="animate-fade-in-up p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-serif text-lg font-semibold text-slate-900">{monthLabel}</h2>
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
+              {/* Money to send: a small icon here, the list opens in a sheet. */}
+              <MoneyRemindersButton />
               <button
                 aria-label="Previous month"
                 onClick={() => shiftMonth(-1)}
@@ -251,7 +260,7 @@ export function BillsPage() {
               {selectedItems.map((item) => (
                 <li key={item.id} className="flex justify-between">
                   <span className="text-slate-700">{item.name}</span>
-                  <span className="tabular-nums text-slate-900">{format(item.amount)}</span>
+                  <span className="tabular-nums text-slate-900">{item.amount ? format(item.amount) : ''}</span>
                 </li>
               ))}
             </ul>
@@ -345,7 +354,6 @@ export function BillsPage() {
         </Card>
       </div>
       <BillsCardsSection />
-      <MoneyReminders />
       {/* Tapping a Coming up row opens it here to check or change it. */}
       <RecurringFormModal
         open={!!editing}

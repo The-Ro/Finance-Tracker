@@ -3019,3 +3019,12 @@ grant execute on function public.set_card_pay_from(text, text) to authenticated;
 
 -- ===== Salary toward the next month (migration 2026-10-01_salary_next_month.sql) =====
 alter table public.user_settings add column if not exists salary_next_month boolean not null default false;
+
+-- ===== Money to send: log the entry on Sent (migration 2026-10-01_money_reminder_log.sql) =====
+alter table public.money_reminders add column if not exists log_entry boolean not null default false;
+alter table public.money_reminders add column if not exists account text;
+alter table public.money_reminders add column if not exists payment_method text;
+alter table public.money_reminders add column if not exists category text;
+alter table public.money_reminders drop constraint if exists money_reminders_log_entry_check;
+alter table public.money_reminders add constraint money_reminders_log_entry_check
+  check (not log_entry or (account is not null and amount is not null));

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Check, Plus, X } from 'lucide-react'
 import { useCategories } from '@/hooks/useLookupLists'
+import { CategoryIconByKey } from '@/components/ui/CategoryIcon'
+import { CATEGORY_ICON_CHOICES, categoryIconKey, type CategoryIconKey } from '@/lib/categoryIcon'
 import type { CategoryKind } from '@/types/database.types'
 
 /**
@@ -75,6 +77,9 @@ export function NewCategoryEditor({
   const { data: all = [], add } = useCategories()
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // The icon: guessed from the name as you type until you pick one yourself.
+  const [pickedIcon, setPickedIcon] = useState<CategoryIconKey | null>(null)
+  const icon = pickedIcon ?? categoryIconKey(name, kind)
   const boxRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -97,7 +102,7 @@ export function NewCategoryEditor({
     setError(null)
     const existing = all.find((c) => c.toLowerCase() === trimmed.toLowerCase())
     try {
-      if (!existing) await add.mutateAsync({ name: trimmed, kind })
+      if (!existing) await add.mutateAsync({ name: trimmed, kind, icon })
       onAdded(existing ?? trimmed)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not add that category.')
@@ -112,10 +117,13 @@ export function NewCategoryEditor({
       {/* The tick and cross sit inside the box, which is full width so both stay on screen. */}
       <div
         className={clsx(
-          'flex w-full min-w-0 items-center gap-1 rounded-xl border bg-white py-1 pl-3 pr-1',
+          'flex w-full min-w-0 items-center gap-2 rounded-xl border bg-white py-1 pl-1.5 pr-1',
           error ? 'border-danger ring-1 ring-danger' : 'border-accent ring-1 ring-accent'
         )}
       >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-light text-accent-on-light" aria-hidden="true">
+          <CategoryIconByKey key={icon} iconKey={icon} size={18} className="animate-pop-in" />
+        </span>
         <input
           ref={inputRef}
           id="new-category-name"
@@ -160,6 +168,30 @@ export function NewCategoryEditor({
         </button>
       </div>
       {error && <span className="text-helper font-medium text-danger">{error}</span>}
+      <div
+        role="radiogroup"
+        aria-label="Icon"
+        className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {CATEGORY_ICON_CHOICES.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={icon === key}
+            aria-label={label}
+            title={label}
+            onClick={() => setPickedIcon(key)}
+            className={clsx(
+              'press flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors',
+              icon === key ? 'border-accent bg-accent-light text-accent-on-light' : 'border-app-border text-slate-500 hover:border-accent'
+            )}
+          >
+            <CategoryIconByKey iconKey={key} size={17} />
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
