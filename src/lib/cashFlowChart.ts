@@ -1,9 +1,8 @@
 /**
- * Review's "Money in and out" month strip: one bar per month for what you
- * kept (money in − money out). Kept rises above a centre line in green, a
- * month where more went out than came in hangs below it in red. Heights are
- * fractions of the strip's height; the line sits where the tallest kept and
- * the deepest overspend meet, so both get room in proportion.
+ * Review's "Money in and out" line chart: a smooth line for money in and one
+ * for money out over the last months, both on one scale that starts at zero
+ * (nothing ever goes below the baseline). Everything is in real pixels for
+ * the width the chart is drawn at, so the SVG is never stretched.
  */
 export interface CashFlowMonth {
   month: string
@@ -11,41 +10,64 @@ export interface CashFlowMonth {
   spent: number
 }
 
-export interface KeptBar extends CashFlowMonth {
-  kept: number
-  /** Height as a fraction of the strip (0..1). */
-  height: number
-  /** Nothing logged that month -- drawn as a faint dot. */
-  empty: boolean
+export interface ChartPoint {
+  x: number
+  y: number
 }
 
-export interface KeptStrip {
-  /** Where the centre line sits, from the top (0..1). */
+export interface LineChartLayout {
+  /** x of each month's centre. */
+  xs: number[]
+  income: ChartPoint[]
+  spent: ChartPoint[]
+  incomePath: string
+  spentPath: string
+  /** The money-in line closed down to the baseline, for its soft fill. */
+  incomeArea: string
+  /** y of the zero line. */
   baseline: number
-  bars: KeptBar[]
+  /** y of the half-way grid line and its value. */
+  midY: number
+  midValue: number
 }
 
-export function keptStrip(months: CashFlowMonth[]): KeptStrip {
-  const kept = months.map((m) => Math.round((m.income - m.spent) * 100) / 100)
-  const up = Math.max(0, ...kept)
-  const down = Math.max(0, ...kept.map((k) => -k))
-  const span = up + down
-  // Only gains: the line sits at the bottom; only losses: at the top.
-  const baseline = span > 0 ? up / span : 1
-  return {
-    baseline,
-    bars: months.map((m, i) => ({
-      ...m,
-      kept: kept[i],
-      height: span > 0 ? Math.abs(kept[i]) / span : 0,
-      empty: m.income === 0 && m.spent === 0,
-    })),
+const r = (n: number) => Math.round(n * 10) / 10
+
+/** A smooth path through the points (horizontal-tangent cubic segments, so it never overshoots below zero). */
+export function smoothPath(points: ChartPoint[]): string {
+  if (points.length === 0) return ''
+  let d = `M${r(points[0].x)},${r(points[0].y)}`
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]
+    const b = points[i]
+    const cx = r((a.x + b.x) / 2)
+    d += ` C${cx},${r(a.y)} ${cx},${r(b.y)} ${r(b.x)},${r(b.y)}`
   }
+  return d
 }
 
-/** In and out bar widths for one month, relative to the larger of the two. */
-export function inOutWidths(income: number, spent: number): { income: number; spent: number } {
-  const max = Math.max(income, spent)
-  if (max <= 0) return { income: 0, spent: 0 }
-  return { income: income / max, spent: spent / max }
+export function lineChartLayout(months: CashFlowMonth[], width: number, height: number, padTop = 12): LineChartLayout {
+  const n = Math.max(1, months.length)
+  const max = Math.max(1, ...months.map((m) => Math.max(m.income, m.spent))) * 1.08
+  const baseline = height
+  const x = (i: number) => ((i + 0.5) / n) * width
+  const y = (v: number) => baseline - (Math.max(0, v) / max) * (height - padTop)
+  const xs = months.map((_, i) => r(x(i)))
+  const income = months.map((m, i) => ({ x: x(i), y: y(m.income) }))
+  const spent = months.map((m, i) => ({ x: x(i), y: y(m.spent) }))
+  const incomePath = smoothPath(income)
+  const incomeArea = income.length
+    ? `${incomePath} L${r(income[income.length - 1].x)},${baseline} L${r(income[0].x)},${baseline} Z`
+    : ''
+  return {
+    xs,
+    income: income.map((p) => ({ x: r(p.x), y: r(p.y) })),
+    spent: spent.map((p) => ({ x: r(p.x), y: r(p.y) })),
+    incomePath,
+    spentPath: smoothPath(spent),
+    incomeArea,
+    baseline,
+    midY: r(y(max / 1.08 / 2)),
+    midValue: max / 1.08 / 2,
+  }
 }
