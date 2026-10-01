@@ -1,43 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { cashFlowLayout } from './cashFlowChart'
+import { inOutWidths, keptStrip } from './cashFlowChart'
 
-describe('cashFlowLayout', () => {
-  it('puts the baseline where the biggest in and out meet', () => {
-    const l = cashFlowLayout([
-      { month: '2026-09', income: 3000, spent: 1000 },
-      { month: '2026-10', income: 1000, spent: 2000 },
+describe('keptStrip', () => {
+  it('gives each month what it kept, with room above and below in proportion', () => {
+    const s = keptStrip([
+      { month: '2026-09', income: 3000, spent: 35299 },
+      { month: '2026-10', income: 59091, spent: 545 },
     ])
-    // max in 3000, max out 2000 -> baseline at 3/5 from the top
-    expect(l.baseline).toBeCloseTo(0.6)
-    expect(l.columns[0].inHeight).toBeCloseTo(0.6)
-    expect(l.columns[1].outHeight).toBeCloseTo(0.4)
+    expect(s.bars[0].kept).toBe(-32299)
+    expect(s.bars[1].kept).toBe(58546)
+    expect(s.baseline).toBeCloseTo(58546 / (58546 + 32299))
+    expect(s.bars[0].height + s.bars[1].height).toBeCloseTo(1)
   })
 
-  it('places kept above the baseline when you kept money, below when you spent more', () => {
-    const l = cashFlowLayout([
-      { month: '2026-09', income: 3000, spent: 1000 },
-      { month: '2026-10', income: 1000, spent: 2000 },
+  it('puts the line at the bottom when every month kept money', () => {
+    const s = keptStrip([
+      { month: '2026-09', income: 100, spent: 50 },
+      { month: '2026-10', income: 100, spent: 0 },
     ])
-    expect(l.columns[0].keptY).toBeCloseTo(0.6 - 2000 / 5000)
-    expect(l.columns[1].keptY).toBeCloseTo(0.6 + 1000 / 5000)
+    expect(s.baseline).toBe(1)
+    expect(s.bars[1].height).toBe(1)
+    expect(s.bars[0].height).toBe(0.5)
   })
 
-  it('leaves empty months off the kept line', () => {
-    const l = cashFlowLayout([
-      { month: '2026-07', income: 0, spent: 0 },
-      { month: '2026-08', income: 10, spent: 5 },
-      { month: '2026-09', income: 0, spent: 0 },
-      { month: '2026-10', income: 4, spent: 9 },
-      { month: '2026-11', income: 2, spent: 1 },
-    ])
-    expect(l.columns[0].empty).toBe(true)
-    expect(l.segments).toEqual([[1], [3, 4]])
+  it('marks empty months and copes with nothing at all', () => {
+    const s = keptStrip([{ month: '2026-10', income: 0, spent: 0 }])
+    expect(s.bars[0].empty).toBe(true)
+    expect(s.bars[0].height).toBe(0)
   })
+})
 
-  it('copes with nothing logged at all', () => {
-    const l = cashFlowLayout([{ month: '2026-10', income: 0, spent: 0 }])
-    expect(l.baseline).toBe(0.5)
-    expect(l.columns[0].keptY).toBe(0.5)
-    expect(l.segments).toEqual([])
+describe('inOutWidths', () => {
+  it('scales both to the larger one', () => {
+    expect(inOutWidths(59091, 545).income).toBe(1)
+    expect(inOutWidths(59091, 545).spent).toBeCloseTo(545 / 59091)
+    expect(inOutWidths(0, 0)).toEqual({ income: 0, spent: 0 })
   })
 })

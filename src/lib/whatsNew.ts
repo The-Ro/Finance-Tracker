@@ -1,10 +1,12 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.18.0'
+export const APP_VERSION = '1.18.1'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-10-23'
+export const CURRENT_WHATS_NEW_VERSION = '2026-10-24'
 
 export const WHATS_NEW_ITEMS: string[] = [
+  'Monthly review: a clearer “Money in and out”. See what you kept, in and out side by side, and a bar for each month.',
+  'Friends: tap the search button to find a friend, and welcome your friends & family to LedgeEaze with one link.',
   'New: Investments (menu → Plan → Investments). See how much you’ve put into SIPs, RD, PPF and more: in total, this year and this month.',
   'Keep the habit: your monthly plan, how many months in a row you’ve invested, and how much of what came in you put away.',
   'Mark a recurring payment as an investment (“This is an investment”). Each time you tap Paid, it’s counted.',

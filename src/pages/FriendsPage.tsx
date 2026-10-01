@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
-import { Cake, ChevronRight, Clock, Send, UserPlus, Users } from 'lucide-react'
-import { PageHeader, PageHeaderAction } from '@/components/ui/PageHeader'
+import { Cake, ChevronRight, Clock, Search, Send, Users } from 'lucide-react'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -71,16 +71,26 @@ export function FriendsPage() {
   const asking = friends.filter((f) => f.theySeeMine === 'asking')
   const loading = owned.isLoading || requested.isLoading
   const invite = async () => {
-    const result = await shareText(
-      'Join me on LedgeEaze',
-      `I use LedgeEaze to track money. Join me so we can share expenses and split costs: ${window.location.origin}`
-    )
-    if (result === 'copied') show('Invite link copied. Paste it in a message.')
+    const result = await shareText('Welcome to LedgeEaze', `Welcome to LedgeEaze! Join me here: ${window.location.origin}`)
+    if (result === 'copied') show('Link copied. Paste it in a message.')
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Friends" actions={<PageHeaderAction label="Add friend" onClick={() => setAdding(true)} />} />
+      <PageHeader
+        title="Friends"
+        actions={
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            aria-label="Find a friend"
+            title="Find a friend"
+            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-white shadow-card hover:bg-accent-dark"
+          >
+            <Search size={19} strokeWidth={2.3} aria-hidden="true" />
+          </button>
+        }
+      />
       <p className="-mt-2 text-sm text-slate-500">People you share with. You choose what each side sees.</p>
 
       {/* Requests to see your entries come first. */}
@@ -123,7 +133,7 @@ export function FriendsPage() {
           action={
             <div className="flex flex-wrap justify-center gap-2">
               <Button onClick={() => setAdding(true)}>
-                <UserPlus size={16} aria-hidden="true" /> Add friend
+                <Search size={16} aria-hidden="true" /> Find a friend
               </Button>
               <Button variant="secondary" onClick={() => void invite()}>
                 <Send size={15} aria-hidden="true" /> Invite
@@ -173,8 +183,8 @@ export function FriendsPage() {
             <Send size={17} aria-hidden="true" />
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-semibold text-slate-900">Invite someone</span>
-            <span className="block text-helper text-slate-500">Not on LedgeEaze yet? Send them a link.</span>
+            <span className="block text-sm font-semibold text-slate-900">Welcome your friends & family to LedgeEaze</span>
+            <span className="block text-helper text-slate-500">Send them a link.</span>
           </span>
         </button>
       )}
@@ -222,7 +232,7 @@ function AddFriendSheet({ open, onClose, onInvite }: { open: boolean; onClose: (
   }
 
   return (
-    <Modal open={open} onClose={close} title="Add a friend" headerActions={<SheetSaveButton onClick={save} busy={add.isPending} label="Add" />}>
+    <Modal open={open} onClose={close} title="Find a friend" headerActions={<SheetSaveButton onClick={save} busy={add.isPending} label="Add" />}>
       <div className="flex flex-col gap-4">
         <FormError message={errors.general} />
         <TextField
@@ -238,7 +248,7 @@ function AddFriendSheet({ open, onClose, onInvite }: { open: boolean; onClose: (
         />
         {notFound && (
           <button type="button" onClick={onInvite} className="-mt-2 w-fit text-helper font-semibold text-accent-dark hover:underline">
-            Invite them to LedgeEaze instead
+            Welcome them to LedgeEaze instead
           </button>
         )}
         <SwitchRow
