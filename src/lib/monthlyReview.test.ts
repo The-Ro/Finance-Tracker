@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildMonthlyReview, donutSegments, subscriptionSummary } from './monthlyReview'
+import { buildMonthlyReview, monthlyInOut, donutSegments, subscriptionSummary } from './monthlyReview'
 import { effectiveLimit } from './budgets'
 
 const sep = { start: '2026-09-01', end: '2026-09-30' }
@@ -118,5 +118,24 @@ describe('buildMonthlyReview budget range', () => {
     const pay = buildMonthlyReview(tx, oct, null, [{ category: 'Bike', limit: 3500 }], { start: '2026-09-30', end: '2026-10-01' })
     expect(pay.underBudget[0].spent).toBe(1422.04)
     expect(pay.spent).toBe(0)
+  })
+})
+
+describe('monthlyInOut', () => {
+  it('totals money in and out per month, transfers left out, oldest first', () => {
+    const tx = [
+      { type: 'income', category: 'Salary', date: '2026-09-30', amount: 59000 },
+      { type: 'expense', category: 'Dining', date: '2026-09-21', amount: 605 },
+      { type: 'transfer', category: null, date: '2026-09-30', amount: 7778 },
+      { type: 'expense', category: 'Bike', date: '2026-10-01', amount: 100 },
+    ]
+    expect(monthlyInOut(tx, 3, '2026-10-01')).toEqual([
+      { month: '2026-08', income: 0, spent: 0 },
+      { month: '2026-09', income: 59000, spent: 605 },
+      { month: '2026-10', income: 0, spent: 100 },
+    ])
+  })
+  it('crosses the new year', () => {
+    expect(monthlyInOut([], 2, '2027-01-15').map((r) => r.month)).toEqual(['2026-12', '2027-01'])
   })
 })

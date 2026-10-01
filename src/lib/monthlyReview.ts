@@ -133,3 +133,30 @@ export function subscriptionSummary(
   }
   return { total, count }
 }
+
+export interface MonthInOut {
+  /** YYYY-MM */
+  month: string
+  income: number
+  spent: number
+}
+
+/**
+ * Money in and money out for each of the last `months` calendar months
+ * (oldest first, ending with `today`'s month) -- Review's bar chart.
+ * Transfers are left out, like everywhere else in the review.
+ */
+export function monthlyInOut(transactions: ReviewTransaction[], months: number, today: string): MonthInOut[] {
+  const [y, m] = today.split('-').map(Number)
+  const out: MonthInOut[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const idx = y * 12 + (m - 1) - i
+    const year = Math.floor(idx / 12)
+    const monthIndex = idx - year * 12
+    const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
+    const last = new Date(year, monthIndex + 1, 0).getDate()
+    const t = totals(transactions, { start: `${key}-01`, end: `${key}-${String(last).padStart(2, '0')}` })
+    out.push({ month: key, income: Math.round(t.income * 100) / 100, spent: Math.round(t.spent * 100) / 100 })
+  }
+  return out
+}

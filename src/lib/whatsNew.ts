@@ -1,10 +1,11 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.16.0'
+export const APP_VERSION = '1.16.1'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-10-19'
+export const CURRENT_WHATS_NEW_VERSION = '2026-10-20'
 
 export const WHATS_NEW_ITEMS: string[] = [
+  'Monthly review has a simpler chart: money in (green) and money out (red) for each month. Tap a month to see it.',
   'SIPs and goals: link a recurring SIP to a goal and each payment adds to it. The goal shows when you will reach it.',
   'Credit cards: the card page lists its EMIs and matches Home. If a card shows "in credit", it explains why and helps you add the missing charge.',
   'Bills shows each card simply: what you owe and the next statement date.',

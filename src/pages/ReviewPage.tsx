@@ -14,14 +14,12 @@ import { useRecurringItemsRaw } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { useAuth } from '@/context/AuthContext'
-import { buildMonthlyReview, donutSegments, subscriptionSummary } from '@/lib/monthlyReview'
+import { buildMonthlyReview, donutSegments, monthlyInOut, subscriptionSummary } from '@/lib/monthlyReview'
 import { monthGrid } from '@/lib/billCalendar'
 import { formatShortDate, todayISO } from '@/lib/format'
 import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
 import { activityLink } from '@/lib/activityLink'
-import { monthEndBalances } from '@/lib/balanceHistory'
 import { useSalaryShift } from '@/hooks/useSalaryShift'
-import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
 
 function monthRange(year: number, index: number) {
   const { days } = monthGrid(year, index)
@@ -42,19 +40,15 @@ export function ReviewPage() {
   // setting is on; month-end balances below stay on real dates.
   const monthly = useSalaryShift(transactions)
   const { data: recurring = [] } = useRecurringItemsRaw()
-  const { data: openings } = useAccountOpeningBalances()
-  // Balance trend: starting balances + logged income/expenses, month by month.
-  const history = useMemo(() => {
-    const openingTotal = [...(openings?.values() ?? [])].reduce((sum, v) => sum + v, 0)
-    return monthEndBalances(transactions, openingTotal, 6, todayISO())
-  }, [transactions, openings])
-  const historyMax = Math.max(1, ...history.map((h) => Math.abs(h.total ?? 0)))
+  // The last 6 months' money in and out (users found the old month-end
+  // "what you have after card dues" bars confusing).
+  const history = useMemo(() => monthlyInOut(monthly, 6, todayISO()), [monthly])
+  const historyMax = Math.max(1, ...history.map((h) => Math.max(h.income, h.spent)))
   const [month, setMonth] = useState(() => {
     const [y, m] = todayISO().split('-').map(Number)
     return { year: y, index: m - 1 }
   })
-  const selectedHistory = history.find((h) => h.month === `${month.year}-${String(month.index + 1).padStart(2, '0')}`)
-  const selectedTotal = selectedHistory?.total ?? null
+  const selectedHistory = history.find((h) => h.month === `${month.year}-${String(month.index + 1).padStart(2, '0')}`) ?? null
   const selectedLabel = new Date(month.year, month.index, 1).toLocaleDateString(undefined, { month: 'long' })
 
   const range = monthRange(month.year, month.index)
@@ -189,57 +183,39 @@ export function ReviewPage() {
       )}
 
       <Card className="animate-fade-in-up p-5">
-        {/* Users asked what the bar numbers are: say it in words, and show the
-            picked month's figure in full. */}
         <div className="mb-4 flex flex-col gap-0.5">
-          <h3 className="text-sm font-semibold text-slate-800">What you have, after card dues</h3>
-          <span className="text-helper text-slate-500">
-            All your accounts minus what you owe on cards, at the end of each month. Tap a month to review it.
-          </span>
-          {selectedTotal !== null && (
-            <span className="text-helper text-slate-600">
-              {selectedLabel}: <span className="font-semibold tabular-nums text-slate-900">{format(selectedTotal)}</span>
-            </span>
-          )}
+          <h3 className="text-sm font-semibold text-slate-800">Money in and out</h3>
+          <span className="text-helper text-slate-500">Each month: green is what came in, red is what you spent. Tap a month to review it.</span>
         </div>
-        {/* Each bar is a button: tapping a month reviews that month. Months
-            before the first logged transaction have no history (null) and
-            show a dashed stub instead of a made-up balance. */}
-        <div className="flex h-40 items-end gap-2 sm:gap-3">
+        <div className="flex h-36 items-end gap-2 sm:gap-3">
           {history.map((h, i) => {
             const [hy, hm] = h.month.split('-').map(Number)
             const selected = hy === month.year && hm - 1 === month.index
             const monthShort = new Date(hy, hm - 1, 1).toLocaleDateString(undefined, { month: 'short' })
             const monthLong = new Date(hy, hm - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+            const bar = (value: number) => `${value > 0 ? Math.max(4, (value / historyMax) * 100) : 0}%`
             return (
               <button
                 key={h.month}
                 type="button"
                 onClick={() => setMonth({ year: hy, index: hm - 1 })}
                 aria-pressed={selected}
-                aria-label={`${monthLong}: ${h.total === null ? 'no history' : format(h.total)}`}
-                className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <span className={clsx('text-xs tabular-nums', selected ? 'font-semibold text-slate-900' : 'text-slate-500')}>
-                  {h.total === null ? '' : formatCompact(h.total)}
-                </span>
-                {h.total === null ? (
-                  <div className="h-1 w-full max-w-[44px] rounded-full border border-dashed border-slate-300" />
-                ) : (
-                  <div
-                    className={clsx(
-                      'animate-bar-rise w-full max-w-[44px] rounded-t-lg transition-colors',
-                      h.total < 0
-                        ? selected
-                          ? 'bg-danger'
-                          : 'bg-danger/45 group-hover:bg-danger/70'
-                        : selected
-                          ? 'bg-accent dark:bg-accent-dark'
-                          : 'bg-accent/35 group-hover:bg-accent/60 dark:bg-accent-dark/40'
-                    )}
-                    style={{ height: `${Math.max(4, (Math.abs(h.total) / historyMax) * 100)}%`, animationDelay: `${i * 70}ms` }}
-                  />
+                aria-label={`${monthLong}: ${format(h.income)} in, ${format(h.spent)} out`}
+                className={clsx(
+                  'group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg pt-1 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  !selected && 'opacity-55 hover:opacity-80'
                 )}
+              >
+                <div className="flex h-full w-full max-w-[52px] items-end justify-center gap-1">
+                  <div
+                    className="animate-bar-rise w-1/2 rounded-t-md bg-positive"
+                    style={{ height: bar(h.income), animationDelay: `${i * 70}ms` }}
+                  />
+                  <div
+                    className="animate-bar-rise w-1/2 rounded-t-md bg-danger"
+                    style={{ height: bar(h.spent), animationDelay: `${i * 70 + 40}ms` }}
+                  />
+                </div>
                 <span className={clsx('text-xs', selected ? 'font-semibold text-accent-dark' : 'font-medium text-slate-500')}>
                   {monthShort}
                 </span>
@@ -247,6 +223,30 @@ export function ReviewPage() {
             )
           })}
         </div>
+        {/* The picked month in words, so no number on the chart needs explaining. */}
+        {selectedHistory && (
+          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-app-border pt-3 text-center">
+            <div className="flex flex-col">
+              <span className="text-helper text-slate-500">{selectedLabel} in</span>
+              <span className="font-semibold tabular-nums text-positive">{format(selectedHistory.income)}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-helper text-slate-500">Out</span>
+              <span className="font-semibold tabular-nums text-danger">{format(selectedHistory.spent)}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-helper text-slate-500">Kept</span>
+              <span
+                className={clsx(
+                  'font-semibold tabular-nums',
+                  selectedHistory.income - selectedHistory.spent < 0 ? 'text-danger' : 'text-slate-900'
+                )}
+              >
+                {format(selectedHistory.income - selectedHistory.spent)}
+              </span>
+            </div>
+          </div>
+        )}
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
