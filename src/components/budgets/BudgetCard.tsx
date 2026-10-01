@@ -1,4 +1,5 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { EffectiveBudget } from '@/hooks/useBudgets'
@@ -14,11 +15,13 @@ interface BudgetCardProps {
   lastMonth: PriorMonthResult | null
   /** "Last month", or "Last pay period" when budgets run from pay day. */
   lastLabel?: string
+  /** Activity filtered to this budget (activityLink); the name and figures link there. */
+  href?: string
   onEdit: () => void
   onDelete: () => void
 }
 
-export function BudgetCard({ budget, spent, lastMonth, lastLabel = 'Last month', onEdit, onDelete }: BudgetCardProps) {
+export function BudgetCard({ budget, spent, lastMonth, lastLabel = 'Last month', href, onEdit, onDelete }: BudgetCardProps) {
   const { format } = useFormatCurrency()
   const remaining = budget.monthly_limit - spent
   const percent = useAnimatedNumber(budget.monthly_limit > 0 ? (spent / budget.monthly_limit) * 100 : 0)
@@ -29,12 +32,16 @@ export function BudgetCard({ budget, spent, lastMonth, lastLabel = 'Last month',
   return (
     <Card className="card-interactive flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{budget.category}</p>
+        {/* Tap the name to see this budget's entries in Activity. */}
+        <Link to={href ?? '/transactions'} className="-m-1 min-w-0 rounded-lg p-1 hover:bg-slate-50">
+          <p className="flex items-center gap-1 text-sm font-semibold text-slate-900">
+            {budget.category}
+            <ChevronRight size={14} className="text-slate-400" aria-hidden="true" />
+          </p>
           <p className="text-helper tabular-nums text-slate-500">
             {format(animatedSpent)} of {format(budget.monthly_limit)}
           </p>
-        </div>
+        </Link>
         <div className="flex gap-1">
           <button
             aria-label="Edit budget"
@@ -53,7 +60,7 @@ export function BudgetCard({ budget, spent, lastMonth, lastLabel = 'Last month',
         </div>
       </div>
       <ProgressBar percent={percent} tone={overBudget ? 'danger' : 'accent'} />
-      <p className={'text-helper tabular-nums ' + (overBudget ? 'font-medium text-red-600' : 'text-slate-500')}>
+      <p className={'text-helper tabular-nums ' + (overBudget ? 'font-medium text-danger' : 'text-slate-500')}>
         {overBudget
           ? `${format(Math.abs(animatedRemaining))} over budget`
           : `${format(animatedRemaining)} remaining`}

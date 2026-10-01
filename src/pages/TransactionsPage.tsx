@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, AlertTriangle, Check, Copy, Download } from 'lucide-react'
+import { rangeFromParams } from '@/lib/activityLink'
+import { useSearchParams } from 'react-router-dom'
+import { ArrowDownRight, ArrowUpRight, AlertTriangle, Check, Copy, Download, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
@@ -29,10 +31,10 @@ import { TransactionTable } from '@/components/transactions/TransactionTable'
 import { DuplicatesModal } from '@/components/transactions/DuplicatesModal'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { resolvePeriod, isWithinRange } from '@/lib/period'
+import { resolvePeriod, isWithinRange, type DateRange } from '@/lib/period'
 import { transactionsToCsv, downloadCsv } from '@/lib/csvExport'
 import { findDuplicateGroups } from '@/lib/duplicates'
-import { todayISO } from '@/lib/format'
+import { todayISO, formatShortDate } from '@/lib/format'
 import { EMPTY_TRANSACTION_FILTERS, matchesFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import { SavedFilters } from '@/components/transactions/SavedFilters'
 import { toFilters, type SavedFilter } from '@/lib/savedFilters'
@@ -63,7 +65,19 @@ export function TransactionsPage() {
   const { userId } = useAuth()
   const settings = useUserSettings()
   const [scope, setScope] = useState<TransactionScope>('mine')
-  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_TRANSACTION_FILTERS)
+  // A link from a budget (Budgets, Review) opens Activity on one category over
+  // that budget's span: ?category=Bike&since=2026-09-30&until=2026-10-01.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [linkRange, setLinkRange] = useState<DateRange | null>(() => rangeFromParams(searchParams))
+  const [filters, setFilters] = useState<TransactionFilters>(() => ({
+    ...EMPTY_TRANSACTION_FILTERS,
+    category: searchParams.get('category') || null,
+  }))
+  useEffect(() => {
+    // Read once; drop the params so the period picker takes over again later.
+    if (searchParams.has('category') || searchParams.has('until')) setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [duplicatesOpen, setDuplicatesOpen] = useState(false)
   // The search box updates `filters` on every keystroke; only the debounced
   // text reaches the server queries below.
@@ -97,7 +111,7 @@ export function TransactionsPage() {
   )
 
   const period = settings.data?.selectedPeriod ?? 'all-time'
-  const range = resolvePeriod(period)
+  const range = linkRange ?? resolvePeriod(period)
 
   const source = scope === 'mine' ? myTransactions.data ?? [] : everyoneTransactions.data ?? []
   const inPeriod = source.filter((t) => isWithinRange(t.date, range))
@@ -240,7 +254,19 @@ export function TransactionsPage() {
           <div className="flex w-full items-center gap-2 sm:w-auto">
             {/* The period is the same filter-icon pill as Home's. */}
             <div className="mr-auto sm:mr-0">
-              <PeriodSelector compact value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+              {linkRange ? (
+                <button
+                  type="button"
+                  onClick={() => setLinkRange(null)}
+                  aria-label="Show the usual period"
+                  className="animate-pop-in inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-accent bg-accent-light px-3 text-helper font-semibold text-accent-on-light"
+                >
+                  {linkRange.start ? `${formatShortDate(linkRange.start)} – ${formatShortDate(linkRange.end)}` : `Until ${formatShortDate(linkRange.end)}`}
+                  <X size={14} aria-hidden="true" />
+                </button>
+              ) : (
+                <PeriodSelector compact value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+              )}
             </div>
             <Button
               variant="secondary"

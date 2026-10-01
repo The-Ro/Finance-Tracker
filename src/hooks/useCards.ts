@@ -105,6 +105,8 @@ export function useCardDetail(account: string | null | undefined): CardDetail | 
   const { data: transactions } = useMyTransactions(userId)
   const { data: detailsMap } = useAccountDetails()
   const { data: openings } = useAccountOpeningBalances()
+  // The same status Home uses (EMIs on the card hold part of the limit).
+  const statuses = useCardStatuses()
   return useMemo(() => {
     if (!account || !transactions || !detailsMap) return null
     const details = detailsMap.get(account)
@@ -113,12 +115,12 @@ export function useCardDetail(account: string | null | undefined): CardDetail | 
     const opening = openings?.get(account) ?? 0
     return {
       details,
-      status: cardStatus(account, opening, transactions, details, today),
+      status: statuses.get(account) ?? cardStatus(account, opening, transactions, details, today),
       history: statementHistory(account, opening, transactions, details, today),
       unbilled: unbilled(account, transactions, details, today),
       transactions: transactions
         .filter((t) => t.account === account || t.to_account === account)
         .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
     }
-  }, [account, transactions, detailsMap, openings])
+  }, [account, transactions, detailsMap, openings, statuses])
 }

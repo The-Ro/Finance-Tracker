@@ -11,11 +11,13 @@ import { CardPaymentNotice } from '@/components/cards/CardPaymentNotice'
 import { useAuth } from '@/context/AuthContext'
 import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { useCardDetail } from '@/hooks/useCards'
+import { useRecurringItemsRaw } from '@/hooks/useRecurring'
+import { loanDetailsOf, loanMonthLabel, loanProgress, outstandingPrincipal } from '@/lib/loans'
 import { useAccountDetails } from '@/hooks/useLookupLists'
 import { useCardPaymentSuggestions } from '@/hooks/useCardPaymentSuggestions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import type { Transaction } from '@/hooks/useTransactions'
-import { daysUntil, type StatementStatus } from '@/lib/creditCards'
+import { daysUntil, lastStatementDate, nextStatementDate, type StatementStatus } from '@/lib/creditCards'
 import { formatShortDate, todayISO } from '@/lib/format'
 
 const UNBILLED_ROWS = 8
@@ -63,6 +65,22 @@ export function CardPage() {
   const { format, formatSigned } = useFormatCurrency()
   const cardPayments = useCardPaymentSuggestions()
   const [showAllUnbilled, setShowAllUnbilled] = useState(false)
+  // EMIs charged to this card (recurring loan items on it).
+  const { data: recurring = [] } = useRecurringItemsRaw()
+  const emis = useMemo(
+    () =>
+      recurring
+        .filter((r) => r.active && r.account === account && loanDetailsOf(r))
+        .map((r) => {
+          const loan = loanDetailsOf(r)!
+          return {
+            item: r,
+            progress: loanProgress(loan, Number(r.amount), r.cadence, r.next_date),
+            held: outstandingPrincipal(loan, Number(r.amount), r.cadence, r.next_date),
+          }
+        }),
+    [recurring, account]
+  )
   const today = todayISO()
 
   const suggestions = useMemo(
@@ -185,6 +203,72 @@ export function CardPage() {
           </Link>
         )}
       </Card>
+
+      {/* In credit: almost always a payment logged without the charge it paid
+          (often an EMI on the statement). Offer to add that charge. */}
+      {status.credit > 0 && (
+        <Card className="flex flex-col gap-3 border-caution/40 p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">This card shows {format(status.credit)} in credit</h2>
+            <p className="mt-1 text-helper text-slate-500">
+              That usually means a payment was logged, but what it paid for wasn’t, often an EMI on the statement. Add the
+              missing charge, or update what you owe.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {emis.map(({ item }) => (
+              <Button
+                key={item.id}
+                variant="secondary"
+                onClick={() =>
+                  openAddEntry('expense', {
+                    merchant: item.name,
+                    amount: Number(item.amount),
+                    account,
+                    date: details.statementDay ? lastStatementDate(details.statementDay, today) : today,
+                    category: item.category ?? undefined,
+                  })
+                }
+              >
+                Add the {item.name} charge
+              </Button>
+            ))}
+            <Link to="/settings/accounts" className="inline-flex min-h-[44px] items-center px-2 text-helper font-medium text-accent-dark hover:underline">
+              Update what I owe
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      {emis.length > 0 && (
+        <Card className="flex flex-col gap-3 p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">EMIs on this card</h2>
+            <p className="text-helper text-slate-500">
+              Each EMI goes on the bill{details.statementDay ? ` on ${formatShortDate(nextStatementDate(details.statementDay, today))}` : ''}. What’s left to repay is held from the limit.
+            </p>
+          </div>
+          <ul className="flex flex-col divide-y divide-app-border">
+            {emis.map(({ item, progress, held }) => (
+              <li key={item.id} className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="truncate text-sm font-semibold text-slate-800">{item.name}</span>
+                  <span className="shrink-0 text-sm tabular-nums text-slate-900">{format(Number(item.amount))} a month</span>
+                </div>
+                {progress && (
+                  <>
+                    <ProgressBar percent={(progress.paid / progress.total) * 100} tone="positive" />
+                    <span className="text-helper tabular-nums text-slate-500">
+                      {progress.paid} of {progress.total} paid · ends {loanMonthLabel(progress.endMonth)}
+                      {held > 0 && ` · ${format(held)} held`}
+                    </span>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <CardPaymentNotice suggestions={suggestions} cardAccounts={cardPayments.cardAccounts} />
 

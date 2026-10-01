@@ -1,15 +1,13 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.15.2'
+export const APP_VERSION = '1.16.0'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-10-18'
+export const CURRENT_WHATS_NEW_VERSION = '2026-10-19'
 
 export const WHATS_NEW_ITEMS: string[] = [
-  'Budgets can start on pay day: turn on "Start budgets on pay day" on the Budgets page and spending counts from when your salary came in.',
-  'EMIs on a credit card take their date from the card’s statement day, so there’s no date to fill in.',
-  'Money to send is now the small send icon on the Bills calendar. Tick "Log it when I tap Sent" to add the entry with its account, mode and category.',
-  'New categories get an icon: pick one, or keep the one guessed from the name.',
-  'Entries you keep to yourself are blurred in Activity too. Tap one to peek.',
-  'Credit card EMIs: the EMI date follows the card statement, GST on the interest is shown, the processing fee can be logged, and you can say which bank pays the card bill.',
-  'Salary at the month end? In Settings, Salary, turn on "Count my salary toward the next month".',
+  'SIPs and goals: link a recurring SIP to a goal and each payment adds to it. The goal shows when you will reach it.',
+  'Credit cards: the card page lists its EMIs and matches Home. If a card shows "in credit", it explains why and helps you add the missing charge.',
+  'Bills shows each card simply: what you owe and the next statement date.',
+  'Tap a budget (or a budget line in Review) to see its entries. Review now matches Budgets when budgets start on pay day.',
+  'Slide to see a locked entry, and slide across "Money kept each month" to check each month.',
 ]

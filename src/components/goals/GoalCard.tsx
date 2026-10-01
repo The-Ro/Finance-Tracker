@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { PartyPopper, Pencil, Plus, Trash2 } from 'lucide-react'
+import { PartyPopper, Pencil, Plus, Trash2, Repeat } from 'lucide-react'
 import clsx from 'clsx'
 import { Card } from '@/components/ui/Card'
 import type { Goal } from '@/hooks/useGoals'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { formatDate, toLocalISODate, todayISO } from '@/lib/format'
-import { goalPace, goalPercent, isGoalReached, markGoalCelebrated, readCelebratedGoals } from '@/lib/goals'
+import { goalPace, goalPercent, isGoalReached, markGoalCelebrated, readCelebratedGoals, feederProjection, type GoalFeeder } from '@/lib/goals'
 import { GoalRing } from './GoalRing'
 
 interface GoalCardProps {
@@ -14,6 +14,8 @@ interface GoalCardProps {
   onEdit: () => void
   onDelete: () => void
   onAddMoney: () => void
+  /** Recurring payments (SIPs) that add to this goal when marked paid. */
+  feeders?: (GoalFeeder & { name: string })[]
 }
 
 function monthYear(iso: string): string {
@@ -21,7 +23,7 @@ function monthYear(iso: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-export function GoalCard({ goal, onEdit, onDelete, onAddMoney }: GoalCardProps) {
+export function GoalCard({ goal, onEdit, onDelete, onAddMoney, feeders = [] }: GoalCardProps) {
   const { format } = useFormatCurrency()
   const reached = isGoalReached(goal)
   const percent = goalPercent(goal)
@@ -30,6 +32,7 @@ export function GoalCard({ goal, onEdit, onDelete, onAddMoney }: GoalCardProps) 
   // created_at is a timestamp; the straight-line "on track" check wants the
   // local calendar day it was created on.
   const startDate = goal.created_at ? toLocalISODate(new Date(goal.created_at)) : null
+  const projection = feederProjection(goal.target_amount - goal.current_amount, feeders)
   const pace = goalPace({ ...goal, start_date: startDate }, todayISO())
 
   // The "Goal reached" badge pops in once per goal (per browser), then just sits there.
@@ -103,6 +106,15 @@ export function GoalCard({ goal, onEdit, onDelete, onAddMoney }: GoalCardProps) 
             <span className="whitespace-nowrap">of {format(goal.target_amount)}</span>
           </p>
           <p className="text-helper">{paceLine}</p>
+          {feeders.length > 0 && (
+            <p className="mt-0.5 flex items-start gap-1.5 text-helper text-slate-600">
+              <Repeat size={13} className="mt-[3px] shrink-0 text-accent-dark" aria-hidden="true" />
+              <span>
+                {feeders.length === 1 ? `${feeders[0].name} adds` : `${feeders.length} payments add`} {format(projection?.monthly ?? feeders[0].amount)} a month
+                {projection && ` · reaches it by ${monthYear(projection.reachMonth + '-01')}`}
+              </span>
+            </p>
+          )}
         </div>
       </div>
 

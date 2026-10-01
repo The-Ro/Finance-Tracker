@@ -60,6 +60,9 @@ export interface EntryPrefill {
   toAccount?: string
   /** The "from" account, e.g. the bank a card bill is paid from. */
   account?: string
+  /** YYYY-MM-DD, e.g. the statement date a missing card charge belongs to. */
+  date?: string
+  category?: string
 }
 
 const EMPTY_STATE = {
@@ -465,6 +468,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     ...(prefill?.amount ? { amount: String(prefill.amount) } : {}),
     ...(prefill?.toAccount ? { toAccount: prefill.toAccount } : {}),
     ...(prefill?.account ? { account: prefill.account } : {}),
+    ...(prefill?.date ? { date: prefill.date } : {}),
+    ...(prefill?.category ? { category: prefill.category } : {}),
   })
 
   // Prefill from the transaction being edited (or reset to a blank form)

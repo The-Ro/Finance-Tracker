@@ -1,3 +1,4 @@
+import { shiftMonth } from '@/lib/savings'
 // Pure goal math for the Goals page (progress ring, "Saved so far" summary,
 // the monthly pace line and "Add money"). Dates are plain local calendar
 // strings (YYYY-MM-DD, from todayISO()/toLocalISODate()); day counts are done
@@ -156,4 +157,34 @@ export function markGoalCelebrated(id: string, storage: StorageLike | null = def
   } catch {
     // Private window / blocked storage: the badge just pops again next time.
   }
+}
+
+/** A recurring payment that feeds a goal (a SIP, RD, savings transfer). */
+export interface GoalFeeder {
+  amount: number
+  cadence: string
+  next_date: string
+}
+
+const PER_MONTH: Record<string, number> = {
+  weekly: 52 / 12,
+  biweekly: 26 / 12,
+  monthly: 1,
+  quarterly: 1 / 3,
+  'half-yearly': 1 / 6,
+  annual: 1 / 12,
+}
+
+/**
+ * When the linked SIPs reach the goal at their current pace: the monthly
+ * total they put in, and the month (YYYY-MM) the goal is reached, counting
+ * from the earliest next payment. Null when nothing feeds it or it's reached.
+ */
+export function feederProjection(remaining: number, feeders: readonly GoalFeeder[]): { monthly: number; reachMonth: string } | null {
+  if (remaining <= 0 || feeders.length === 0) return null
+  const monthly = Math.round(feeders.reduce((sum, f) => sum + f.amount * (PER_MONTH[f.cadence] ?? 1), 0) * 100) / 100
+  if (monthly <= 0) return null
+  const first = feeders.map((f) => f.next_date.slice(0, 7)).sort()[0]
+  const months = Math.ceil(remaining / monthly)
+  return { monthly, reachMonth: shiftMonth(first, months - 1) }
 }

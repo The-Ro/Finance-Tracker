@@ -105,3 +105,18 @@ describe('effectiveLimit', () => {
     expect(effectiveLimit(100, true, null)).toBe(100)
   })
 })
+
+describe('buildMonthlyReview budget range', () => {
+  it('judges budgets over the pay period when given one', () => {
+    const tx = [
+      { type: 'expense', category: 'Bike', date: '2026-09-30', amount: 1422.04 },
+      { type: 'expense', category: 'Bike', date: '2026-10-01', amount: 0 },
+    ]
+    const oct = { start: '2026-10-01', end: '2026-10-31' }
+    const month = buildMonthlyReview(tx, oct, null, [{ category: 'Bike', limit: 3500 }])
+    expect(month.underBudget[0].spent).toBe(0)
+    const pay = buildMonthlyReview(tx, oct, null, [{ category: 'Bike', limit: 3500 }], { start: '2026-09-30', end: '2026-10-01' })
+    expect(pay.underBudget[0].spent).toBe(1422.04)
+    expect(pay.spent).toBe(0)
+  })
+})

@@ -844,10 +844,18 @@ button {
 .private-content {
   transition: filter 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+/* --peek (0..1) is set on the .private-row while sliding the "Slide to see"
+   knob (SlideToPeek): the blur eases off with the finger. */
 .private-content.is-hidden {
-  filter: blur(7px);
-  opacity: 0.7;
+  filter: blur(calc(7px * (1 - var(--peek, 0))));
+  opacity: calc(0.7 + 0.3 * var(--peek, 0));
   user-select: none;
+}
+.private-row.is-peeking .private-content { transition: none; }
+.peek-nudge { animation: peek-nudge 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+@keyframes peek-nudge {
+  0%, 55%, 100% { transform: none; opacity: 0.6; }
+  25% { transform: translateX(4px); opacity: 1; }
 }
 .private-veil {
   animation: private-veil-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -858,5 +866,5 @@ button {
 }
 @media (prefers-reduced-motion: reduce) {
   .private-content { transition: none; }
-  .private-veil { animation: none; }
+  .private-veil, .peek-nudge { animation: none; }
 }

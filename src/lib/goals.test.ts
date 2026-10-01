@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  feederProjection,
   addToGoal,
   goalPace,
   goalPercent,
@@ -144,5 +145,23 @@ describe('celebrated goals', () => {
     expect(readCelebratedGoals(storage).size).toBe(0)
     expect(readCelebratedGoals(null).size).toBe(0)
     expect(() => markGoalCelebrated('x', null)).not.toThrow()
+  })
+})
+
+describe('feederProjection', () => {
+  it('works out when a SIP reaches the goal', () => {
+    // ₹1,00,000 goal, ₹5,000 saved, ₹5,000 a month from Oct: 19 more payments -> Apr 2028.
+    expect(feederProjection(95000, [{ amount: 5000, cadence: 'monthly', next_date: '2026-10-05' }])).toEqual({ monthly: 5000, reachMonth: '2028-04' })
+  })
+  it('adds several feeders by their monthly worth', () => {
+    const p = feederProjection(12000, [
+      { amount: 3000, cadence: 'quarterly', next_date: '2026-11-01' },
+      { amount: 1000, cadence: 'monthly', next_date: '2026-10-10' },
+    ])
+    expect(p).toEqual({ monthly: 2000, reachMonth: '2027-03' })
+  })
+  it('is null when reached or nothing feeds it', () => {
+    expect(feederProjection(0, [{ amount: 5000, cadence: 'monthly', next_date: '2026-10-05' }])).toBeNull()
+    expect(feederProjection(1000, [])).toBeNull()
   })
 })

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useRecurringItemsRaw } from '@/hooks/useRecurring'
 import { Target } from 'lucide-react'
 import { useGoals, type Goal } from '@/hooks/useGoals'
 import { PageHeader, PageHeaderAction } from '@/components/ui/PageHeader'
@@ -62,6 +63,16 @@ function SavedSoFar({ goals }: { goals: readonly Goal[] }) {
 
 export function GoalsPage() {
   const { data: goals = [], remove, isLoading } = useGoals()
+  // SIPs and other payments that add to a goal when marked paid.
+  const { data: recurring = [] } = useRecurringItemsRaw()
+  const feedersByGoal = useMemo(() => {
+    const map = new Map<string, { name: string; amount: number; cadence: string; next_date: string }[]>()
+    for (const r of recurring) {
+      if (!r.active || !r.goal_id) continue
+      map.set(r.goal_id, [...(map.get(r.goal_id) ?? []), { name: r.name, amount: Number(r.amount), cadence: r.cadence, next_date: r.next_date }])
+    }
+    return map
+  }, [recurring])
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Goal | null>(null)
   const [addingToId, setAddingToId] = useState<string | null>(null)
@@ -116,6 +127,7 @@ export function GoalsPage() {
                   }}
                   onDelete={() => setPendingDelete(g)}
                   onAddMoney={() => setAddingToId(g.id)}
+                  feeders={feedersByGoal.get(g.id)}
                 />
               </div>
             ))}

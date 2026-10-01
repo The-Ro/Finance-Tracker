@@ -67,6 +67,8 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
   const current = rows[selectedIndex]
   const last = geometry?.points[selectedIndex]
   // Tapping anywhere on the chart picks the nearest month.
+  // Drag across the chart to slide month by month (vertical scrolling still works: touch-pan-y).
+  const scrubbing = useRef(false)
   const pickAt = (clientX: number) => {
     const el = wrapRef.current
     if (!el || !geometry) return
@@ -75,7 +77,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
     geometry.points.forEach((p, i) => {
       if (Math.abs(p.x - x) < Math.abs(geometry.points[best].x - x)) best = i
     })
-    setPicked(best)
+    setPicked((prev) => (prev === best ? prev : best))
   }
   const signed = (n: number) => `${n < 0 ? '−' : '+'}${format(Math.abs(n))}`
 
@@ -85,7 +87,7 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-slate-800">Money kept each month</h3>
           <p className="text-helper text-slate-500">
-            What your bank and cash accounts kept each month. Card spends count when you pay the bill.
+            What your bank and cash accounts kept each month. Card spends count when you pay the bill. Slide across to see each month.
           </p>
         </div>
         {average.months > 0 && (
@@ -103,7 +105,21 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
         <EmptyState icon={PiggyBank} title="Nothing to chart yet" description="Log income and spending to see what you keep each month." />
       ) : (
         <>
-          <div ref={wrapRef} className="relative w-full cursor-pointer touch-pan-y" style={{ height }} onClick={(e) => pickAt(e.clientX)}>
+          <div
+            ref={wrapRef}
+            className="relative w-full cursor-pointer touch-pan-y select-none"
+            style={{ height }}
+            onPointerDown={(e) => {
+              scrubbing.current = true
+              e.currentTarget.setPointerCapture?.(e.pointerId)
+              pickAt(e.clientX)
+            }}
+            onPointerMove={(e) => {
+              if (scrubbing.current) pickAt(e.clientX)
+            }}
+            onPointerUp={() => (scrubbing.current = false)}
+            onPointerCancel={() => (scrubbing.current = false)}
+          >
             {geometry && last && current && (
               <>
                 <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block overflow-visible" aria-hidden="true">
@@ -126,6 +142,10 @@ export function SavingsFlowCard({ rows }: SavingsFlowCardProps) {
                     {format(0)}
                   </text>
                   {geometry.area && <path d={geometry.area} fill={`url(#${gradientId})`} className="dash-area" />}
+                  {/* Guide line under the picked month while sliding. */}
+                  {picked !== null && last && (
+                    <line x1={last.x} x2={last.x} y1={0} y2={height} className="stroke-slate-300 transition-all duration-200" strokeWidth={1} strokeDasharray="3 4" />
+                  )}
                   <path
                     d={geometry.line}
                     pathLength={1}

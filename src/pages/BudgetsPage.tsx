@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { activityLink } from '@/lib/activityLink'
 import { PiggyBank } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '@/context/AuthContext'
@@ -181,6 +182,7 @@ export function BudgetsPage() {
                   lastMonthRange
                 )}
                 lastLabel={period.previousLabel}
+                href={activityLink(b.category, period.current)}
                 onEdit={() => {
                   setEditing({ ...b, monthly_limit: b.baseLimit })
                   setModalOpen(true)

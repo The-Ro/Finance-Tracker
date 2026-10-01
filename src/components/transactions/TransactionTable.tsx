@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { SlideToPeek } from './SlideToPeek'
 import clsx from 'clsx'
 import { CheckSquare, ListFilter, Lock, LockOpen, Pencil, Receipt, Search, Split, Trash2, X } from 'lucide-react'
 import { AccountKindIcon, DebitCardIcon } from '@/components/ui/AccountKindIcon'
@@ -317,21 +318,13 @@ export function TransactionTable({
       }, 5000)
     )
   }
+  // Over a locked row: the "Slide to see" knob (the row around it blurs less as it moves).
   const veil = (t: Transaction, style: { left: number; right: number }) => (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        peek(t.id)
-      }}
-      aria-label={`Show ${t.merchant} (only you can see this)`}
-      className="private-veil absolute inset-y-0 z-[1] flex items-center justify-center"
-      style={style}
-    >
-      <span className="flex items-center gap-1.5 rounded-full border border-app-border bg-app-card/95 px-3 py-1 text-helper font-semibold text-slate-600 shadow-card">
-        <Lock size={12} aria-hidden="true" /> Only you · tap to see
+    <div className="private-veil pointer-events-none absolute inset-y-0 z-[1] flex items-center justify-center" style={style}>
+      <span className="pointer-events-auto">
+        <SlideToPeek label={`Show ${t.merchant} (only you can see this)`} onReveal={() => peek(t.id)} />
       </span>
-    </button>
+    </div>
   )
 
   // Tap the lock on your own entry: keep it to yourself, or share it again.
@@ -491,7 +484,7 @@ export function TransactionTable({
             onOpenChange={(o) => setOpenRowId((prev) => (o ? t.id : prev === t.id ? null : prev))}
             label={t.merchant}
           >
-            <div className="relative flex items-center gap-3 px-4 py-3">
+            <div className="private-row relative flex items-center gap-3 px-4 py-3">
               {hidden && veil(t, { left: 16, right: 16 })}
               {showMobileCheckboxes && checkbox && (
                 <label className="-my-2 -ml-2 flex h-11 w-9 shrink-0 cursor-pointer items-center justify-center">
@@ -584,7 +577,7 @@ export function TransactionTable({
         </div>
 
         {/* No Date cell: the day heading above the group already says it. */}
-        <div className={clsx('relative hidden items-center gap-3 px-4 py-3 md:grid', desktopGrid)}>
+        <div className={clsx('private-row relative hidden items-center gap-3 px-4 py-3 md:grid', desktopGrid)}>
           {hidden && veil(t, { left: 56, right: 128 })}
           <div className="flex items-center justify-center">{checkbox}</div>
           {scope === 'everyone' && (

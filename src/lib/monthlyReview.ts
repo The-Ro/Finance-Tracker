@@ -46,7 +46,9 @@ export function buildMonthlyReview(
   transactions: ReviewTransaction[],
   month: DateRange,
   priorMonth: DateRange | null,
-  budgets: { category: string; limit: number }[]
+  budgets: { category: string; limit: number }[],
+  /** The span budgets are judged over (Budgets from pay day); the month by default. */
+  budgetRange: DateRange = month
 ): MonthlyReview {
   const current = totals(transactions, month)
   const prior = priorMonth ? totals(transactions, priorMonth) : null
@@ -54,14 +56,15 @@ export function buildMonthlyReview(
   const categories = [...byCategory.entries()]
     .map(([category, amount]) => ({ category, amount, share: current.spent > 0 ? (amount / current.spent) * 100 : 0 }))
     .sort((a, b) => b.amount - a.amount)
+  const budgetSpend = budgetRange === month ? byCategory : spendByCategory(transactions, budgetRange)
   const overBudget = budgets
-    .map((b) => ({ category: b.category, over: (byCategory.get(b.category) ?? 0) - b.limit }))
+    .map((b) => ({ category: b.category, over: (budgetSpend.get(b.category) ?? 0) - b.limit }))
     .filter((b) => b.over > 0)
     .sort((a, b) => b.over - a.over)
   const underBudget = budgets
     .filter((b) => b.limit > 0)
     .map((b) => {
-      const spent = byCategory.get(b.category) ?? 0
+      const spent = budgetSpend.get(b.category) ?? 0
       return { category: b.category, spent, limit: b.limit, usedPercent: (spent / b.limit) * 100 }
     })
     .filter((b) => b.usedPercent < UNDER_BUDGET_SHARE * 100)

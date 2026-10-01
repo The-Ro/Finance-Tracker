@@ -11,6 +11,7 @@ import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useCategories, useAccounts, useAccountDetails, useSetCardPayFrom } from '@/hooks/useLookupLists'
 import { useAccountsInUse } from '@/hooks/useAccountsInUse'
+import { useGoals } from '@/hooks/useGoals'
 import { useAddTransaction } from '@/hooks/useTransactions'
 import { useToast } from '@/context/ToastContext'
 import { nextStatementDate } from '@/lib/creditCards'
@@ -82,6 +83,9 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   // A loan's EMI is either added to a credit card bill or taken from a bank
   // account; picking one narrows the account list (null = follow the account).
   const [emiBy, setEmiBy] = useState<'card' | 'bank' | null>(null)
+  // SIP / savings: each Mark paid also adds to this goal.
+  const { data: goals = [] } = useGoals()
+  const [goalId, setGoalId] = useState<string>('')
   const { addManual, update } = useRecurringMutations()
   const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
 
@@ -125,6 +129,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     })
     setEmiBy(null)
     setProcessingFee('')
+    setGoalId(editing?.goal_id ?? '')
     errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, prefill])
@@ -207,6 +212,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           next_date: form.nextDate,
           account: form.account,
           loan,
+          goal_id: goalId || null,
         })
       } else {
         await addManual.mutateAsync({
@@ -218,6 +224,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           nextDate: form.nextDate,
           account: form.account,
           loan,
+          goalId: goalId || null,
         })
       }
       // The card's "paid from" account and a new EMI's processing fee: the item
@@ -365,6 +372,23 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                 : 'Marking this paid logs an expense against this account.'}
           </p>
         </div>
+        {/* A SIP (or an RD, a savings transfer) can feed a goal: each Mark paid adds to it. */}
+        {goals.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-helper font-medium text-slate-600">Add each payment to a goal</label>
+            <Dropdown
+              options={['', ...goals.map((g) => g.name)]}
+              value={goals.find((g) => g.id === goalId)?.name ?? ''}
+              aria-label="Goal this payment adds to"
+              onChange={(e) => setGoalId(goals.find((g) => g.name === e.target.value)?.id ?? '')}
+            />
+            <p className="text-helper text-slate-500">
+              {goalId
+                ? 'For a SIP or savings: Mark paid also adds it to the goal, and the goal shows when you’ll reach it.'
+                : 'For a SIP or savings, pick the goal it builds.'}
+            </p>
+          </div>
+        )}
         {kind === 'recurring' && (
           <div className="flex flex-col gap-3 rounded-xl border border-app-border p-3">
             <label className="flex min-h-[32px] items-center gap-2 text-sm font-medium text-slate-800">

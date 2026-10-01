@@ -470,6 +470,8 @@ export interface Database {
           loan_start_date: string | null
           /** Annual interest rate in %, optional (only with loan details). */
           loan_interest_rate: number | null
+          /** A goal each "Mark paid" adds to (a SIP feeding a goal). */
+          goal_id: string | null
         }
         Insert: {
           id?: string
@@ -486,6 +488,8 @@ export interface Database {
           loan_tenure_months?: number | null
           loan_start_date?: string | null
           loan_interest_rate?: number | null
+          /** A goal each "Mark paid" adds to (a SIP feeding a goal). */
+          goal_id?: string | null
         }
         Update: Partial<{
           name: string
@@ -499,6 +503,8 @@ export interface Database {
           loan_tenure_months: number | null
           loan_start_date: string | null
           loan_interest_rate: number | null
+          /** A goal each "Mark paid" adds to (a SIP feeding a goal). */
+          goal_id: string | null
         }>
       }
       dismissed_patterns: {

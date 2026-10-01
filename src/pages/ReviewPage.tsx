@@ -16,7 +16,9 @@ import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { useAuth } from '@/context/AuthContext'
 import { buildMonthlyReview, donutSegments, subscriptionSummary } from '@/lib/monthlyReview'
 import { monthGrid } from '@/lib/billCalendar'
-import { todayISO } from '@/lib/format'
+import { formatShortDate, todayISO } from '@/lib/format'
+import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
+import { activityLink } from '@/lib/activityLink'
 import { monthEndBalances } from '@/lib/balanceHistory'
 import { useSalaryShift } from '@/hooks/useSalaryShift'
 import { useAccountOpeningBalances } from '@/hooks/useLookupLists'
@@ -57,12 +59,17 @@ export function ReviewPage() {
 
   const range = monthRange(month.year, month.index)
   const prior = monthRange(month.index === 0 ? month.year - 1 : month.year, (month.index + 11) % 12)
+  // This month with "Start budgets on pay day" on: budgets are judged from the
+  // pay day, same as the Budgets page (they used to disagree here).
+  const budgetPeriod = useBudgetPeriod()
+  const payPeriod = range.end >= todayISO() && budgetPeriod.fromPayday ? budgetPeriod : null
+  const budgetRange = payPeriod ? payPeriod.current : range
   const review = useMemo(() => {
-    const limits = applyRollover(budgets, transactions)
+    const limits = applyRollover(budgets, transactions, payPeriod ? payPeriod.previous : undefined)
       .filter((b) => b.active)
       .map((b) => ({ category: b.category, limit: b.monthly_limit }))
-    return buildMonthlyReview(monthly, range, prior, limits)
-  }, [monthly, transactions, budgets, range.start, prior.start]) // eslint-disable-line react-hooks/exhaustive-deps
+    return buildMonthlyReview(monthly, range, prior, limits, budgetRange)
+  }, [monthly, transactions, budgets, range.start, prior.start, payPeriod, budgetRange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const subscriptions = useMemo(
     () => subscriptionSummary(recurring, range),
@@ -290,22 +297,34 @@ export function ReviewPage() {
               </span>
             </div>
           )}
+          {/* Tap a budget line to see its entries in Activity. */}
           {review.overBudget.map((b) => (
-            <div key={b.category} className="flex items-center gap-3 rounded-xl bg-danger-light p-3 text-sm text-slate-700">
+            <Link
+              key={b.category}
+              to={activityLink(b.category, budgetRange)}
+              className="press flex items-center gap-3 rounded-xl bg-danger-light p-3 text-sm text-slate-700"
+            >
               <TriangleAlert size={18} className="shrink-0 text-danger" />
-              <span>
+              <span className="flex-1">
                 {b.category} went <strong>{format(b.over)} over</strong> its budget.
               </span>
-            </div>
+              <ChevronRight size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
+            </Link>
           ))}
           {underBudget.map((b) => (
-            <div key={b.category} className="flex items-center gap-3 rounded-xl bg-positive-light p-3 text-sm text-slate-700">
+            <Link
+              key={b.category}
+              to={activityLink(b.category, budgetRange)}
+              className="press flex items-center gap-3 rounded-xl bg-positive-light p-3 text-sm text-slate-700"
+            >
               <CircleCheck size={18} className="shrink-0 text-positive" />
-              <span>
+              <span className="flex-1">
                 {b.category} {isCurrentMonth ? 'is at' : 'stayed at'} <strong>{format(b.spent)}</strong>
-                {isCurrentMonth ? ' so far' : ''}, well under its {format(b.limit)} budget.
+                {payPeriod && budgetRange.start ? ` since ${formatShortDate(budgetRange.start)}` : isCurrentMonth ? ' so far' : ''}, well under its{' '}
+                {format(b.limit)} budget.
               </span>
-            </div>
+              <ChevronRight size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
+            </Link>
           ))}
           {subscriptions.total > 0 && (
             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">

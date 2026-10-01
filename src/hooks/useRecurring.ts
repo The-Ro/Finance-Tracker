@@ -71,6 +71,8 @@ export function useRecurringMutations() {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['recurring_items', userId] })
     queryClient.invalidateQueries({ queryKey: ['dismissed_patterns', userId] })
+    // A payment linked to a goal adds to it when marked paid.
+    queryClient.invalidateQueries({ queryKey: ['goals', userId] })
   }
 
   const keep = useMutation({
@@ -119,6 +121,8 @@ export function useRecurringMutations() {
       account?: string | null
       /** Loan / EMI details -- all three or none (DB check). */
       loan?: RecurringLoanInput | null
+      /** A goal each Mark paid adds to (a SIP feeding a goal). */
+      goalId?: string | null
     }) => {
       const { error } = await supabase.from('recurring_items').insert({
         owner_user_id: userId!,
@@ -130,6 +134,7 @@ export function useRecurringMutations() {
         next_date: input.nextDate,
         account: input.account ?? null,
         ...loanColumns(input.loan ?? null),
+        goal_id: input.goalId ?? null,
       })
       if (error) throw error
     },
@@ -147,6 +152,7 @@ export function useRecurringMutations() {
       account: string
       /** null clears the loan details; undefined leaves them as they are. */
       loan: RecurringLoanInput | null
+      goal_id: string | null
     }>) => {
       const { id, loan, ...rest } = input
       const { error } = await supabase
