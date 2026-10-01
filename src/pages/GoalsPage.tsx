@@ -81,7 +81,7 @@ export function GoalsPage() {
   // A SIP being set up from a goal's card (opens Recurring's form, linked to the goal).
   const [sipFor, setSipFor] = useState<Goal | null>(null)
   const sipPrefill = useMemo(
-    () => (sipFor ? { name: `SIP for ${sipFor.name}`, category: 'Investments', goalId: sipFor.id } : null),
+    () => (sipFor ? { name: `SIP for ${sipFor.name}`, category: 'Investments', goalId: sipFor.id, investment: true } : null),
     [sipFor]
   )
   const { show } = useToast()

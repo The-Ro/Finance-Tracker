@@ -21,6 +21,7 @@ import { formatShortDate, todayISO } from '@/lib/format'
 import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
 import { activityLink } from '@/lib/activityLink'
 import { useSalaryShift } from '@/hooks/useSalaryShift'
+import { investedBetween } from '@/lib/investments'
 
 function monthRange(year: number, index: number) {
   const { days } = monthGrid(year, index)
@@ -68,6 +69,8 @@ export function ReviewPage() {
     [recurring, range.start, range.end] // eslint-disable-line react-hooks/exhaustive-deps
   )
   const segments = useMemo(() => donutSegments(review.categories), [review.categories])
+  // SIPs and other investments are logged as spending; say how much of it was.
+  const invested = useMemo(() => investedBetween(transactions, recurring, range), [transactions, recurring, range.start, range.end]) // eslint-disable-line react-hooks/exhaustive-deps
   const [compare, setCompare] = useState(false)
 
   const spent = useAnimatedNumber(review.spent)
@@ -144,6 +147,12 @@ export function ReviewPage() {
           You spent {format(spent)}
           {review.keptPercent !== null ? ` and kept ${Math.round(review.keptPercent)}% of what came in.` : '.'}
         </h2>
+        {invested > 0 && (
+          <Link to="/investments" className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent-dark">
+            Of this, {format(invested)} went into investments
+            <ArrowRight size={14} aria-hidden="true" />
+          </Link>
+        )}
         {review.prior && (
           <button
             type="button"

@@ -472,6 +472,8 @@ export interface Database {
           loan_interest_rate: number | null
           /** A goal each "Mark paid" adds to (a SIP feeding a goal). */
           goal_id: string | null
+          /** A SIP / RD / PPF...: Mark paid tags the entry #invest (Investments page). */
+          is_investment: boolean
         }
         Insert: {
           id?: string
@@ -490,6 +492,7 @@ export interface Database {
           loan_interest_rate?: number | null
           /** A goal each "Mark paid" adds to (a SIP feeding a goal). */
           goal_id?: string | null
+          is_investment?: boolean
         }
         Update: Partial<{
           name: string
@@ -499,6 +502,7 @@ export interface Database {
           next_date: string
           account: string | null
           active: boolean
+          is_investment: boolean
           loan_amount: number | null
           loan_tenure_months: number | null
           loan_start_date: string | null

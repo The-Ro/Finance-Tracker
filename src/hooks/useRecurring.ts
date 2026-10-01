@@ -123,6 +123,8 @@ export function useRecurringMutations() {
       loan?: RecurringLoanInput | null
       /** A goal each Mark paid adds to (a SIP feeding a goal). */
       goalId?: string | null
+      /** A SIP / RD / PPF: Mark paid tags the entry #invest. */
+      isInvestment?: boolean
     }) => {
       const { error } = await supabase.from('recurring_items').insert({
         owner_user_id: userId!,
@@ -135,6 +137,7 @@ export function useRecurringMutations() {
         account: input.account ?? null,
         ...loanColumns(input.loan ?? null),
         goal_id: input.goalId ?? null,
+        is_investment: input.isInvestment ?? false,
       })
       if (error) throw error
     },
@@ -153,6 +156,7 @@ export function useRecurringMutations() {
       /** null clears the loan details; undefined leaves them as they are. */
       loan: RecurringLoanInput | null
       goal_id: string | null
+      is_investment: boolean
     }>) => {
       const { id, loan, ...rest } = input
       const { error } = await supabase

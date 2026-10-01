@@ -12,6 +12,7 @@ import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useCategories, useAccounts, useAccountDetails, useSetCardPayFrom } from '@/hooks/useLookupLists'
 import { useAccountsInUse } from '@/hooks/useAccountsInUse'
 import { useGoals } from '@/hooks/useGoals'
+import { looksLikeInvestment } from '@/lib/investments'
 import { useAddTransaction } from '@/hooks/useTransactions'
 import { useToast } from '@/context/ToastContext'
 import { nextStatementDate } from '@/lib/creditCards'
@@ -47,7 +48,7 @@ interface RecurringFormModalProps {
   kind: RecurringKind
   editing?: RecurringItem | null
   /** A new item's starting values (setup checklist's bill picks); ignored when editing. */
-  prefill?: { name: string; category?: string; loan?: boolean; goalId?: string } | null
+  prefill?: { name: string; category?: string; loan?: boolean; goalId?: string; investment?: boolean } | null
   /** Shows a delete (trash) in the header when editing; the caller confirms and deletes. */
   onDelete?: () => void
 }
@@ -86,6 +87,9 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   // SIP / savings: each Mark paid also adds to this goal.
   const { data: goals = [] } = useGoals()
   const [goalId, setGoalId] = useState<string>('')
+  // Investment (SIP, RD, PPF...): ticked by itself from the name on a new item
+  // until the user sets it either way.
+  const [isInvestment, setIsInvestment] = useState<boolean | null>(null)
   const { addManual, update } = useRecurringMutations()
   const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
 
@@ -110,6 +114,8 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     ...(!editing && prefill?.loan ? { isLoan: true } : {}),
   }))
 
+  const investmentOn = isInvestment ?? (!editing && looksLikeInvestment(form.name))
+
   // RecurringFormModal stays mounted across opens (RecurringLikePage just
   // toggles `open`), so the useState initializer above only ever runs once,
   // on first mount. Without this, editing an item shows whatever was left
@@ -130,6 +136,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     setEmiBy(null)
     setProcessingFee('')
     setGoalId(editing?.goal_id ?? prefill?.goalId ?? '')
+    setIsInvestment(editing ? editing.is_investment : prefill?.investment ? true : null)
     errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, prefill])
@@ -213,6 +220,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           account: form.account,
           loan,
           goal_id: goalId || null,
+          is_investment: investmentOn,
         })
       } else {
         await addManual.mutateAsync({
@@ -225,6 +233,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           account: form.account,
           loan,
           goalId: goalId || null,
+          isInvestment: investmentOn,
         })
       }
       // The card's "paid from" account and a new EMI's processing fee: the item
@@ -372,6 +381,20 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
                 : 'Marking this paid logs an expense against this account.'}
           </p>
         </div>
+        {kind === 'recurring' && !cardEmi && (
+          <label className="flex min-h-[44px] items-start gap-3 rounded-xl border border-app-border p-3">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
+              checked={investmentOn}
+              onChange={(e) => setIsInvestment(e.target.checked)}
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-slate-800">This is an investment</span>
+              <span className="block text-helper text-slate-500">A SIP, RD, PPF, NPS... Each payment is counted on the Investments page.</span>
+            </span>
+          </label>
+        )}
         {/* A SIP (or an RD, a savings transfer) can feed a goal: each Mark paid adds to it. */}
         {goals.length > 0 && (
           <div className="flex flex-col gap-1.5">
