@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { DateRangeSheet } from '@/components/transactions/DateRangeSheet'
 import { rangeFromParams } from '@/lib/activityLink'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowDownRight, ArrowUpRight, AlertTriangle, Check, Copy, Download, X } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, AlertTriangle, Check, Copy, Download, X, CalendarDays } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '@/context/AuthContext'
 import { useUserSettings } from '@/hooks/useUserSettings'
@@ -112,6 +113,14 @@ export function TransactionsPage() {
 
   const period = settings.data?.selectedPeriod ?? 'all-time'
   const range = linkRange ?? resolvePeriod(period)
+  // "Pick dates": one day or a from-to span (DateRangeSheet), shown as the chip above.
+  const [dateSheetOpen, setDateSheetOpen] = useState(false)
+  const rangeLabel = (r: DateRange) =>
+    !r.start
+      ? `Until ${formatShortDate(r.end)}`
+      : r.start === r.end
+        ? formatShortDate(r.start)
+        : `${formatShortDate(r.start)} – ${formatShortDate(r.end)}`
 
   const source = scope === 'mine' ? myTransactions.data ?? [] : everyoneTransactions.data ?? []
   const inPeriod = source.filter((t) => isWithinRange(t.date, range))
@@ -253,19 +262,35 @@ export function TransactionsPage() {
         actions={
           <div className="flex w-full items-center gap-2 sm:w-auto">
             {/* The period is the same filter-icon pill as Home's. */}
-            <div className="mr-auto sm:mr-0">
+            <div className="mr-auto flex min-w-0 items-center gap-2 sm:mr-0">
               {linkRange ? (
-                <button
-                  type="button"
-                  onClick={() => setLinkRange(null)}
-                  aria-label="Show the usual period"
-                  className="animate-pop-in inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-accent bg-accent-light px-3 text-helper font-semibold text-accent-on-light"
-                >
-                  {linkRange.start ? `${formatShortDate(linkRange.start)} – ${formatShortDate(linkRange.end)}` : `Until ${formatShortDate(linkRange.end)}`}
-                  <X size={14} aria-hidden="true" />
-                </button>
+                // Picked dates (or a budget link): tap to change them, x for the usual period.
+                <span className="animate-pop-in inline-flex min-h-[44px] min-w-0 items-center rounded-full border border-accent bg-accent-light text-helper font-semibold text-accent-on-light">
+                  <button type="button" onClick={() => setDateSheetOpen(true)} className="min-h-[44px] truncate pl-3 pr-1">
+                    {rangeLabel(linkRange)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLinkRange(null)}
+                    aria-label="Show the usual period"
+                    className="flex h-11 w-9 shrink-0 items-center justify-center"
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </span>
               ) : (
-                <PeriodSelector compact value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+                <>
+                  <PeriodSelector compact value={period} onChange={(value) => settings.updatePeriod.mutate(value)} />
+                  <button
+                    type="button"
+                    onClick={() => setDateSheetOpen(true)}
+                    aria-label="Pick dates"
+                    title="Pick dates"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-card text-slate-600 hover:border-accent"
+                  >
+                    <CalendarDays size={17} aria-hidden="true" />
+                  </button>
+                </>
               )}
             </div>
             <Button
@@ -374,6 +399,7 @@ export function TransactionsPage() {
           loadingMore={paginated.isFetchingNextPage}
         />
       )}
+      <DateRangeSheet open={dateSheetOpen} initial={linkRange} onClose={() => setDateSheetOpen(false)} onApply={setLinkRange} />
       <DuplicatesModal open={duplicatesOpen} onClose={() => setDuplicatesOpen(false)} groups={duplicateGroups} />
     </div>
   )
