@@ -47,7 +47,7 @@ interface RecurringFormModalProps {
   kind: RecurringKind
   editing?: RecurringItem | null
   /** A new item's starting values (setup checklist's bill picks); ignored when editing. */
-  prefill?: { name: string; category?: string; loan?: boolean } | null
+  prefill?: { name: string; category?: string; loan?: boolean; goalId?: string } | null
   /** Shows a delete (trash) in the header when editing; the caller confirms and deletes. */
   onDelete?: () => void
 }
@@ -118,8 +118,8 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   useEffect(() => {
     if (!open) return
     setForm({
-      name: editing?.name ?? '',
-      category: editing?.category ?? categoryOptions[0] ?? 'Needs review',
+      name: editing?.name ?? prefill?.name ?? '',
+      category: editing?.category ?? prefillCategory ?? categoryOptions[0] ?? 'Needs review',
       amount: editing ? String(editing.amount) : '',
       cadence: editing?.cadence ?? ('monthly' as Cadence),
       nextDate: editing?.next_date ?? todayISO(),
@@ -129,7 +129,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     })
     setEmiBy(null)
     setProcessingFee('')
-    setGoalId(editing?.goal_id ?? '')
+    setGoalId(editing?.goal_id ?? prefill?.goalId ?? '')
     errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, prefill])
@@ -384,8 +384,8 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             />
             <p className="text-helper text-slate-500">
               {goalId
-                ? 'For a SIP or savings: Mark paid also adds it to the goal, and the goal shows when you’ll reach it.'
-                : 'For a SIP or savings, pick the goal it builds.'}
+                ? 'Each time you tap Paid, this amount is added to the goal, and Goals shows when you’ll reach it.'
+                : 'Saving for something with a SIP or RD? Pick the goal, and each payment adds to it.'}
             </p>
           </div>
         )}

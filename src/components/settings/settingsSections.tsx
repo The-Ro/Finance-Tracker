@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FriendsLinkCard } from './FriendsLinkCard'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -38,7 +39,6 @@ import { ThemeSettings } from '@/components/settings/ThemeSettings'
 import { PersonalDetails } from '@/components/settings/PersonalDetails'
 import { EmailSettings } from '@/components/settings/EmailSettings'
 import { PasswordSettings } from '@/components/settings/PasswordSettings'
-import { SharingSettings } from '@/components/settings/SharingSettings'
 import { FeedbackForm } from '@/components/settings/FeedbackForm'
 import { AboutSection } from '@/components/settings/AboutSection'
 import { AccountsManager } from '@/components/accounts/AccountsManager'
@@ -233,11 +233,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     id: 'sharing',
-    label: 'Sharing',
-    subtitle: 'Who can see your transactions',
+    label: 'Friends',
+    subtitle: 'Who you share with',
     icon: Users,
     group: 'people',
-    render: () => <SharingSettings />,
+    // Sharing moved to its own page (Friends); this points there.
+    render: () => <FriendsLinkCard />,
   },
   {
     id: 'feedback',

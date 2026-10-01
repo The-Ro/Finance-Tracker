@@ -22,7 +22,7 @@ export function Toaster() {
   return (
     <div
       aria-live="polite"
-      className="fixed inset-x-0 top-[calc(84px+var(--safe-top))] z-50 flex flex-col items-center gap-2 px-4 md:inset-x-auto md:top-auto md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] md:right-[calc(1.5rem+env(safe-area-inset-right))] md:items-end md:px-0"
+      className="fixed inset-x-0 top-[calc(var(--bar-h)+0.5rem+var(--safe-top))] z-50 flex flex-col items-center gap-2 px-4 md:inset-x-auto md:top-auto md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] md:right-[calc(1.5rem+env(safe-area-inset-right))] md:items-end md:px-0"
     >
       {toasts.map((toast) => {
         const Icon = TONE_ICON[toast.tone]

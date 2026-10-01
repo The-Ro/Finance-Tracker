@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useOwnedAccessRows, useRequestedAccessRows } from '@/hooks/useSharing'
 
 export interface ProfileMap {
-  [userId: string]: { displayName: string; email: string; avatar: string | null }
+  [userId: string]: { displayName: string; email: string; avatar: string | null; bio?: string | null }
 }
 
 /**
@@ -29,11 +29,11 @@ export function useProfiles() {
     queryKey: ['profiles', connections],
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<ProfileMap> => {
-      const { data, error } = await supabase.from('profiles').select('id, display_name, email, avatar')
+      const { data, error } = await supabase.from('profiles').select('id, display_name, email, avatar, bio')
       if (error) throw error
       const map: ProfileMap = {}
       for (const row of data) {
-        map[row.id] = { displayName: row.display_name, email: row.email, avatar: row.avatar }
+        map[row.id] = { displayName: row.display_name, email: row.email, avatar: row.avatar, bio: row.bio }
       }
       return map
     },

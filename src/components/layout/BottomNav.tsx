@@ -13,7 +13,7 @@ export function BottomNav() {
       end={to === '/'}
       className={({ isActive }) =>
         clsx(
-          'flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-xs transition-colors',
+          'flex min-h-[50px] min-w-0 flex-col items-center justify-center gap-0.5 px-1 pb-1 pt-1.5 text-xs transition-colors',
           isActive ? 'font-bold text-accent-dark' : 'font-medium text-slate-500 hover:text-slate-700'
         )
       }
@@ -31,7 +31,7 @@ export function BottomNav() {
     <nav
       aria-label="Primary"
       style={{
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingBottom: 'var(--tab-pad-bottom)',
         paddingLeft: 'max(0.25rem, env(safe-area-inset-left))',
         paddingRight: 'max(0.25rem, env(safe-area-inset-right))',
       }}
@@ -43,7 +43,7 @@ export function BottomNav() {
           type="button"
           aria-label="Add entry"
           onClick={() => openAddEntry()}
-          className="press flex h-14 w-14 -translate-y-2 items-center justify-center rounded-2xl bg-accent text-white shadow-card-lg"
+          className="press flex h-12 w-12 -translate-y-1.5 items-center justify-center rounded-2xl bg-accent text-white shadow-card-lg"
         >
           <Plus size={24} strokeWidth={2.4} aria-hidden="true" />
         </button>

@@ -1,15 +1,15 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.16.2'
+export const APP_VERSION = '1.17.0'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-10-21'
+export const CURRENT_WHATS_NEW_VERSION = '2026-10-22'
 
 export const WHATS_NEW_ITEMS: string[] = [
-  'Activity: tap the calendar next to the period to see one day, or any dates you pick.',
-  'Monthly review has a simpler chart: money in (green) and money out (red) for each month. Tap a month to see it.',
-  'SIPs and goals: link a recurring SIP to a goal and each payment adds to it. The goal shows when you will reach it.',
-  'Credit cards: the card page lists its EMIs and matches Home. If a card shows "in credit", it explains why and helps you add the missing charge.',
-  'Bills shows each card simply: what you owe and the next statement date.',
-  'Tap a budget (or a budget line in Review) to see its entries. Review now matches Budgets when budgets start on pay day.',
-  'Slide to see a locked entry, and slide across "Money kept each month" to check each month.',
+  'Friends: a new page (menu → Friends) for the people you share with. Add a friend by email, choose who sees whose entries, and see what you owe each other.',
+  'Tap a friend to see their profile: their “About you” line and their birthday, if they share it.',
+  'Add a line about yourself in Settings → Profile. Friends see it.',
+  'Crop your profile photo: drag and zoom before it’s saved.',
+  'Monthly review’s chart is new: money in rises, money out drops, and a line shows what you kept each month.',
+  'Goals: tap “Grow it with a monthly SIP” on a goal. Each time you mark the SIP paid, it adds to the goal.',
+  'A slimmer header and tab bar on phones, so more of each page fits.',
 ]

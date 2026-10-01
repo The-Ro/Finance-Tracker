@@ -10,6 +10,7 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { useToast } from '@/context/ToastContext'
 import { GoalCard } from '@/components/goals/GoalCard'
 import { GoalFormModal } from '@/components/goals/GoalFormModal'
+import { RecurringFormModal } from '@/components/recurring/RecurringFormModal'
 import { AddMoneyModal } from '@/components/goals/AddMoneyModal'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
@@ -77,6 +78,12 @@ export function GoalsPage() {
   const [editing, setEditing] = useState<Goal | null>(null)
   const [addingToId, setAddingToId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Goal | null>(null)
+  // A SIP being set up from a goal's card (opens Recurring's form, linked to the goal).
+  const [sipFor, setSipFor] = useState<Goal | null>(null)
+  const sipPrefill = useMemo(
+    () => (sipFor ? { name: `SIP for ${sipFor.name}`, category: 'Investments', goalId: sipFor.id } : null),
+    [sipFor]
+  )
   const { show } = useToast()
   // Looked up from the live list so the modal always shows the latest saved amount.
   const addingTo = useMemo(() => goals.find((g) => g.id === addingToId) ?? null, [goals, addingToId])
@@ -127,6 +134,7 @@ export function GoalsPage() {
                   }}
                   onDelete={() => setPendingDelete(g)}
                   onAddMoney={() => setAddingToId(g.id)}
+                  onStartSip={() => setSipFor(g)}
                   feeders={feedersByGoal.get(g.id)}
                 />
               </div>
@@ -145,6 +153,7 @@ export function GoalsPage() {
         }}
       />
       <AddMoneyModal goal={addingTo} onClose={() => setAddingToId(null)} />
+      <RecurringFormModal open={sipFor !== null} onClose={() => setSipFor(null)} kind="recurring" prefill={sipPrefill} />
       <ConfirmDeleteModal
         open={pendingDelete !== null}
         title="Delete goal"

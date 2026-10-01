@@ -52,7 +52,21 @@
 
 @media (display-mode: standalone) {
   :root {
-    --safe-top: calc(env(safe-area-inset-top) + 10px);
+    --safe-top: calc(env(safe-area-inset-top) + 4px);
+  }
+}
+
+/* Height of the TopBar's button row (below --safe-top). Slimmer on phones so
+   more of the page fits between the header and the tab bar. Anything pinned
+   under the header uses calc(var(--bar-h) + var(--safe-top)). */
+:root {
+  --bar-h: 60px;
+  /* The tab bar sits partly inside the home-indicator area, like iOS apps do. */
+  --tab-pad-bottom: max(0.25rem, calc(env(safe-area-inset-bottom) - 14px));
+}
+@media (min-width: 768px) {
+  :root {
+    --bar-h: 76px;
   }
 }
 
@@ -771,6 +785,11 @@ button {
 .animate-bar-grow { transform-origin: left center; animation: bar-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes bar-rise { from { transform: scaleY(0) } to { transform: scaleY(1) } }
 .animate-bar-rise { transform-origin: bottom center; animation: bar-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Bars that hang down from a baseline (Review's money out). */
+.animate-bar-drop { transform-origin: top center; animation: bar-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* An SVG line (pathLength=1) drawing itself in. */
+@keyframes line-draw { from { stroke-dashoffset: 1 } to { stroke-dashoffset: 0 } }
+.animate-line-draw { stroke-dasharray: 1; animation: line-draw 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
 @keyframes row-rise { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
 .stagger-rows > * { animation: row-rise 0.52s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .stagger-rows > *:nth-child(2) { animation-delay: 80ms } .stagger-rows > *:nth-child(3) { animation-delay: 160ms }
@@ -786,7 +805,7 @@ button {
 .stagger-rows-soft > *:nth-child(n + 6) { animation-delay: 345ms }
 @keyframes row-rise-soft { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
 @media (prefers-reduced-motion: reduce) {
-  .animate-bar-grow, .animate-bar-rise, .stagger-rows > *, .stagger-rows-soft > * { animation: none; }
+  .animate-bar-grow, .animate-bar-rise, .animate-bar-drop, .animate-line-draw, .stagger-rows > *, .stagger-rows-soft > * { animation: none; }
 }
 
 /* Press feedback (motion spec): scale to 0.95 in 120ms, back in 200ms, on

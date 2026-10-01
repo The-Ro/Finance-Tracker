@@ -12,6 +12,7 @@ import {
   Users,
   HandCoins,
   Settings,
+  Split,
   type LucideIcon,
 } from 'lucide-react'
 import { groupNavItems, type NavGroupOf } from '@/lib/navGroups'
@@ -31,7 +32,8 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/budgets', label: 'Budgets', icon: PiggyBank },
   { to: '/bills', label: 'Bills', icon: CalendarDays },
   { to: '/review', label: 'Monthly review', icon: ChartPie },
-  { to: '/shared', label: 'Shared', icon: Users },
+  { to: '/friends', label: 'Friends', icon: Users },
+  { to: '/shared', label: 'Splits', icon: Split },
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/lent', label: 'Lent & borrowed', icon: HandCoins },
   { to: '/documents', label: 'Documents', icon: FileText },
@@ -47,7 +49,7 @@ export type NavGroup = NavGroupOf<NavItem>
 export const NAV_GROUPS: NavGroup[] = groupNavItems(NAV_ITEMS, [
   { label: 'Money', paths: ['/', '/transactions', '/bills', '/review'] },
   { label: 'Plan', paths: ['/budgets', '/goals', '/recurring', '/subscriptions'] },
-  { label: 'More', paths: ['/shared', '/lent', '/documents', '/rules'] },
+  { label: 'More', paths: ['/friends', '/shared', '/lent', '/documents', '/rules'] },
 ])
 
 // Filling the phone menu's last group; the desktop rail's footer (avatar +

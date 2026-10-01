@@ -7,12 +7,13 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { avatar?: string | null; displayName?: string }) => {
+    mutationFn: async (input: { avatar?: string | null; displayName?: string; bio?: string | null }) => {
       const { error } = await supabase
         .from('profiles')
         .update({
           ...(input.avatar !== undefined ? { avatar: input.avatar } : {}),
           ...(input.displayName !== undefined ? { display_name: input.displayName } : {}),
+          ...(input.bio !== undefined ? { bio: input.bio } : {}),
         })
         .eq('id', userId!)
       if (error) throw error

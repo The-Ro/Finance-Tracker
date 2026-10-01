@@ -12,9 +12,13 @@ import { useUploadAvatar } from '@/hooks/useUploadAvatar'
 import { AVATAR_OPTIONS } from '@/lib/avatars'
 import clsx from 'clsx'
 import { FormError } from '@/components/ui/FieldError'
+import { PhotoCropper } from './PhotoCropper'
+import { useProfiles } from '@/hooks/useProfiles'
 
 export function AvatarPicker() {
-  const { avatar, displayName, email } = useAuth()
+  const { avatar, displayName, email, userId } = useAuth()
+  const profiles = useProfiles().data
+  const savedBio = (userId && profiles?.[userId]?.bio) || ''
   const update = useUpdateProfile()
   const upload = useUploadAvatar()
   const { show } = useToast()
@@ -22,6 +26,12 @@ export function AvatarPicker() {
   const [nameDraft, setNameDraft] = useState(displayName)
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [bioDraft, setBioDraft] = useState(savedBio)
+  useEffect(() => {
+    setBioDraft(savedBio)
+  }, [savedBio])
+  // A chosen photo waits here while it's being cropped.
+  const [toCrop, setToCrop] = useState<File | null>(null)
 
   // `displayName` loads asynchronously; keep the draft in sync until the user starts typing.
   useEffect(() => {
@@ -38,16 +48,23 @@ export function AvatarPicker() {
     }
   }
 
-  const handleFileChange = async (file: File | undefined) => {
+  const handleFileChange = (file: File | undefined) => {
+    if (fileInputRef.current) fileInputRef.current.value = ''
     if (!file) return
+    setAvatarError(null)
+    if (!file.type.startsWith('image/')) return setAvatarError('Pick a photo (JPG, PNG or similar).')
+    setToCrop(file)
+  }
+
+  const uploadPhoto = async (file: File) => {
     setAvatarError(null)
     try {
       const url = await upload.mutateAsync(file)
       await saveAvatar(url)
+      setToCrop(null)
     } catch (e) {
+      setToCrop(null)
       setAvatarError(e instanceof Error ? e.message : 'Could not upload that photo.')
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -58,6 +75,16 @@ export function AvatarPicker() {
     try {
       await update.mutateAsync({ displayName: trimmed })
       show('Display name saved.')
+    } catch (e) {
+      setNameError(e instanceof Error ? e.message : 'Could not save.')
+    }
+  }
+
+  const handleSaveBio = async () => {
+    setNameError(null)
+    try {
+      await update.mutateAsync({ bio: bioDraft.trim() || null })
+      show('Saved.')
     } catch (e) {
       setNameError(e instanceof Error ? e.message : 'Could not save.')
     }
@@ -83,6 +110,21 @@ export function AvatarPicker() {
         </Button>
       </div>
       <FormError message={nameError} />
+
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <TextField
+            label="About you · friends see this"
+            value={bioDraft}
+            maxLength={160}
+            placeholder="A line about you"
+            onChange={(e) => setBioDraft(e.target.value)}
+          />
+        </div>
+        <Button onClick={handleSaveBio} disabled={update.isPending || bioDraft.trim() === savedBio.trim()}>
+          Save
+        </Button>
+      </div>
 
       <div className="flex items-center gap-3 border-t border-app-border pt-4">
         <Avatar avatar={avatar} name={displayName || email || '?'} size={56} className="text-2xl" />
@@ -144,6 +186,7 @@ export function AvatarPicker() {
       </div>
 
       <FormError message={avatarError} />
+      <PhotoCropper file={toCrop} busy={busy} onCancel={() => setToCrop(null)} onDone={uploadPhoto} />
     </Card>
   )
 }

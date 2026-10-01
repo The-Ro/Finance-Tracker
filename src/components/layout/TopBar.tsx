@@ -50,7 +50,7 @@ export function TopBar() {
   }, [notifOpen])
 
   return (
-    <header className="chrome-surface sticky top-0 z-20 flex min-h-[calc(76px+var(--safe-top))] items-center justify-end border-b border-app-border px-4 pt-[var(--safe-top)] md:px-8">
+    <header className="chrome-surface sticky top-0 z-20 flex min-h-[calc(var(--bar-h)+var(--safe-top))] items-center justify-end border-b border-app-border px-4 pt-[var(--safe-top)] md:px-8">
 
       <div className="flex items-center gap-2">
         {/* Phones: one family of 44px circles (import, bell, avatar); sm+: labelled pills. */}
@@ -58,7 +58,7 @@ export function TopBar() {
           type="button"
           onClick={openImport}
           aria-label="Import transactions from CSV"
-          className="press flex h-11 w-11 items-center justify-center gap-2 rounded-full border border-app-border bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto sm:px-4"
+          className="press flex h-10 w-10 items-center justify-center gap-2 rounded-full md:h-11 border border-app-border bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto sm:px-4"
         >
           <FileUp size={18} aria-hidden="true" />
           <span className="hidden sm:inline">Import</span>
@@ -74,7 +74,7 @@ export function TopBar() {
             aria-haspopup="dialog"
             aria-expanded={notifOpen}
             aria-label={notifications.unreadCount > 0 ? `Notifications, ${notifications.unreadCount} unread` : 'Notifications'}
-            className="press relative flex h-11 w-11 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 hover:bg-slate-50"
+            className="press relative flex h-10 w-10 items-center justify-center rounded-full md:h-11 md:w-11 border border-app-border bg-white text-slate-600 hover:bg-slate-50"
           >
             <Bell size={18} aria-hidden="true" />
             {hasNotifications && (
@@ -93,7 +93,7 @@ export function TopBar() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-label="Account menu"
-            className="press flex h-11 w-11 items-center justify-center gap-1.5 rounded-full border border-app-border bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto sm:justify-start sm:pl-1.5 sm:pr-3"
+            className="press flex h-10 w-10 items-center justify-center gap-1.5 rounded-full md:h-11 border border-app-border bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto sm:justify-start sm:pl-1.5 sm:pr-3"
           >
             <Avatar avatar={avatar} name={displayName || email || '?'} size={32} />
             <ChevronDown size={14} className="hidden sm:block" aria-hidden="true" />

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { PartyPopper, Pencil, Plus, Trash2, Repeat } from 'lucide-react'
+import { ChevronRight, PartyPopper, Pencil, Plus, Trash2, Repeat } from 'lucide-react'
 import clsx from 'clsx'
 import { Card } from '@/components/ui/Card'
 import type { Goal } from '@/hooks/useGoals'
@@ -14,6 +14,8 @@ interface GoalCardProps {
   onEdit: () => void
   onDelete: () => void
   onAddMoney: () => void
+  /** Set up a monthly SIP / savings payment that adds to this goal. */
+  onStartSip?: () => void
   /** Recurring payments (SIPs) that add to this goal when marked paid. */
   feeders?: (GoalFeeder & { name: string })[]
 }
@@ -23,7 +25,7 @@ function monthYear(iso: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-export function GoalCard({ goal, onEdit, onDelete, onAddMoney, feeders = [] }: GoalCardProps) {
+export function GoalCard({ goal, onEdit, onDelete, onAddMoney, onStartSip, feeders = [] }: GoalCardProps) {
   const { format } = useFormatCurrency()
   const reached = isGoalReached(goal)
   const percent = goalPercent(goal)
@@ -114,6 +116,17 @@ export function GoalCard({ goal, onEdit, onDelete, onAddMoney, feeders = [] }: G
                 {projection && ` · reaches it by ${monthYear(projection.reachMonth + '-01')}`}
               </span>
             </p>
+          )}
+          {feeders.length === 0 && !reached && onStartSip && (
+            <button
+              type="button"
+              onClick={onStartSip}
+              className="mt-0.5 inline-flex min-h-[32px] items-center gap-1.5 self-start text-helper font-semibold text-accent-dark"
+            >
+              <Repeat size={13} aria-hidden="true" />
+              Grow it with a monthly SIP
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
           )}
         </div>
       </div>

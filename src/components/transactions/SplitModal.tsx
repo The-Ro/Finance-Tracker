@@ -121,8 +121,8 @@ export function SplitModal({ transaction, onClose }: SplitModalProps) {
         {people.length === 0 ? (
           <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
             You can split with people you share with. Connect with someone in{' '}
-            <Link to="/settings/sharing"onClick={onClose} className="font-medium text-accent-dark underline">
-              Settings, Sharing
+            <Link to="/friends" onClick={onClose} className="font-medium text-accent-dark underline">
+              Friends
             </Link>{' '}
             first.
           </p>

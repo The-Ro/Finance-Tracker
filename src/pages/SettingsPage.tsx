@@ -85,8 +85,8 @@ export function SettingsPage() {
 
 function SettingsSubNav({ activeId }: { activeId: string }) {
   return (
-    // Sticks just below the sticky TopBar (76px + --safe-top) plus main's pt-5.
-    <nav aria-label="Settings" className="sticky top-[calc(76px+1.25rem+var(--safe-top))] flex flex-col gap-4">
+    // Sticks just below the sticky TopBar (--bar-h + --safe-top) plus main's pt-5.
+    <nav aria-label="Settings" className="sticky top-[calc(var(--bar-h)+1.25rem+var(--safe-top))] flex flex-col gap-4">
       {SETTINGS_GROUPS.map((group) => (
         <div
           key={group.id}

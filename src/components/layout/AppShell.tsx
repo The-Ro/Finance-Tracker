@@ -40,7 +40,7 @@ export function AppShell() {
             positioning, so neither occupies layout space. */}
         <Sidebar />
         <TopBar />
-        <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 md:px-8 md:pb-8">
+        <main className="flex-1 px-4 pb-[calc(5rem+var(--tab-pad-bottom))] pt-5 md:px-8 md:pb-8">
           <div className="mb-4 flex flex-col gap-3 empty:hidden">
             <OfflineBanner />
             <AnnouncementBanner />

@@ -66,7 +66,9 @@ begin
       'public.save_push_subscription(text,text,text)', 'public.account_exists_for_reset(text)',
       'public.admin_grant_admin(uuid)', 'public.admin_revoke_admin(uuid)', 'public.admin_delete_user(uuid)',
       'public.admin_note_reset_sent(uuid)', 'public.admin_audit_log(integer)',
-      'public.set_card_pay_from(text,text)', 'public.private_entries_shared_with_me(date,date)'
+      'public.set_card_pay_from(text,text)', 'public.private_entries_shared_with_me(date,date)',
+      'public.add_friend(text,boolean)', 'public.set_share_with_friend(uuid,boolean)', 'public.remove_friend(uuid)',
+      'public.friend_birthday(uuid)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then
@@ -799,6 +801,40 @@ begin
   if v_seen < 1 then raise exception 'FAIL: the private entry placeholder is missing for the viewer'; end if;
   reset role;
 end $$;
+
+-- Friends: sharing can't be pointed at a stranger, a bio can't be long, and
+-- a birthday (day and month only) reaches only approved connections.
+do $
+declare v_me uuid; v_stranger uuid; v_bday text;
+begin
+  select id into v_me from auth.users where email = 'rohith24112+qa15@gmail.com';
+  select u.id into v_stranger from auth.users u
+   where u.id <> v_me and not exists (
+     select 1 from public.viewer_access v
+      where (v.requester_user_id = v_me and v.owner_user_id = u.id) or (v.requester_user_id = u.id and v.owner_user_id = v_me))
+   limit 1;
+  if v_me is null or v_stranger is null then return; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_me, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform public.set_share_with_friend(v_stranger, true);
+    raise exception 'FAIL: set_share_with_friend reached a stranger';
+  exception when sqlstate 'P0002' then null;
+  end;
+  v_bday := public.friend_birthday(v_stranger);
+  if v_bday is not null then raise exception 'FAIL: a stranger''s birthday is readable'; end if;
+  begin
+    update public.profiles set bio = repeat('x', 161) where id = v_me;
+    raise exception 'FAIL: a bio over 160 characters was saved';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.profiles set email = 'spoof@example.com' where id = v_me;
+    raise exception 'FAIL: a user changed their own profile email';
+  exception when insufficient_privilege then null;
+  end;
+  reset role;
+end $;
 
 select 'ALL SECURITY CHECKS PASSED' as result;
 rollback;

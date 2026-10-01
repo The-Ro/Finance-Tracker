@@ -201,7 +201,7 @@ function FloatingMenu() {
         aria-haspopup="true"
         aria-expanded={open}
         className={clsx(
-          'press fixed left-[calc(1rem+env(safe-area-inset-left))] top-[calc(1rem+var(--safe-top))] z-40 flex items-center [@media(hover:hover)]:hover:scale-105',
+          'press fixed left-[calc(1rem+env(safe-area-inset-left))] top-[calc((var(--bar-h)-44px)/2+var(--safe-top))] z-40 flex items-center [@media(hover:hover)]:hover:scale-105',
           open
             ? 'h-12 w-12 justify-center rounded-full bg-slate-900/85 text-white shadow-card'
             : 'min-h-[44px] gap-2'
@@ -225,7 +225,7 @@ function FloatingMenu() {
       {open && (
         <nav
           aria-label="Primary"
-          className="animate-scale-in fixed left-[calc(1rem+env(safe-area-inset-left))] top-[calc(5rem+var(--safe-top))] z-40 flex max-h-[calc(100dvh_-_6rem_-_var(--safe-top)_-_env(safe-area-inset-bottom))] w-[min(21.5rem,calc(100vw_-_2rem))] flex-col gap-2 overflow-y-auto rounded-card border border-app-border bg-app-card p-3 shadow-card"
+          className="animate-scale-in fixed left-[calc(1rem+env(safe-area-inset-left))] top-[calc(var(--bar-h)+0.5rem+var(--safe-top))] z-40 flex max-h-[calc(100dvh_-_var(--bar-h)_-_1.5rem_-_var(--safe-top)_-_env(safe-area-inset-bottom))] w-[min(21.5rem,calc(100vw_-_2rem))] flex-col gap-2 overflow-y-auto rounded-card border border-app-border bg-app-card p-3 shadow-card"
         >
           {/* Coin + wordmark heading the menu. Settings isn't listed here (user
               request) -- it's in the profile menu at the top right. */}

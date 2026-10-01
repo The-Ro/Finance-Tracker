@@ -91,7 +91,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
       aria-label="Notifications"
       // Phones: pinned to the screen edges (16px), so nothing can push it sideways;
       // sm+: anchored under the bell. overflow-x-hidden: a long name can't make it scroll sideways.
-      className="animate-scale-in fixed inset-x-3 top-[calc(76px+var(--safe-top))] z-30 flex max-h-[min(78dvh,640px)] flex-col overflow-hidden rounded-2xl border border-app-border bg-app-card shadow-card-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[400px]"
+      className="animate-scale-in fixed inset-x-3 top-[calc(var(--bar-h)+var(--safe-top))] z-30 flex max-h-[min(78dvh,640px)] flex-col overflow-hidden rounded-2xl border border-app-border bg-app-card shadow-card-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[400px]"
     >
       <div className="flex items-center gap-2 border-b border-app-border px-4 pb-2 pt-3">
         <h2 className="mr-auto text-sm font-semibold text-slate-900">Notifications</h2>
@@ -173,8 +173,8 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
           Phone reminders
         </NavLink>
         <span aria-hidden="true" className="text-slate-300">·</span>
-        <NavLink to="/settings/sharing" onClick={onClose} className="text-accent-dark hover:underline">
-          Sharing
+        <NavLink to="/friends" onClick={onClose} className="text-accent-dark hover:underline">
+          Friends
         </NavLink>
       </div>
     </div>

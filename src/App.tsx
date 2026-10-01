@@ -26,6 +26,7 @@ const SubscriptionsPage = lazy(() => import('@/pages/SubscriptionsPage').then((m
 const BudgetsPage = lazy(() => import('@/pages/BudgetsPage').then((m) => ({ default: m.BudgetsPage })))
 const BillsPage = lazy(() => import('@/pages/BillsPage').then((m) => ({ default: m.BillsPage })))
 const SharedPage = lazy(() => import('@/pages/SharedPage').then((m) => ({ default: m.SharedPage })))
+const FriendsPage = lazy(() => import('@/pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
 const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
 const LentPage = lazy(() => import('@/pages/LentPage').then((m) => ({ default: m.LentPage })))
 const GoalsPage = lazy(() => import('@/pages/GoalsPage').then((m) => ({ default: m.GoalsPage })))
@@ -88,6 +89,7 @@ export default function App() {
                       <Route path="/bills" element={<BillsPage />} />
                       <Route path="/cards/:account" element={<CardPage />} />
                       <Route path="/review" element={<ReviewPage />} />
+                      <Route path="/friends" element={<FriendsPage />} />
                       <Route path="/shared" element={<SharedPage />} />
                       <Route path="/goals" element={<GoalsPage />} />
                       <Route path="/lent" element={<LentPage />} />

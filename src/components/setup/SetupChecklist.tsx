@@ -104,7 +104,7 @@ export function SetupChecklist() {
     else if (id === 'budget') setSheet('budget')
     else if (id === 'goal') navigate('/goals')
     else if (id === 'import') openImport()
-    else navigate('/settings/sharing')
+    else navigate('/friends')
   }
 
   return (

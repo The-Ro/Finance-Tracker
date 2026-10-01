@@ -898,7 +898,7 @@ export function TransactionTable({
                   {/* A clearly darker band than the rows (slate-200; a lifted grey in dark
                       mode, which has no slate-200 override) with dark text, so each day --
                       Today, Yesterday, Mon 21 Sep -- stands out when scrolling. */}
-                  <div className="sticky top-[calc(76px+var(--safe-top))] z-10 flex min-h-[40px] items-center justify-between gap-3 border-b border-slate-300 bg-slate-200 px-4 py-2 text-helper font-bold uppercase tracking-wide text-slate-800 dark:border-[#454b59] dark:bg-[#3a3f4c]">
+                  <div className="sticky top-[calc(var(--bar-h)+var(--safe-top))] z-10 flex min-h-[40px] items-center justify-between gap-3 border-b border-slate-300 bg-slate-200 px-4 py-2 text-helper font-bold uppercase tracking-wide text-slate-800 dark:border-[#454b59] dark:bg-[#3a3f4c]">
                     <h3 id={headingId}>{dayHeadingLabel(group.date, today)}</h3>
                     {group.net !== null && (
                       <span

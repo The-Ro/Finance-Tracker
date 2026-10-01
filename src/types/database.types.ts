@@ -122,9 +122,9 @@ export interface Database {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; display_name: string; email: string; avatar: string | null; created_at: string }
+        Row: { id: string; display_name: string; email: string; avatar: string | null; bio: string | null; created_at: string }
         Insert: { id: string; display_name: string; email: string; avatar?: string | null }
-        Update: Partial<{ display_name: string; avatar: string | null }>
+        Update: Partial<{ display_name: string; avatar: string | null; bio: string | null }>
       }
       categories: {
         Row: {
@@ -745,6 +745,23 @@ export interface Database {
       set_card_network: {
         Args: { p_account: string; p_network: CardNetwork | null }
         Returns: undefined
+      }
+      /** Friends: ask to see theirs and (p_share_mine) share yours; returns their id. */
+      add_friend: {
+        Args: { p_email: string; p_share_mine: boolean }
+        Returns: string
+      }
+      set_share_with_friend: {
+        Args: { p_friend: string; p_on: boolean }
+        Returns: undefined
+      }
+      remove_friend: {
+        Args: { p_friend: string }
+        Returns: undefined
+      }
+      friend_birthday: {
+        Args: { p_friend: string }
+        Returns: string | null
       }
       set_card_pay_from: {
         Args: { p_account: string; p_from: string | null }

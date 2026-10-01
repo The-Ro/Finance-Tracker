@@ -111,7 +111,7 @@ export function InstallPrompt() {
         aria-label="Add LedgeEaze to your home screen"
         className={clsx(
           'animate-sheet-up fixed inset-x-3 z-[45] rounded-2xl border border-app-border bg-app-card p-4 shadow-card-lg',
-          'bottom-[calc(5.75rem+env(safe-area-inset-bottom))] md:inset-x-auto md:bottom-6 md:right-6 md:w-[380px]'
+          'bottom-[calc(4.75rem+var(--tab-pad-bottom))] md:inset-x-auto md:bottom-6 md:right-6 md:w-[380px]'
         )}
       >
         <div className="flex items-start gap-3">

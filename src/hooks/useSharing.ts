@@ -147,3 +147,59 @@ export function useRemoveAccessRow() {
     },
   })
 }
+
+/** Friends: add by exact email -- ask to see theirs and, with shareMine, share yours at once (add_friend RPC). */
+export function useAddFriend() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ email, shareMine }: { email: string; shareMine: boolean }) => {
+      const { error } = await supabase.rpc('add_friend', { p_email: email, p_share_mine: shareMine })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      invalidateAccess(queryClient)
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+    },
+  })
+}
+
+/** Share (on) or pause (off) my entries with someone already connected (set_share_with_friend RPC). */
+export function useShareWithFriend() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ friendId, on }: { friendId: string; on: boolean }) => {
+      const { error } = await supabase.rpc('set_share_with_friend', { p_friend: friendId, p_on: on })
+      if (error) throw error
+    },
+    onSuccess: () => invalidateAccess(queryClient),
+  })
+}
+
+/** Remove a friend: both directions of sharing go (remove_friend RPC). Splits stay. */
+export function useRemoveFriend() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (friendId: string) => {
+      const { error } = await supabase.rpc('remove_friend', { p_friend: friendId })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      invalidateAccess(queryClient)
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+}
+
+/** A friend's birthday as 'MM-DD', only when they share it and you're connected (approved either way). */
+export function useFriendBirthday(friendId: string | null) {
+  return useQuery({
+    queryKey: ['friend-birthday', friendId],
+    enabled: !!friendId,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('friend_birthday', { p_friend: friendId! })
+      if (error) throw error
+      return (data as string | null) ?? null
+    },
+  })
+}
