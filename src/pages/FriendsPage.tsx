@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
-import { Cake, ChevronRight, Clock, Search, Send, Users } from 'lucide-react'
+import { Cake, ChevronRight, Clock, Search, Send, Shuffle, Sparkles, Users } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +11,11 @@ import { Modal, SheetSaveButton } from '@/components/ui/Modal'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { FieldError, FormError } from '@/components/ui/FieldError'
 import { BrandMark } from '@/components/ui/BrandHeader'
+import { useUserSettings } from '@/hooks/useUserSettings'
+import { useZodiacFacts } from '@/hooks/useZodiacFacts'
+import { zodiacFor } from '@/lib/home'
+import { zodiacLabel } from '@/lib/zodiac'
+import type { ZodiacSign } from '@/types/database.types'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
@@ -26,7 +31,7 @@ import {
   useRequestedAccessRows,
   useSendAccessRequest,
   useShareWithFriend,
-  useFriendBirthday,
+  useFriendProfile,
 } from '@/hooks/useSharing'
 import { buildFriends, sharingWords, type Friend } from '@/lib/friends'
 import { splitBalances } from '@/lib/splits'
@@ -315,7 +320,9 @@ function FriendSheet({ friend, person, onClose }: { friend: Friend | null; perso
   const { format } = useFormatCurrency()
   const { show } = useToast()
   const [confirmRemove, setConfirmRemove] = useState(false)
-  const birthday = useFriendBirthday(friend?.id ?? null).data ?? null
+  const extras = useFriendProfile(friend?.id ?? null).data ?? null
+  const birthday = extras?.birthday ?? null
+  const interests = extras?.interests ?? []
   if (!friend || !person) return null
 
   const mineOn = friend.theySeeMine === 'on'
@@ -341,7 +348,7 @@ function FriendSheet({ friend, person, onClose }: { friend: Friend | null; perso
             </div>
           </div>
 
-          {(person.bio || birthday) && (
+          {(person.bio || birthday || interests.length > 0) && (
             <section className="flex flex-col gap-2.5 rounded-2xl bg-slate-50 p-3.5 dark:bg-white/5">
               {person.bio && <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{person.bio}</p>}
               {birthday && (
@@ -350,8 +357,19 @@ function FriendSheet({ friend, person, onClose }: { friend: Friend | null; perso
                   Birthday · {birthdayLabel(birthday)}
                 </p>
               )}
+              {interests.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5" aria-label={`${person.first}’s interests`}>
+                  {interests.map((i) => (
+                    <li key={i} className="rounded-full bg-app-card px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-app-border">
+                      {i}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
+
+          <StarsCard friendFirst={person.first} friendSign={extras?.zodiacSign ?? null} />
 
           <section className="flex flex-col gap-3">
             <h3 className="text-helper font-semibold uppercase tracking-wide text-slate-500">Sharing</h3>
@@ -491,4 +509,62 @@ function friendChips(f: Friend): { label: string; tone: string }[] {
 function birthdayLabel(mmdd: string) {
   const [m, d] = mmdd.split('-').map(Number)
   return new Date(2000, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/**
+ * "Your stars": your sign and your friend's, each with a fun fact from our own
+ * list (zodiac_facts -- no outside horoscope API). A new fact each time the
+ * sheet opens, and "Another fact" picks again. Just for fun.
+ */
+function StarsCard({ friendFirst, friendSign }: { friendFirst: string; friendSign: ZodiacSign | null }) {
+  const { data: settings } = useUserSettings()
+  const mySign: ZodiacSign | null = settings?.zodiacSign ?? (settings?.dateOfBirth ? zodiacFor(settings.dateOfBirth) : null)
+  const mine = useZodiacFacts(mySign).data ?? []
+  const theirs = useZodiacFacts(friendSign).data ?? []
+  const [round, setRound] = useState(0)
+  const pick = (facts: string[], salt: number) => (facts.length ? facts[Math.floor(Math.random() * facts.length + salt) % facts.length] : null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const myFact = useMemo(() => pick(mine, 0), [mine, round])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const theirFact = useMemo(() => pick(theirs, 1), [theirs, round])
+  if (!mySign && !friendSign) return null
+
+  const side = (who: string, sign: ZodiacSign | null, fact: string | null, empty: string) => (
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-xl bg-app-card p-3 ring-1 ring-app-border">
+      <span className="text-xs font-semibold text-slate-500">{who}</span>
+      {sign ? (
+        <>
+          <span className="font-serif text-lg font-semibold text-slate-900">{zodiacLabel(sign)}</span>
+          {fact && (
+            <p key={fact} className="animate-fade-in text-helper leading-snug text-slate-600">
+              {fact}
+            </p>
+          )}
+        </>
+      ) : (
+        <span className="text-helper text-slate-500">{empty}</span>
+      )}
+    </div>
+  )
+
+  return (
+    <section className="flex flex-col gap-2.5 rounded-2xl bg-brass-light/60 p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+          <Sparkles size={15} className="text-brass" aria-hidden="true" /> Your stars
+        </h3>
+        <button
+          type="button"
+          onClick={() => setRound((r) => r + 1)}
+          className="press inline-flex min-h-[36px] items-center gap-1 rounded-full px-2.5 text-xs font-bold text-accent-dark"
+        >
+          <Shuffle size={13} aria-hidden="true" /> Another fact
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {side('You', mySign, myFact, 'Add your birthday in Settings → Profile.')}
+        {side(friendFirst, friendSign, theirFact, `${friendFirst} hasn’t shared a birthday.`)}
+      </div>
+    </section>
+  )
 }

@@ -68,7 +68,7 @@ begin
       'public.admin_note_reset_sent(uuid)', 'public.admin_audit_log(integer)',
       'public.set_card_pay_from(text,text)', 'public.private_entries_shared_with_me(date,date)',
       'public.add_friend(text,boolean)', 'public.set_share_with_friend(uuid,boolean)', 'public.remove_friend(uuid)',
-      'public.friend_birthday(uuid)'
+      'public.friend_birthday(uuid)', 'public.friend_profile(uuid)'
     ])::regprocedure as fn
   loop
     if not has_function_privilege('authenticated', r.fn, 'execute') then

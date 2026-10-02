@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { suggestCategory, suggestEntry } from './smartCategory'
+import { payeeMatches, suggestCategory, suggestEntry } from './smartCategory'
 
 const history = [
   { merchant: 'Uber trip', category: 'Transport', type: 'expense', date: '2026-09-01' },
@@ -54,5 +54,31 @@ describe('suggestEntry', () => {
     const s = suggestEntry('Swiggy', 'expense', [e('Swiggy', '2026-09-20', { amount: 250 }), e('Swiggy', '2026-09-10', { amount: 300 })])
     expect(s?.amount).toBeNull()
     expect(suggestEntry('Zorblax', 'expense', [e('Swiggy', '2026-09-20')])).toBeNull()
+  })
+})
+
+describe('payeeMatches', () => {
+  const h = (merchant: string, date: string, type = 'expense') => ({ merchant, date, type })
+  const history = [
+    h('Swiggy', '2026-09-01'),
+    h('swiggy instamart', '2026-09-20'),
+    h('Swiggy', '2026-09-28'),
+    h('Zomato', '2026-09-10'),
+    h('Big Swing Cafe', '2026-09-15'),
+    h('Salary', '2026-09-30', 'income'),
+  ]
+
+  it('puts names that start with the text first, then the most used', () => {
+    expect(payeeMatches('swi', 'expense', history)).toEqual(['Swiggy', 'swiggy instamart', 'Big Swing Cafe'])
+  })
+
+  it('leaves out the exact name already typed and other types', () => {
+    expect(payeeMatches('swiggy', 'expense', history)).toEqual(['swiggy instamart'])
+    expect(payeeMatches('sal', 'expense', history)).toEqual([])
+    expect(payeeMatches('sal', 'income', history)).toEqual(['Salary'])
+  })
+
+  it('needs some text', () => {
+    expect(payeeMatches('  ', 'expense', history)).toEqual([])
   })
 })

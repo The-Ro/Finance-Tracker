@@ -775,6 +775,10 @@ export interface Database {
         Args: { p_friend: string }
         Returns: string | null
       }
+      friend_profile: {
+        Args: { p_friend: string }
+        Returns: { birthday: string | null; zodiac_sign: string | null; interests: string[] | null }[]
+      }
       set_card_pay_from: {
         Args: { p_account: string; p_from: string | null }
         Returns: undefined

@@ -68,3 +68,20 @@ export function findDuplicateGroups(transactions: Transaction[], windowDays = DU
   groups.sort((a, b) => newestFirst(a[0], b[0]))
   return groups
 }
+
+/** Every pair of ids in a group, each as "smallerId|largerId" -- what "Not a duplicate" remembers. */
+export function duplicatePairs(group: { id: string }[]): string[] {
+  const ids = group.map((t) => t.id).sort()
+  const out: string[] = []
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) out.push(`${ids[i]}|${ids[j]}`)
+  return out
+}
+
+/**
+ * Groups still worth showing: a group is hidden once every pair in it was
+ * marked "Not a duplicate". A new entry that joins a dismissed group brings
+ * new pairs, so the group shows again (with the new one in it).
+ */
+export function withoutDismissed<T extends { id: string }>(groups: T[][], dismissed: ReadonlySet<string>): T[][] {
+  return groups.filter((g) => !duplicatePairs(g).every((p) => dismissed.has(p)))
+}

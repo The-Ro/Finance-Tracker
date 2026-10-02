@@ -70,3 +70,34 @@ export function suggestEntry(merchant: string, type: string, history: PastEntryF
     amount: repeated,
   }
 }
+
+/**
+ * Payees from the user's own history that match what's being typed -- the
+ * chips under "Paid to" in New entry. Grouped by normalizeMerchant (the most
+ * recent spelling is shown); names that start with the text come first, then
+ * the most used, then the most recent. The exact name already typed is left out.
+ */
+export function payeeMatches(query: string, type: string, history: { merchant: string; type: string; date: string }[], limit = 4): string[] {
+  const q = normalizeMerchant(query)
+  if (!q) return []
+  const groups = new Map<string, { name: string; count: number; latest: string }>()
+  for (const h of history) {
+    if (h.type !== type || !h.merchant.trim()) continue
+    const key = normalizeMerchant(h.merchant)
+    if (!key || !key.includes(q)) continue
+    const g = groups.get(key)
+    if (!g) groups.set(key, { name: h.merchant.trim(), count: 1, latest: h.date })
+    else {
+      g.count += 1
+      if (h.date > g.latest) {
+        g.latest = h.date
+        g.name = h.merchant.trim()
+      }
+    }
+  }
+  return [...groups.entries()]
+    .filter(([key]) => key !== q)
+    .sort(([ka, a], [kb, b]) => Number(kb.startsWith(q)) - Number(ka.startsWith(q)) || b.count - a.count || b.latest.localeCompare(a.latest))
+    .slice(0, limit)
+    .map(([, g]) => g.name)
+}

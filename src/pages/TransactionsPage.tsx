@@ -34,7 +34,8 @@ import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { resolvePeriod, isWithinRange, type DateRange } from '@/lib/period'
 import { transactionsToCsv, downloadCsv } from '@/lib/csvExport'
-import { findDuplicateGroups } from '@/lib/duplicates'
+import { findDuplicateGroups, withoutDismissed } from '@/lib/duplicates'
+import { useDismissedDuplicates } from '@/hooks/useDismissedDuplicates'
 import { todayISO, formatShortDate } from '@/lib/format'
 import { EMPTY_TRANSACTION_FILTERS, matchesFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import { SavedFilters } from '@/components/transactions/SavedFilters'
@@ -79,6 +80,13 @@ export function TransactionsPage() {
     if (searchParams.has('category') || searchParams.has('until')) setSearchParams({}, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // Saving a new entry comes here with ?new=<id>&on=<date>: show your own
+  // entries with no filters (and that day, if it's outside the period), then
+  // scroll to the entry and flash it. Read on every change, not just on mount,
+  // because saving from Activity itself doesn't remount the page.
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const newEntryId = searchParams.get('new')
+  const newEntryDate = searchParams.get('on')
   const [duplicatesOpen, setDuplicatesOpen] = useState(false)
   // The search box updates `filters` on every keystroke; only the debounced
   // text reaches the server queries below.
@@ -113,6 +121,37 @@ export function TransactionsPage() {
 
   const period = settings.data?.selectedPeriod ?? 'all-time'
   const range = linkRange ?? resolvePeriod(period)
+  useEffect(() => {
+    if (!newEntryId) return
+    setHighlightId(newEntryId)
+    setScope('mine')
+    setFilters({ ...EMPTY_TRANSACTION_FILTERS })
+    if (newEntryDate && ((range.start && newEntryDate < range.start) || newEntryDate > range.end)) setLinkRange({ start: newEntryDate, end: newEntryDate })
+    setSearchParams({}, { replace: true })
+    window.scrollTo({ top: 0 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newEntryId])
+  // Once the new entry's row is on screen (the list reloads after the save),
+  // bring it into view and flash it; give up quietly after ~6s.
+  useEffect(() => {
+    if (!highlightId) return
+    let tries = 0
+    const timer = window.setInterval(() => {
+      tries += 1
+      const row = document.querySelector<HTMLElement>(`[data-entry-id="${CSS.escape(highlightId)}"]`)
+      if (row) {
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        row.classList.remove('entry-flash')
+        void row.offsetWidth
+        row.classList.add('entry-flash')
+      }
+      if (row || tries > 30) {
+        window.clearInterval(timer)
+        setHighlightId(null)
+      }
+    }, 200)
+    return () => window.clearInterval(timer)
+  }, [highlightId])
   // "Pick dates": one day or a from-to span (DateRangeSheet), shown as the chip above.
   const [dateSheetOpen, setDateSheetOpen] = useState(false)
   const rangeLabel = (r: DateRange) =>
@@ -186,7 +225,11 @@ export function TransactionsPage() {
 
   // Always the signed-in user's own transactions (regardless of scope) -- you
   // can only delete your own, so that's all a duplicate review can act on.
-  const duplicateGroups = useMemo(() => findDuplicateGroups(myTransactions.data ?? []), [myTransactions.data])
+  const dupDismissals = useDismissedDuplicates()
+  const duplicateGroups = useMemo(
+    () => withoutDismissed(findDuplicateGroups(myTransactions.data ?? []), dupDismissals.dismissed),
+    [myTransactions.data, dupDismissals.dismissed]
+  )
 
   const { format, formatSigned, formatCompact } = useFormatCurrency()
   // Scope + period, then the same search/category/account/mode/person filters
@@ -400,7 +443,7 @@ export function TransactionsPage() {
         />
       )}
       <DateRangeSheet open={dateSheetOpen} initial={linkRange} onClose={() => setDateSheetOpen(false)} onApply={setLinkRange} />
-      <DuplicatesModal open={duplicatesOpen} onClose={() => setDuplicatesOpen(false)} groups={duplicateGroups} />
+      <DuplicatesModal open={duplicatesOpen} onClose={() => setDuplicatesOpen(false)} groups={duplicateGroups} onDismiss={dupDismissals.dismiss} />
     </div>
   )
 }

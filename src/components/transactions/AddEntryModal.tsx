@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, History, Pencil, Plus, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
@@ -28,7 +29,7 @@ import { useRules } from '@/hooks/useRules'
 import { useAccountKinds, useCardStatuses, useClosedAccounts } from '@/hooks/useCards'
 import { useApprovedConnections, useSplitMutations } from '@/hooks/useSplits'
 import { useProfiles } from '@/hooks/useProfiles'
-import { suggestEntry } from '@/lib/smartCategory'
+import { payeeMatches, suggestEntry } from '@/lib/smartCategory'
 import { usualEntries, type UsualEntry } from '@/lib/usualEntries'
 import { evenShare } from '@/lib/splits'
 import { countSecondaryFields, currencySymbol, orderAccountOptions, savedEntryMessage } from '@/lib/entryForm'
@@ -116,6 +117,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
   const [detailsOpen, setDetailsOpen] = useState(false)
   // The New category box, shown under the chip row (Save / Cancel hide meanwhile).
   const [addingCategory, setAddingCategory] = useState(false)
+  // Pencil on the category row: chips show an x to remove a category.
+  const [editingCategories, setEditingCategories] = useState(false)
   // Optional even split of a new expense with an approved connection.
   const [splitOn, setSplitOn] = useState(false)
   const [splitWith, setSplitWith] = useState('')
@@ -125,7 +128,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
   const { userId } = useAuth()
   const { show } = useToast()
-  const { expense: expenseCategories, income: incomeCategories } = useCategories()
+  const navigate = useNavigate()
+  const { expense: expenseCategories, income: incomeCategories, remove: removeCategory } = useCategories()
   const categoryOptions = form.type === 'income' ? incomeCategories : expenseCategories
   const { data: accounts = [] } = useAccounts()
   const recentAccounts = useRecentAccounts(userId)
@@ -200,6 +204,28 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     }))
     // Straight to the amount when it isn't known yet.
     if (!u.amount) requestAnimationFrame(() => document.getElementById('entry-amount')?.focus())
+  }
+
+  // Payees from history that match what's typed in "Paid to"; one tap fills
+  // the payee plus what history says about it (category, account / card,
+  // mode and a repeated amount -- the same rules as "like last time").
+  const payees = useMemo(
+    () => (isEditing || isTransfer || !myTransactions ? [] : payeeMatches(form.merchant, form.type, myTransactions)),
+    [isEditing, isTransfer, myTransactions, form.merchant, form.type]
+  )
+  const applyPayee = (name: string) => {
+    const s = myTransactions ? suggestEntry(name, form.type, myTransactions) : null
+    const card = s?.debitCardId ? cardsById.get(s.debitCardId) : undefined
+    setForm((f) => ({
+      ...f,
+      merchant: name,
+      category: s?.category && categoryOptions.includes(s.category) ? s.category : f.category,
+      account: card ? card.account : s?.account && accounts.includes(s.account) ? s.account : f.account,
+      debitCardId: card ? card.id : f.debitCardId,
+      paymentMethod: card ? 'Debit card' : ((s?.paymentMethod as PaymentMethod | null) ?? f.paymentMethod),
+      amount: f.amount || (s?.amount ? String(s.amount) : ''),
+    }))
+    if (!form.amount && !s?.amount) requestAnimationFrame(() => document.getElementById('entry-amount')?.focus())
   }
 
   // A new entry starts on the most recently used account (the first chip),
@@ -506,6 +532,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     setSplitOn(false)
     setSplitWith('')
     setAddingCategory(false)
+    setEditingCategories(false)
     clearError()
     setDuplicatePending(false)
     setRateStatus({ state: 'idle' })
@@ -518,6 +545,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     setSplitOn(false)
     setSplitWith('')
     setAddingCategory(false)
+    setEditingCategories(false)
     clearError()
     setDuplicatePending(false)
   }
@@ -696,6 +724,8 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
       reset()
       onClose()
+      // Show it where it lives: Activity, scrolled to the new entry (it flashes).
+      navigate(`/transactions?new=${encodeURIComponent(saved.id)}&on=${saved.date}`)
       show(savedEntryMessage(saved.merchant, format(saved.amount)), {
         action: { label: 'Undo', onClick: () => void undoSave(saved, receipt) },
       })
@@ -949,6 +979,21 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               value={form.merchant}
               onChange={(e) => setForm((f) => ({ ...f, merchant: e.target.value }))}
             />
+            {payees.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5" aria-label="From your past entries">
+                {payees.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => applyPayee(name)}
+                    className="animate-pop-in inline-flex min-h-[36px] max-w-full items-center gap-1.5 rounded-full border border-app-border bg-app-card px-3 text-helper font-medium text-slate-700 active:scale-95"
+                  >
+                    <History size={13} className="shrink-0 text-slate-400" aria-hidden="true" />
+                    <span className="truncate">{name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {suggestion && (
               <button
                 type="button"
@@ -994,9 +1039,44 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
 
         {!isTransfer && (
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span id="entry-category-label" className="text-helper font-medium text-slate-600">
-              Category
-            </span>
+            <div className="flex items-center justify-between gap-2">
+              <span id="entry-category-label" className="text-helper font-medium text-slate-600">
+                Category
+              </span>
+              <span className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCategories(false)
+                    setAddingCategory(true)
+                  }}
+                  aria-label="Add a category"
+                  title="Add a category"
+                  className="press flex h-9 w-9 items-center justify-center rounded-full text-accent-dark hover:bg-slate-100"
+                >
+                  <Plus size={17} strokeWidth={2.3} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingCategories((v) => !v)}
+                  aria-pressed={editingCategories}
+                  aria-label={editingCategories ? 'Done removing categories' : 'Remove categories'}
+                  title={editingCategories ? 'Done' : 'Remove categories'}
+                  className={
+                    'press flex h-9 items-center justify-center gap-1 rounded-full text-sm font-semibold ' +
+                    (editingCategories ? 'bg-accent px-3 text-white' : 'w-9 text-slate-500 hover:bg-slate-100')
+                  }
+                >
+                  {editingCategories ? (
+                    <>
+                      <Check size={15} strokeWidth={2.6} aria-hidden="true" /> Done
+                    </>
+                  ) : (
+                    <Pencil size={15} aria-hidden="true" />
+                  )}
+                </button>
+              </span>
+            </div>
             {/* One horizontally scrolling row of chips (full list, custom categories
                 included): one tap to pick, and it stays a single line tall instead of
                 wrapping into a block that pushes the rest of the form down. */}
@@ -1009,6 +1089,37 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
             >
               {categoryOptions.map((option) => {
                 const selected = form.category === option
+                if (editingCategories) {
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      disabled={removeCategory.isPending}
+                      aria-label={`Remove ${option}`}
+                      onClick={() =>
+                        removeCategory.mutate(option, {
+                          onSuccess: () => {
+                            if (form.category === option) setForm((f) => ({ ...f, category: '' }))
+                            show(`Removed ${option}.`)
+                          },
+                          onError: (e) =>
+                            show(
+                              e instanceof Error && /still used/i.test(e.message)
+                                ? `${option} is used by some entries, so it stays. Move them in Settings → Categories first.`
+                                : `Couldn’t remove ${option}.`,
+                              { tone: 'error' }
+                            ),
+                        })
+                      }
+                      className="animate-pop-in flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-danger/50 pl-3 pr-2 text-helper font-medium text-slate-700 active:scale-95 disabled:opacity-50"
+                    >
+                      {option}
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger-light text-danger">
+                        <X size={12} strokeWidth={2.6} aria-hidden="true" />
+                      </span>
+                    </button>
+                  )
+                }
                 return (
                   <button
                     key={option}
@@ -1026,11 +1137,13 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
                   </button>
                 )
               })}
-              <QuickAddCategory
-                kind={form.type === 'income' ? 'income' : 'expense'}
-                onAdded={(name) => setForm((f) => ({ ...f, category: name }))}
-                onOpen={() => setAddingCategory(true)}
-              />
+              {!editingCategories && (
+                <QuickAddCategory
+                  kind={form.type === 'income' ? 'income' : 'expense'}
+                  onAdded={(name) => setForm((f) => ({ ...f, category: name }))}
+                  onOpen={() => setAddingCategory(true)}
+                />
+              )}
             </div>
             {addingCategory && (
               <NewCategoryEditor

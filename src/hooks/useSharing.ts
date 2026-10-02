@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
 import type { Database } from '@/types/database.types'
+import type { ZodiacSign } from '@/types/database.types'
 
 export type ViewerAccessRow = Database['public']['Tables']['viewer_access']['Row']
 
@@ -200,6 +201,29 @@ export function useFriendBirthday(friendId: string | null) {
       const { data, error } = await supabase.rpc('friend_birthday', { p_friend: friendId! })
       if (error) throw error
       return (data as string | null) ?? null
+    },
+  })
+}
+
+export interface FriendProfileExtras {
+  /** 'MM-DD' -- never the year. */
+  birthday: string | null
+  zodiacSign: ZodiacSign | null
+  interests: string[]
+}
+
+/** A friend's birthday, star sign and interests -- only when they show them to friends and you're connected (approved either way). */
+export function useFriendProfile(friendId: string | null) {
+  return useQuery({
+    queryKey: ['friend-profile', friendId],
+    enabled: !!friendId,
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<FriendProfileExtras | null> => {
+      const { data, error } = await supabase.rpc('friend_profile', { p_friend: friendId! })
+      if (error) throw error
+      const row = (data as { birthday: string | null; zodiac_sign: string | null; interests: string[] | null }[] | null)?.[0]
+      if (!row) return null
+      return { birthday: row.birthday, zodiacSign: (row.zodiac_sign as ZodiacSign | null) ?? null, interests: row.interests ?? [] }
     },
   })
 }

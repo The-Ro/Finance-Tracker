@@ -10,7 +10,9 @@ import { FormError } from '@/components/ui/FieldError'
 interface DuplicatesModalProps {
   open: boolean
   onClose: () => void
+  /** Groups already filtered of the ones marked "Not a duplicate". */
   groups: Transaction[][]
+  onDismiss: (group: Transaction[]) => void
 }
 
 const groupKey = (group: Transaction[]) => group.map((t) => t.id).join('|')
@@ -18,17 +20,15 @@ const groupKey = (group: Transaction[]) => group.map((t) => t.id).join('|')
 /**
  * Reviews groups of possible duplicate transactions (see findDuplicateGroups).
  * Nothing is removed automatically: for each group you either pick the one to
- * keep -- which deletes the rest -- or mark it "Not a duplicate". Dismissals
- * are per-open only (not saved), since a different pair of rows would produce
- * a different group anyway.
+ * keep -- which deletes the rest -- or mark it "Not a duplicate", which is
+ * remembered on this device (useDismissedDuplicates) so it doesn't come back.
  */
-export function DuplicatesModal({ open, onClose, groups }: DuplicatesModalProps) {
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+export function DuplicatesModal({ open, onClose, groups, onDismiss }: DuplicatesModalProps) {
   const [error, setError] = useState<string | null>(null)
   const bulkDelete = useBulkDeleteTransactions()
   const { formatSigned } = useFormatCurrency()
 
-  const visible = groups.filter((g) => !dismissed.has(groupKey(g)))
+  const visible = groups
 
   const keepOnly = (group: Transaction[], keep: Transaction) => {
     setError(null)
@@ -40,7 +40,6 @@ export function DuplicatesModal({ open, onClose, groups }: DuplicatesModalProps)
 
   const handleClose = () => {
     if (bulkDelete.isPending) return
-    setDismissed(new Set())
     setError(null)
     onClose()
   }
@@ -106,8 +105,8 @@ export function DuplicatesModal({ open, onClose, groups }: DuplicatesModalProps)
                 <div className="flex justify-end border-t border-app-border bg-slate-50 px-3 py-1.5">
                   <button
                     type="button"
-                    onClick={() => setDismissed((prev) => new Set(prev).add(groupKey(group)))}
-                    className="text-helper font-medium text-slate-500 hover:text-slate-800"
+                    onClick={() => onDismiss(group)}
+                    className="min-h-[40px] px-1 text-helper font-semibold text-slate-600 hover:text-slate-800"
                   >
                     Not a duplicate
                   </button>

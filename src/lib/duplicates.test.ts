@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findDuplicateGroups } from '@/lib/duplicates'
+import { duplicatePairs, findDuplicateGroups, withoutDismissed } from '@/lib/duplicates'
 import type { Transaction } from '@/hooks/useTransactions'
 
 let n = 0
@@ -76,5 +76,22 @@ describe('findDuplicateGroups', () => {
   it('returns nothing for empty or all-unique input', () => {
     expect(findDuplicateGroups([])).toEqual([])
     expect(findDuplicateGroups([txn({ amount: 1 }), txn({ amount: 2 })])).toEqual([])
+  })
+})
+
+describe('dismissed duplicates', () => {
+  const a = { id: 'a' }
+  const b = { id: 'b' }
+  const c = { id: 'c' }
+
+  it('lists every pair, in a fixed order', () => {
+    expect(duplicatePairs([b, a])).toEqual(['a|b'])
+    expect(duplicatePairs([c, a, b])).toEqual(['a|b', 'a|c', 'b|c'])
+  })
+
+  it('hides a group once its pairs are dismissed, and shows it again when a new entry joins', () => {
+    const dismissed = new Set(duplicatePairs([a, b]))
+    expect(withoutDismissed([[a, b]], dismissed)).toEqual([])
+    expect(withoutDismissed([[a, b, c]], dismissed)).toEqual([[a, b, c]])
   })
 })

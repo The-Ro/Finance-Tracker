@@ -472,7 +472,7 @@ export function TransactionTable({
     const extraLine = [t.remarks, tagLine].filter(Boolean).join(' · ')
 
     return (
-      <li key={t.id} className="border-t border-app-border first:border-t-0">
+      <li key={t.id} data-entry-id={t.id} className="border-t border-app-border first:border-t-0">
         {/* Mobile: compact swipeable row. Desktop: single grid row (below). Kept
             as two separate layouts rather than one shared grid -- the desktop row
             has too many cells of very different shapes (a dropdown, a tag editor,

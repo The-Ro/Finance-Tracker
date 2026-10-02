@@ -87,7 +87,7 @@ export function PersonalDetails() {
       <div>
         <h3 className="text-sm font-semibold text-slate-800">Personal details</h3>
         <p className="mt-1 text-helper text-slate-500">
-          Private to you: never shown to other people, even in shared views, except the birthday note below. Saved automatically.
+          Private to you, except what you show friends (switch below). Saved automatically.
         </p>
       </div>
 
@@ -113,11 +113,12 @@ export function PersonalDetails() {
             save({ dateOfBirth: e.target.value || null })
           }}
         />
-        {dob && (
           <label className="col-span-2 flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-app-border px-3 py-2">
             <span className="flex min-w-0 flex-col">
-              <span className="text-sm font-medium text-slate-800">Birthday note</span>
-              <span className="text-helper text-slate-500">People you share with can wish you. Day only.</span>
+              <span className="text-sm font-medium text-slate-800">Show to friends</span>
+              <span className="text-helper text-slate-500">
+                Your birthday (day and month, never the year), star sign and interests. Friends can wish you on the day.
+              </span>
             </span>
             <input
               type="checkbox"
@@ -140,7 +141,6 @@ export function PersonalDetails() {
               />
             </span>
           </label>
-        )}
 
         <div className="col-span-2 flex flex-col gap-1.5">
           <label className="flex items-center gap-1.5 text-helper font-medium text-slate-600">
@@ -164,7 +164,7 @@ export function PersonalDetails() {
                     : 'border-app-border text-slate-600 hover:border-accent hover:text-accent-dark'
                 )}
               >
-                <span>{z.symbol}</span> {z.label}
+                <span aria-hidden="true">{`${z.symbol}︎`}</span> {z.label}
               </button>
             ))}
           </div>

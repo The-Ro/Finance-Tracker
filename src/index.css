@@ -885,3 +885,14 @@ button {
   .private-content { transition: none; }
   .private-veil, .peek-nudge { animation: none; }
 }
+
+/* A just-saved entry on Activity: a warm highlight that fades out
+   (TransactionsPage scrolls to it after New entry's Save). */
+@keyframes entry-flash {
+  0%, 35% { background-color: rgb(var(--brass-light)); }
+  100% { background-color: transparent; }
+}
+.entry-flash { animation: entry-flash 2.4s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .entry-flash { animation: none; outline: 2px solid rgb(var(--brass)); outline-offset: -2px; }
+}

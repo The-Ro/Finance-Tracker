@@ -23,5 +23,6 @@ export const ZODIAC_SIGNS: ZodiacOption[] = [
 
 export function zodiacLabel(sign: ZodiacSign): string {
   const option = ZODIAC_SIGNS.find((z) => z.sign === sign)
-  return option ? `${option.symbol} ${option.label}` : sign
+  // U+FE0E asks for the plain text glyph -- iOS otherwise draws ♌ as a purple emoji tile.
+  return option ? `${option.symbol}︎ ${option.label}` : sign
 }
