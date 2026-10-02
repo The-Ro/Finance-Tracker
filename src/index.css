@@ -314,15 +314,12 @@
    through the tab labels; frosted (iOS-style) only where the browser can
    actually blur what's behind it -- a translucent bar without the blur just
    lets the content underneath read through. */
+/* The header and tab bar are solid, never frosted. With a see-through,
+   backdrop-blurred header the iPhone home-screen app showed whatever scrolled
+   under the status bar as a grey smear ("blurry on top"), and iOS can drop
+   blurred fixed/sticky bars on layer-heavy pages (see .chrome-surface-bottom). */
 .chrome-surface {
   background-color: rgb(var(--app-card));
-}
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .chrome-surface {
-    background-color: rgb(var(--app-card) / 0.86);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    backdrop-filter: blur(20px) saturate(180%);
-  }
 }
 .chrome-surface-bottom {
   box-shadow: 0 -6px 20px rgba(16, 16, 40, 0.06);
@@ -330,7 +327,7 @@
      layer. iOS Safari can drop a fixed, backdrop-filtered bar on pages with
      many sticky/animated layers -- on Activity (sticky day headings, animated
      rows) the bottom menu vanished on an iPhone, both on opening the page and
-     while scrolling. The header keeps its blur; it's sticky, not fixed. */
+     while scrolling. */
   background-color: rgb(var(--app-card));
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
