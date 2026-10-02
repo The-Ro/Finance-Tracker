@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
 import { Modal, SheetSaveButton } from '@/components/ui/Modal'
-import { TextField } from '@/components/ui/TextField'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
-import { FormError } from '@/components/ui/FieldError'
+import { FieldError, FormError } from '@/components/ui/FieldError'
+import { BrandMark } from '@/components/ui/BrandHeader'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
@@ -69,6 +69,8 @@ export function FriendsPage() {
     return { name, first: name.split(' ')[0], email: p?.email ?? '', avatar: p?.avatar ?? null, bio: p?.bio?.trim() || null }
   }
   const asking = friends.filter((f) => f.theySeeMine === 'asking')
+  const owedToMe = friends.reduce((sum, f) => sum + Math.max(0, f.net), 0)
+  const iOwe = friends.reduce((sum, f) => sum + Math.max(0, -f.net), 0)
   const loading = owned.isLoading || requested.isLoading
   const invite = async () => {
     const result = await shareText('Welcome to LedgeEaze', `Welcome to LedgeEaze! Join me here: ${window.location.origin}`)
@@ -91,33 +93,52 @@ export function FriendsPage() {
           </button>
         }
       />
-      <p className="-mt-2 text-sm text-slate-500">People you share with. You choose what each side sees.</p>
+      <p className="-mt-3 text-sm text-slate-500">You choose what each side sees.</p>
+
+      {friends.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="flex flex-col gap-0.5 p-3.5">
+            <span className="text-xs font-semibold text-slate-500">Friends owe you</span>
+            <span className="font-serif text-xl font-semibold tabular-nums text-positive">{format(owedToMe)}</span>
+          </Card>
+          <Card className="flex flex-col gap-0.5 p-3.5">
+            <span className="text-xs font-semibold text-slate-500">You owe</span>
+            <span className={clsx('font-serif text-xl font-semibold tabular-nums', iOwe > 0 ? 'text-danger' : 'text-slate-900')}>{format(iOwe)}</span>
+          </Card>
+        </div>
+      )}
 
       {/* Requests to see your entries come first. */}
       {asking.length > 0 && (
-        <Card className="flex flex-col gap-3 border-accent/40 p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Want to see your entries</h2>
+        <Card className="flex flex-col gap-3 border-accent/30 p-3.5">
           <ul className="stagger-rows flex flex-col gap-3">
             {asking.map((f) => {
               const p = person(f.id)
               return (
-                <li key={f.id} className="flex items-center gap-3">
-                  <Avatar avatar={p.avatar} name={p.name} size={40} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-slate-900">{p.name}</span>
-                    <span className="block truncate text-helper text-slate-500">{p.email}</span>
+                <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+                  <Avatar avatar={p.avatar} name={p.name} size={44} />
+                  <span className="min-w-[150px] flex-1">
+                    <span className="block truncate text-sm font-bold text-slate-900">{p.name}</span>
+                    <span className="block text-helper text-slate-500">wants to see your entries</span>
                   </span>
-                  <Button
-                    variant="secondary"
-                    className="shrink-0"
-                    disabled={removeRow.isPending}
-                    onClick={() => f.incomingId && removeRow.mutate(f.incomingId)}
-                  >
-                    No
-                  </Button>
-                  <Button className="shrink-0" disabled={approve.isPending} onClick={() => f.incomingId && approve.mutate(f.incomingId)}>
-                    Yes
-                  </Button>
+                  <span className="ml-auto flex gap-2">
+                    <button
+                      type="button"
+                      className="press min-h-[40px] shrink-0 rounded-full border border-app-border px-3.5 text-sm font-semibold text-slate-600"
+                      disabled={removeRow.isPending}
+                      onClick={() => f.incomingId && removeRow.mutate(f.incomingId)}
+                    >
+                      Not now
+                    </button>
+                    <button
+                      type="button"
+                      className="press min-h-[40px] shrink-0 rounded-full bg-accent px-4 text-sm font-bold text-white"
+                      disabled={approve.isPending}
+                      onClick={() => f.incomingId && approve.mutate(f.incomingId)}
+                    >
+                      Yes
+                    </button>
+                  </span>
                 </li>
               )
             })}
@@ -142,7 +163,7 @@ export function FriendsPage() {
           }
         />
       ) : (
-        <Card className="p-2">
+        <Card className="overflow-hidden p-0">
           <ul className="stagger-rows flex flex-col divide-y divide-app-border">
             {friends.map((f) => {
               const p = person(f.id)
@@ -151,19 +172,26 @@ export function FriendsPage() {
                   <button
                     type="button"
                     onClick={() => setOpenId(f.id)}
-                    className="flex min-h-[64px] w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-slate-50"
+                    aria-label={`${p.name}: ${sharingWords(f)}`}
+                    className="flex min-h-[72px] w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-50 [@media(hover:hover)]:hover:bg-slate-50"
                   >
-                    <Avatar avatar={p.avatar} name={p.name} size={40} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-slate-900">{p.name}</span>
-                      <span className="block truncate text-helper text-slate-500">{sharingWords(f)}</span>
-                    </span>
-                    {f.net !== 0 && (
-                      <span className={clsx('shrink-0 text-right text-helper font-semibold tabular-nums', f.net > 0 ? 'text-positive' : 'text-danger')}>
-                        {f.net > 0 ? 'owes you' : 'you owe'}
-                        <span className="block font-serif text-sm">{format(Math.abs(f.net))}</span>
+                    <Avatar avatar={p.avatar} name={p.name} size={46} />
+                    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <span className="truncate text-[15px] font-bold text-slate-900">{p.name}</span>
+                      <span className="flex flex-wrap gap-1.5">
+                        {friendChips(f).map((c) => (
+                          <span key={c.label} className={clsx('inline-flex h-[22px] items-center rounded-full px-2 text-[11px] font-bold', c.tone)}>
+                            {c.label}
+                          </span>
+                        ))}
                       </span>
-                    )}
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end">
+                      {f.net !== 0 && <span className="text-[11px] font-semibold text-slate-500">{f.net > 0 ? 'owes you' : 'you owe'}</span>}
+                      <span className={clsx('font-serif text-base font-semibold tabular-nums', f.net > 0 ? 'text-positive' : f.net < 0 ? 'text-danger' : 'text-slate-500')}>
+                        {f.net === 0 ? 'Settled' : format(Math.abs(f.net))}
+                      </span>
+                    </span>
                     <ChevronRight size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
                   </button>
                 </li>
@@ -174,19 +202,19 @@ export function FriendsPage() {
       )}
 
       {friends.length > 0 && (
-        <button
-          type="button"
-          onClick={() => void invite()}
-          className="press flex items-center gap-3 rounded-card border border-dashed border-app-border px-4 py-3 text-left"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-light text-accent-on-light">
-            <Send size={17} aria-hidden="true" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-slate-900">Welcome your friends & family to LedgeEaze</span>
-            <span className="block text-helper text-slate-500">Send them a link.</span>
-          </span>
-        </button>
+        <section className="flex flex-col gap-3 rounded-card bg-accent p-4 text-white shadow-card">
+          <div className="flex items-center gap-3">
+            <BrandMark size="md" className="h-11 w-11 shrink-0" />
+            <p className="font-serif text-lg font-semibold leading-snug">Welcome your friends &amp; family to LedgeEaze</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void invite()}
+            className="press flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#ffffff] text-sm font-bold text-[rgb(var(--accent))]"
+          >
+            <Send size={16} aria-hidden="true" /> Send a link
+          </button>
+        </section>
       )}
 
       <AddFriendSheet open={adding} onClose={() => setAdding(false)} onInvite={() => void invite()} />
@@ -235,20 +263,35 @@ function AddFriendSheet({ open, onClose, onInvite }: { open: boolean; onClose: (
     <Modal open={open} onClose={close} title="Find a friend" headerActions={<SheetSaveButton onClick={save} busy={add.isPending} label="Add" />}>
       <div className="flex flex-col gap-4">
         <FormError message={errors.general} />
-        <TextField
-          label="Their email"
-          type="email"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="name@example.com"
-          error={errors.on('email')}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <label className="flex flex-col gap-1.5">
+          <span className="text-helper font-medium text-slate-600">Their email</span>
+          <span
+            className={clsx(
+              'flex h-[52px] items-center gap-2.5 rounded-2xl border bg-app-card px-3.5 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20',
+              errors.on('email') ? 'border-danger' : 'border-app-border'
+            )}
+          >
+            <Search size={18} className="shrink-0 text-accent-dark" aria-hidden="true" />
+            <input
+              type="email"
+              inputMode="email"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void save()
+              }}
+              className="min-w-0 flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400"
+            />
+          </span>
+          <FieldError message={errors.on('email')} />
+        </label>
         {notFound && (
           <button type="button" onClick={onInvite} className="-mt-2 w-fit text-helper font-semibold text-accent-dark hover:underline">
-            Welcome them to LedgeEaze instead
+            Not on LedgeEaze yet? Send a welcome link
           </button>
         )}
         <SwitchRow
@@ -287,10 +330,10 @@ function FriendSheet({ friend, person, onClose }: { friend: Friend | null; perso
     <>
       <Modal open={!confirmRemove} onClose={onClose} title={person.name}>
         <div className="flex flex-col gap-5">
-          <div className="flex items-center gap-3">
-            <Avatar avatar={person.avatar} name={person.name} size={52} />
+          <div className="flex items-center gap-3.5">
+            <Avatar avatar={person.avatar} name={person.name} size={64} />
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-slate-900">{person.name}</p>
+              <p className="truncate font-serif text-xl font-semibold text-slate-900">{person.name}</p>
               <p className="truncate text-helper text-slate-500">{person.email}</p>
               <p className="text-helper text-slate-500">
                 Friends since {new Date(friend.since).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
@@ -299,13 +342,12 @@ function FriendSheet({ friend, person, onClose }: { friend: Friend | null; perso
           </div>
 
           {(person.bio || birthday) && (
-            <section className="flex flex-col gap-2">
-              <h3 className="text-helper font-semibold uppercase tracking-wide text-slate-500">About</h3>
-              {person.bio && <p className="whitespace-pre-line text-sm text-slate-700">{person.bio}</p>}
+            <section className="flex flex-col gap-2.5 rounded-2xl bg-slate-50 p-3.5 dark:bg-white/5">
+              {person.bio && <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{person.bio}</p>}
               {birthday && (
-                <p className="flex items-center gap-2 text-sm text-slate-700">
+                <p className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                   <Cake size={16} className="text-brass" aria-hidden="true" />
-                  Birthday {birthdayLabel(birthday)}
+                  Birthday · {birthdayLabel(birthday)}
                 </p>
               )}
             </section>
@@ -352,27 +394,23 @@ function FriendSheet({ friend, person, onClose }: { friend: Friend | null; perso
             </div>
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h3 className="text-helper font-semibold uppercase tracking-wide text-slate-500">Money</h3>
-            <Link to="/shared" onClick={onClose} className="flex items-center justify-between gap-3 rounded-xl border border-app-border p-3 hover:bg-slate-50">
-              <span className="text-sm text-slate-700">
-                {friend.net > 0 ? (
-                  <>
-                    {person.first} owes you <strong className="text-positive">{format(friend.net)}</strong>
-                  </>
-                ) : friend.net < 0 ? (
-                  <>
-                    You owe {person.first} <strong className="text-danger">{format(-friend.net)}</strong>
-                  </>
-                ) : (
-                  'All settled'
-                )}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-app-border p-3.5">
+            <span className="flex min-w-0 flex-col">
+              <span className="text-xs font-semibold text-slate-500">
+                {friend.net > 0 ? `${person.first} owes you` : friend.net < 0 ? `You owe ${person.first}` : 'Money between you'}
               </span>
-              <span className="flex shrink-0 items-center gap-1 text-helper font-semibold text-accent-dark">
-                Splits <ChevronRight size={14} aria-hidden="true" />
+              <span className={clsx('font-serif text-xl font-semibold tabular-nums', friend.net > 0 ? 'text-positive' : friend.net < 0 ? 'text-danger' : 'text-slate-500')}>
+                {friend.net === 0 ? 'Settled' : format(Math.abs(friend.net))}
               </span>
+            </span>
+            <Link
+              to="/shared"
+              onClick={onClose}
+              className="press inline-flex min-h-[40px] shrink-0 items-center gap-1 rounded-full border border-app-border px-3.5 text-sm font-bold text-accent-dark"
+            >
+              See splits <ChevronRight size={14} aria-hidden="true" />
             </Link>
-          </section>
+          </div>
 
           <button type="button" onClick={() => setConfirmRemove(true)} className="w-fit text-sm font-semibold text-danger hover:underline">
             Remove friend
@@ -433,6 +471,20 @@ function SwitchRow({
       </span>
     </label>
   )
+}
+
+/** The two small chips on a friend's row: what they see of yours, what you see of theirs. */
+function friendChips(f: Friend): { label: string; tone: string }[] {
+  const grey = 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
+  const chips: { label: string; tone: string }[] = []
+  if (f.theySeeMine === 'on') chips.push({ label: 'Sees yours', tone: 'bg-accent-light text-accent-on-light' })
+  else if (f.theySeeMine === 'asking') chips.push({ label: 'Wants to see yours', tone: 'bg-brass-light text-slate-800' })
+  else if (f.theySeeMine === 'paused') chips.push({ label: 'Yours paused', tone: grey })
+  else chips.push({ label: 'Doesn’t see yours', tone: grey })
+  if (f.iSeeTheirs === 'on') chips.push({ label: 'You see theirs', tone: 'bg-positive-light text-positive' })
+  else if (f.iSeeTheirs === 'waiting') chips.push({ label: 'You asked', tone: 'bg-brass-light text-slate-800' })
+  else if (f.iSeeTheirs === 'paused') chips.push({ label: 'They paused', tone: grey })
+  return chips
 }
 
 /** 'MM-DD' -> "Mar 14" (the year is never shared). */

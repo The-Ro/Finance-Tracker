@@ -474,6 +474,10 @@ export interface Database {
           goal_id: string | null
           /** A SIP / RD / PPF...: Mark paid tags the entry #invest (Investments page). */
           is_investment: boolean
+          /** First of the month an investment started; due dates since then count as paid. */
+          started_on: string | null
+          /** Due dates of an investment the user marked as missed. */
+          missed_dates: string[]
         }
         Insert: {
           id?: string
@@ -493,6 +497,8 @@ export interface Database {
           /** A goal each "Mark paid" adds to (a SIP feeding a goal). */
           goal_id?: string | null
           is_investment?: boolean
+          started_on?: string | null
+          missed_dates?: string[]
         }
         Update: Partial<{
           name: string
@@ -503,6 +509,8 @@ export interface Database {
           account: string | null
           active: boolean
           is_investment: boolean
+          started_on: string | null
+          missed_dates: string[]
           loan_amount: number | null
           loan_tenure_months: number | null
           loan_start_date: string | null

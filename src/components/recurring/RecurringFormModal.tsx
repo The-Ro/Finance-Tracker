@@ -12,7 +12,7 @@ import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useCategories, useAccounts, useAccountDetails, useSetCardPayFrom } from '@/hooks/useLookupLists'
 import { useAccountsInUse } from '@/hooks/useAccountsInUse'
 import { useGoals } from '@/hooks/useGoals'
-import { looksLikeInvestment } from '@/lib/investments'
+import { looksLikeInvestment, startPreview } from '@/lib/investments'
 import { useAddTransaction } from '@/hooks/useTransactions'
 import { useToast } from '@/context/ToastContext'
 import { nextStatementDate } from '@/lib/creditCards'
@@ -90,8 +90,10 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
   // Investment (SIP, RD, PPF...): ticked by itself from the name on a new item
   // until the user sets it either way.
   const [isInvestment, setIsInvestment] = useState<boolean | null>(null)
+  // "When did it start?" (YYYY-MM): payments before the app count from here.
+  const [startMonth, setStartMonth] = useState('')
   const { addManual, update } = useRecurringMutations()
-  const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
+  const errors = useFieldErrors<'name' | 'amount' | 'nextDate' | 'startedOn' | 'account' | 'cadence' | 'loanAmount' | 'loanTenure' | 'loanStart' | 'loanRate'>()
 
   const relevant = kind === 'subscription' ? SUBSCRIPTION_CATEGORIES : RECURRING_CATEGORIES
   const categories = allExpenseCategories.filter(
@@ -137,6 +139,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     setProcessingFee('')
     setGoalId(editing?.goal_id ?? prefill?.goalId ?? '')
     setIsInvestment(editing ? editing.is_investment : prefill?.investment ? true : null)
+    setStartMonth(editing?.started_on?.slice(0, 7) ?? '')
     errors.clear()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, prefill])
@@ -189,12 +192,14 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
     const amountNum = Number(form.amount)
     if (!form.name.trim()) return errors.fail(`Enter a ${kind === 'subscription' ? 'service' : 'payment'} name.`, 'name')
     if (!Number.isFinite(amountNum) || amountNum <= 0) return errors.fail('Enter the amount.', 'amount')
+    if (investmentOn && startMonth && startMonth > form.nextDate.slice(0, 7)) return errors.fail('It can’t start after the next payment.', 'startedOn')
+    const startedOn = investmentOn && startMonth ? startMonth + '-01' : null
     if (!form.nextDate) return errors.fail('Choose the next date.', 'nextDate')
     // Required so "Mark as paid" always has somewhere to log the actual
     // expense transaction against -- see useRecurring.ts's markPaid.
     if (!form.account) return errors.fail('Choose an account.', 'account')
     let loan: RecurringLoanInput | null = null
-    if (form.isLoan) {
+    if (form.isLoan && !investmentOn) {
       const loanAmount = Number(form.loanAmount)
       const tenure = Number(form.loanTenure)
       if (!supportsLoanDetails(form.cadence)) return errors.fail('Loan details need a monthly (or longer) cadence.', 'cadence')
@@ -221,6 +226,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           loan,
           goal_id: goalId || null,
           is_investment: investmentOn,
+          started_on: startedOn,
         })
       } else {
         await addManual.mutateAsync({
@@ -234,6 +240,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
           loan,
           goalId: goalId || null,
           isInvestment: investmentOn,
+          startedOn,
         })
       }
       // The card's "paid from" account and a new EMI's processing fee: the item
@@ -391,9 +398,30 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-slate-800">This is an investment</span>
-              <span className="block text-helper text-slate-500">A SIP, RD, PPF, NPS... Each payment is counted on the Investments page.</span>
+              <span className="block text-helper text-slate-500">A SIP, RD, PPF, NPS... Each payment is counted in Goals &amp; investments.</span>
             </span>
           </label>
+        )}
+        {kind === 'recurring' && !cardEmi && investmentOn && (
+          <div className="flex flex-col gap-2 rounded-xl border border-brass/40 bg-brass-light p-3">
+            <MonthField
+              id="recurring-started-on"
+              label="When did it start?"
+              error={errors.on('startedOn')}
+              value={startMonth}
+              onChange={setStartMonth}
+            />
+            <p className="text-helper text-slate-600">
+              {startMonth && Number(form.amount) > 0
+                ? (() => {
+                    const p = startPreview({ next_date: form.nextDate, cadence: form.cadence, amount: Number(form.amount), anchor_day: editing?.anchor_day ?? null }, startMonth)
+                    return p.payments > 0
+                      ? `That’s ${p.payments} ${p.payments === 1 ? 'payment' : 'payments'} · ${format(p.total)} put in so far. Missed one? Mark it on the investment.`
+                      : 'Payments start counting from the next one.'
+                  })()
+                : 'Started before you used the app? Pick the month, and every payment since then is counted.'}
+            </p>
+          </div>
         )}
         {/* A SIP (or an RD, a savings transfer) can feed a goal: each Mark paid adds to it. */}
         {goals.length > 0 && (
@@ -412,7 +440,7 @@ export function RecurringFormModal({ open, onClose, kind, editing, prefill, onDe
             </p>
           </div>
         )}
-        {kind === 'recurring' && (
+        {kind === 'recurring' && !investmentOn && (
           <div className="flex flex-col gap-3 rounded-xl border border-app-border p-3">
             <label className="flex min-h-[32px] items-center gap-2 text-sm font-medium text-slate-800">
               <input

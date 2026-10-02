@@ -1,16 +1,12 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.18.2'
+export const APP_VERSION = '1.19.0'
 
-export const CURRENT_WHATS_NEW_VERSION = '2026-10-25'
+export const CURRENT_WHATS_NEW_VERSION = '2026-10-26'
 
 export const WHATS_NEW_ITEMS: string[] = [
-  'Monthly review: “Money in and out” is now two smooth lines, green for in and red for out. Tap a month to see its amounts and what you kept.',
-  'Friends: tap the search button to find a friend, and welcome your friends & family to LedgeEaze with one link.',
-  'New: Investments (menu → Plan → Investments). See how much you’ve put into SIPs, RD, PPF and more: in total, this year and this month.',
-  'Keep the habit: your monthly plan, how many months in a row you’ve invested, and how much of what came in you put away.',
-  'Mark a recurring payment as an investment (“This is an investment”). Each time you tap Paid, it’s counted.',
-  'Bought something once, like shares or gold? Tag the entry #invest.',
-  'Monthly review says how much of your spending went into investments.',
-  'Earlier in this update: Friends, friend profiles, photo crop, a new Review chart and a slimmer header.',
+  'Goals & investments are now one page (menu → Plan). Your SIPs, RD and PPF sit above your goals.',
+  'Tell us when a SIP started and every payment since then is counted, even the ones from before you used the app.',
+  'Tap a SIP to see it month by month. Missed one? Tap that month to mark it.',
+  'Friends has a new look: what friends owe you, requests to say yes to, and a card to welcome friends & family.',
 ]

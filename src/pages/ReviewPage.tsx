@@ -148,7 +148,7 @@ export function ReviewPage() {
           {review.keptPercent !== null ? ` and kept ${Math.round(review.keptPercent)}% of what came in.` : '.'}
         </h2>
         {invested > 0 && (
-          <Link to="/investments" className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent-dark">
+          <Link to="/goals" className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent-dark">
             Of this, {format(invested)} went into investments
             <ArrowRight size={14} aria-hidden="true" />
           </Link>

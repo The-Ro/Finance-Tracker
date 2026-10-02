@@ -13,7 +13,6 @@ import {
   HandCoins,
   Settings,
   Split,
-  TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import { groupNavItems, type NavGroupOf } from '@/lib/navGroups'
@@ -35,8 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/review', label: 'Monthly review', icon: ChartPie },
   { to: '/friends', label: 'Friends', icon: Users },
   { to: '/shared', label: 'Splits', icon: Split },
-  { to: '/goals', label: 'Goals', icon: Target },
-  { to: '/investments', label: 'Investments', icon: TrendingUp },
+  { to: '/goals', label: 'Goals & investments', icon: Target },
   { to: '/lent', label: 'Lent & borrowed', icon: HandCoins },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/rules', label: 'Rules', icon: SlidersHorizontal },
@@ -50,7 +48,7 @@ export type NavGroup = NavGroupOf<NavItem>
 // "More" (see groupNavItems), so adding a page can't silently hide it.
 export const NAV_GROUPS: NavGroup[] = groupNavItems(NAV_ITEMS, [
   { label: 'Money', paths: ['/', '/transactions', '/bills', '/review'] },
-  { label: 'Plan', paths: ['/budgets', '/goals', '/investments', '/recurring', '/subscriptions'] },
+  { label: 'Plan', paths: ['/budgets', '/goals', '/recurring', '/subscriptions'] },
   { label: 'More', paths: ['/friends', '/shared', '/lent', '/documents', '/rules'] },
 ])
 

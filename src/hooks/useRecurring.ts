@@ -125,6 +125,8 @@ export function useRecurringMutations() {
       goalId?: string | null
       /** A SIP / RD / PPF: Mark paid tags the entry #invest. */
       isInvestment?: boolean
+      /** First of the month it started (investments only). */
+      startedOn?: string | null
     }) => {
       const { error } = await supabase.from('recurring_items').insert({
         owner_user_id: userId!,
@@ -138,6 +140,7 @@ export function useRecurringMutations() {
         ...loanColumns(input.loan ?? null),
         goal_id: input.goalId ?? null,
         is_investment: input.isInvestment ?? false,
+        started_on: input.isInvestment ? (input.startedOn ?? null) : null,
       })
       if (error) throw error
     },
@@ -157,6 +160,8 @@ export function useRecurringMutations() {
       loan: RecurringLoanInput | null
       goal_id: string | null
       is_investment: boolean
+      started_on: string | null
+      missed_dates: string[]
     }>) => {
       const { id, loan, ...rest } = input
       const { error } = await supabase

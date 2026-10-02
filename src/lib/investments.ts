@@ -1,4 +1,5 @@
 import { normalizeMerchant } from './merchant'
+import { nthDateForCadence } from './recurringDetection'
 import type { Cadence } from '@/types/database.types'
 
 /**
@@ -37,6 +38,52 @@ export interface InvestItem {
   active: boolean
   is_investment: boolean
   goal_id: string | null
+  /** First of the month it started (SIPs before the app count from here). */
+  started_on?: string | null
+  /** Due dates the user marked as missed. */
+  missed_dates?: string[] | null
+  anchor_day?: number | null
+}
+
+/**
+ * Every due date of an investment from the month it started up to (not
+ * including) its next_date -- the ones already behind it, the same way
+ * loanProgress counts EMIs: Mark paid is what moves next_date on. Oldest first.
+ */
+export function pastDueDates(item: Pick<InvestItem, 'next_date' | 'cadence' | 'started_on' | 'anchor_day'>): string[] {
+  if (!item.started_on) return []
+  const start = item.started_on.slice(0, 7) + '-01'
+  const day = item.anchor_day ?? undefined
+  const out: string[] = []
+  for (let k = 1; k < 2000; k++) {
+    const d = nthDateForCadence(item.next_date, item.cadence, -k, day)
+    if (d < start) break
+    out.push(d)
+  }
+  return out.reverse()
+}
+
+export interface InvestmentHistory {
+  /** All due dates behind next_date, oldest first. */
+  dues: string[]
+  missed: Set<string>
+  paid: number
+  putIn: number
+}
+
+/** What a started investment has had put in: every past due date that wasn't marked missed. */
+export function investmentHistory(item: InvestItem): InvestmentHistory | null {
+  if (!item.started_on) return null
+  const dues = pastDueDates(item)
+  const missed = new Set((item.missed_dates ?? []).filter((d) => dues.includes(d)))
+  const paid = dues.length - missed.size
+  return { dues, missed, paid, putIn: Math.round(paid * Number(item.amount) * 100) / 100 }
+}
+
+/** How many payments and how much a start month would count -- the add form's preview. */
+export function startPreview(item: Pick<InvestItem, 'next_date' | 'cadence' | 'anchor_day' | 'amount'>, startMonth: string) {
+  const dues = pastDueDates({ ...item, started_on: startMonth + '-01' })
+  return { payments: dues.length, total: Math.round(dues.length * Number(item.amount) * 100) / 100 }
 }
 
 const PER_MONTH: Record<Cadence, number> = {
@@ -110,6 +157,9 @@ export function investmentSummary(
   const investItems = items.filter((i) => i.is_investment)
   const byName = new Map(investItems.map((i) => [normalizeMerchant(i.name), i]))
   const names = new Set(byName.keys())
+  // Started items count from their start month (history); their logged entries
+  // would count the same payments twice, so they're skipped below.
+  const histories = new Map(investItems.map((i) => [i.id, investmentHistory(i)]))
 
   const thisMonth = monthKey(today)
   const year = today.slice(0, 4)
@@ -128,6 +178,8 @@ export function investmentSummary(
       continue
     }
     if (!isInvestmentEntry(e, names)) continue
+    const owner = byName.get(normalizeMerchant(e.merchant))
+    if (owner && histories.get(owner.id)) continue
     const amt = Number(e.amount)
     total += amt
     if (e.date.startsWith(year)) thisYearTotal += amt
@@ -141,6 +193,20 @@ export function investmentSummary(
       if (!s.lastPaid || e.date > s.lastPaid) s.lastPaid = e.date
       perItem.set(item.id, s)
     } else oneOff += amt
+  }
+
+  for (const i of investItems) {
+    const h = histories.get(i.id)
+    if (!h) continue
+    const amt = Number(i.amount)
+    for (const d of h.dues) {
+      if (h.missed.has(d)) continue
+      total += amt
+      if (d.startsWith(year)) thisYearTotal += amt
+      perMonth.set(monthKey(d), (perMonth.get(monthKey(d)) ?? 0) + amt)
+      if (!first || d < first) first = d
+    }
+    perItem.set(i.id, { putIn: h.putIn, payments: h.paid, lastPaid: [...h.dues].reverse().find((d) => !h.missed.has(d)) ?? null })
   }
 
   let streak = 0
@@ -191,4 +257,61 @@ export function investedBetween(entries: InvestEntry[], items: InvestItem[], ran
     .filter((e) => e.date >= range.start && e.date <= range.end && isInvestmentEntry(e, names))
     .reduce((s, e) => s + Number(e.amount), 0)
   return Math.round(sum * 100) / 100
+}
+
+export type MonthCellState = 'paid' | 'missed' | 'due' | 'none'
+
+export interface MonthCell {
+  /** YYYY-MM */
+  month: string
+  state: MonthCellState
+  /** The due dates in this month (what a tap marks missed or paid). */
+  dues: string[]
+}
+
+/**
+ * The detail page's month grid: one row per year from the start year to this
+ * year, 12 cells each. A month with a past due date is paid (or missed if
+ * every due date in it was marked missed); next_date's month is "due" when
+ * it's this month or earlier; everything else is blank.
+ */
+export function investmentMonthGrid(item: InvestItem, today: string): { year: number; cells: MonthCell[] }[] {
+  const h = investmentHistory(item)
+  if (!h) return []
+  const byMonth = new Map<string, string[]>()
+  for (const d of h.dues) byMonth.set(d.slice(0, 7), [...(byMonth.get(d.slice(0, 7)) ?? []), d])
+  const startYear = Number(item.started_on!.slice(0, 4))
+  const endYear = Math.max(Number(today.slice(0, 4)), startYear)
+  const dueMonth = item.next_date <= today || item.next_date.slice(0, 7) === today.slice(0, 7) ? item.next_date.slice(0, 7) : null
+  const rows = []
+  for (let y = startYear; y <= endYear; y++) {
+    const cells: MonthCell[] = []
+    for (let m = 1; m <= 12; m++) {
+      const month = `${y}-${String(m).padStart(2, '0')}`
+      const dues = byMonth.get(month) ?? []
+      let state: MonthCellState = 'none'
+      if (dues.length) state = dues.every((d) => h.missed.has(d)) ? 'missed' : 'paid'
+      else if (month === dueMonth) state = 'due'
+      cells.push({ month, state, dues })
+    }
+    rows.push({ year: y, cells })
+  }
+  return rows
+}
+
+/** missed_dates after a tap on a month: all its due dates flip together. */
+export function toggleMissedMonth(missed: string[] | null | undefined, cell: MonthCell): string[] {
+  const set = new Set(missed ?? [])
+  const nowMissed = cell.state !== 'missed'
+  for (const d of cell.dues) {
+    if (nowMissed) set.add(d)
+    else set.delete(d)
+  }
+  return [...set].sort()
+}
+
+/** "Mar 2024" from an ISO date or YYYY-MM. */
+export function monthYearLabel(iso: string): string {
+  const [y, m] = iso.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
 }

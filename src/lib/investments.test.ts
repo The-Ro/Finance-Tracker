@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { investedBetween, investmentSummary, isInvestmentEntry, looksLikeInvestment, monthlyAmount, type InvestItem } from './investments'
+import { investedBetween, investmentHistory, investmentMonthGrid, toggleMissedMonth, investmentSummary, isInvestmentEntry, looksLikeInvestment, monthlyAmount, pastDueDates, startPreview, type InvestItem } from './investments'
 
 const item = (over: Partial<InvestItem> = {}): InvestItem => ({
   id: 'i1',
@@ -108,5 +108,67 @@ describe('investedBetween', () => {
       spend('2026-10-05', 'Axis Bluechip SIP', 5000, { tags: ['invest'] }),
     ]
     expect(investedBetween(entries, [item()], { start: '2026-09-01', end: '2026-09-30' })).toBe(5000)
+  })
+})
+
+describe('investment history from a start month', () => {
+  const sip = item({ next_date: '2026-10-05', started_on: '2024-03-01' })
+
+  it('counts every monthly due date from the start month up to next_date', () => {
+    const d = pastDueDates(sip)
+    expect(d[0]).toBe('2024-03-05')
+    expect(d[d.length - 1]).toBe('2026-09-05')
+    expect(d).toHaveLength(31)
+  })
+
+  it('takes missed months off what was put in', () => {
+    const h = investmentHistory({ ...sip, missed_dates: ['2025-08-05', '2026-01-05'] })
+    expect(h?.paid).toBe(29)
+    expect(h?.putIn).toBe(145000)
+  })
+
+  it('ignores missed dates that are not due dates', () => {
+    expect(investmentHistory({ ...sip, missed_dates: ['2027-01-05'] })?.paid).toBe(31)
+  })
+
+  it('works for yearly ones', () => {
+    const ppf = item({ cadence: 'annual', amount: 12000, next_date: '2027-03-31', started_on: '2022-03-01' })
+    expect(pastDueDates(ppf)).toEqual(['2022-03-31', '2023-03-31', '2024-03-31', '2025-03-31', '2026-03-31'])
+  })
+
+  it('previews a start month for the add form', () => {
+    expect(startPreview(sip, '2026-07')).toEqual({ payments: 3, total: 15000 })
+  })
+
+  it('uses the history in the summary and does not count logged payments twice', () => {
+    const s = investmentSummary(
+      [spend('2026-09-05', 'Axis Bluechip SIP', 5000, { tags: ['invest'] })],
+      [{ ...sip, missed_dates: ['2025-08-05'] }],
+      '2026-10-01'
+    )
+    expect(s.total).toBe(150000)
+    expect(s.items[0]).toMatchObject({ putIn: 150000, payments: 30 })
+    expect(s.first).toBe('2024-03-05')
+    expect(s.streak).toBe(13)
+  })
+})
+
+describe('investmentMonthGrid', () => {
+  const sip = item({ next_date: '2026-10-05', started_on: '2024-03-01', missed_dates: ['2025-08-05'] })
+
+  it('has a row per year with paid, missed, due and blank months', () => {
+    const g = investmentMonthGrid(sip, '2026-10-01')
+    expect(g.map((r) => r.year)).toEqual([2024, 2025, 2026])
+    expect(g[0].cells[1].state).toBe('none') // Feb 2024, before it started
+    expect(g[0].cells[2].state).toBe('paid') // Mar 2024
+    expect(g[1].cells[7].state).toBe('missed') // Aug 2025
+    expect(g[2].cells[9].state).toBe('due') // Oct 2026
+    expect(g[2].cells[10].state).toBe('none') // Nov 2026
+  })
+
+  it('flips a month between missed and paid', () => {
+    const g = investmentMonthGrid(sip, '2026-10-01')
+    expect(toggleMissedMonth(sip.missed_dates, g[1].cells[7])).toEqual([])
+    expect(toggleMissedMonth(sip.missed_dates, g[0].cells[2])).toEqual(['2024-03-05', '2025-08-05'])
   })
 })

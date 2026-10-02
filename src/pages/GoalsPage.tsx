@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useRecurringItemsRaw } from '@/hooks/useRecurring'
-import { Target } from 'lucide-react'
+import { Plus, Target } from 'lucide-react'
 import { useGoals, type Goal } from '@/hooks/useGoals'
-import { PageHeader, PageHeaderAction } from '@/components/ui/PageHeader'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -15,6 +15,7 @@ import { AddMoneyModal } from '@/components/goals/AddMoneyModal'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { summarizeGoals } from '@/lib/goals'
+import { InvestmentsSection } from '@/components/investments/InvestmentsSection'
 
 function GoalsSkeleton() {
   return (
@@ -101,19 +102,23 @@ export function GoalsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
-        title="Goals"
-        actions={
-          <PageHeaderAction
-            label="New goal"
-            onClick={() => {
-              setEditing(null)
-              setModalOpen(true)
-            }}
-          />
-        }
-      />
+      <PageHeader title="Goals & investments" />
 
+      <InvestmentsSection />
+
+      <div className="-mb-1 mt-2 flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-slate-900">Goals</h2>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+          className="press inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-app-border bg-app-card px-3.5 text-sm font-semibold text-accent-dark"
+        >
+          <Plus size={15} strokeWidth={2.4} aria-hidden="true" /> Add goal
+        </button>
+      </div>
       {isLoading ? (
         <GoalsSkeleton />
       ) : goals.length === 0 ? (

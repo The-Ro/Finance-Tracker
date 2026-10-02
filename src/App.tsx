@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
@@ -27,7 +27,7 @@ const BudgetsPage = lazy(() => import('@/pages/BudgetsPage').then((m) => ({ defa
 const BillsPage = lazy(() => import('@/pages/BillsPage').then((m) => ({ default: m.BillsPage })))
 const SharedPage = lazy(() => import('@/pages/SharedPage').then((m) => ({ default: m.SharedPage })))
 const FriendsPage = lazy(() => import('@/pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
-const InvestmentsPage = lazy(() => import('@/pages/InvestmentsPage').then((m) => ({ default: m.InvestmentsPage })))
+const InvestmentDetailPage = lazy(() => import('@/pages/InvestmentDetailPage').then((m) => ({ default: m.InvestmentDetailPage })))
 const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
 const LentPage = lazy(() => import('@/pages/LentPage').then((m) => ({ default: m.LentPage })))
 const GoalsPage = lazy(() => import('@/pages/GoalsPage').then((m) => ({ default: m.GoalsPage })))
@@ -93,7 +93,8 @@ export default function App() {
                       <Route path="/friends" element={<FriendsPage />} />
                       <Route path="/shared" element={<SharedPage />} />
                       <Route path="/goals" element={<GoalsPage />} />
-                      <Route path="/investments" element={<InvestmentsPage />} />
+                      <Route path="/investments" element={<Navigate to="/goals" replace />} />
+                      <Route path="/investments/:id" element={<InvestmentDetailPage />} />
                       <Route path="/lent" element={<LentPage />} />
                       <Route path="/documents" element={<DocumentsPage />} />
                       <Route path="/rules" element={<RulesPage />} />
