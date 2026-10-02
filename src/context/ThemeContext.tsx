@@ -40,12 +40,19 @@ function resolveAccentHex(accent: ThemeAccent, customColor: string | null): stri
  * the color or light/dark mode changes. Inline properties are cleared for
  * preset accents so the CSS rules take back over normally.
  */
+/** --app-card in light and dark (index.css), for the iPhone status bar strip. */
+const STATUS_BAR_LIGHT = '#ffffff'
+const STATUS_BAR_DARK = '#1e2129'
+
 function applyToDocument(mode: ThemeMode, accent: ThemeAccent, customColor: string | null, coinFollowsTheme: boolean) {
   const isDark = computeIsDark(mode)
   document.documentElement.classList.toggle('dark', isDark)
   document.documentElement.setAttribute('data-accent', accent)
   // --coin: gold by default, or the accent (index.css :root[data-coin='theme']).
   document.documentElement.setAttribute('data-coin', coinFollowsTheme ? 'theme' : 'gold')
+  // The iPhone status bar strip (status-bar-style "default") takes this colour:
+  // the header's own (--app-card), so the top reads as one solid bar.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? STATUS_BAR_DARK : STATUS_BAR_LIGHT)
 
   const root = document.documentElement.style
   if (accent === 'custom' && customColor) {
