@@ -55,11 +55,13 @@ function applyToDocument(mode: ThemeMode, accent: ThemeAccent, customColor: stri
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? STATUS_BAR_DARK : STATUS_BAR_LIGHT)
 
   const root = document.documentElement.style
+  let customShades: string | null = null
   if (accent === 'custom' && customColor) {
     const shades = deriveAccentShades(customColor, isDark)
     root.setProperty('--accent', shades.accent)
     root.setProperty('--accent-light', shades.accentLight)
     root.setProperty('--accent-dark', shades.accentDark)
+    customShades = JSON.stringify([shades.accent, shades.accentLight, shades.accentDark])
   } else {
     root.removeProperty('--accent')
     root.removeProperty('--accent-light')
@@ -70,6 +72,9 @@ function applyToDocument(mode: ThemeMode, accent: ThemeAccent, customColor: stri
     localStorage.setItem('ledgerly-theme-mode', mode)
     localStorage.setItem('ledgerly-theme-accent', accent)
     localStorage.setItem('ledgerly-coin', coinFollowsTheme ? 'theme' : 'gold')
+    // A custom colour's shades, so index.html can paint them before React mounts.
+    if (customShades) localStorage.setItem('ledgerly-theme-custom', customShades)
+    else localStorage.removeItem('ledgerly-theme-custom')
   } catch {
     // Private browsing / storage blocked -- theme still applies for this load.
   }
@@ -81,17 +86,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const accent = settings?.themeAccent ?? 'oxblood'
   const customColor = settings?.themeCustomColor ?? null
   const coin = settings?.coinFollowsTheme ?? false
-  const [isDark, setIsDark] = useState(() => computeIsDark(mode))
+  // Start from what index.html's pre-mount script applied (the last-known theme).
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const loaded = !!settings
 
   // Re-apply whenever the saved preference changes (e.g. loaded from server, or changed on another device).
+  // Only once the settings are here: before that (loading, or signed out on the
+  // sign-in page) the defaults above would paint Oxblood + a gold coin over the
+  // user's own theme and save them as the last-known theme, so the next sign-in
+  // flashed the defaults before switching to e.g. Plum.
   useEffect(() => {
+    if (!loaded) return
     applyToDocument(mode, accent, customColor, coin)
     setIsDark(computeIsDark(mode))
-  }, [mode, accent, customColor, coin])
+  }, [loaded, mode, accent, customColor, coin])
 
   // Live-update when the OS theme changes while in "system" mode.
   useEffect(() => {
-    if (mode !== 'system') return
+    if (!loaded || mode !== 'system') return
     const media = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = () => {
       applyToDocument(mode, accent, customColor, coin)
@@ -99,7 +111,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
     media.addEventListener('change', handler)
     return () => media.removeEventListener('change', handler)
-  }, [mode, accent, customColor, coin])
+  }, [loaded, mode, accent, customColor, coin])
 
   const value = useMemo<ThemeContextValue>(
     () => ({

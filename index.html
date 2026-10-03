@@ -30,6 +30,13 @@
           var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.classList.toggle('dark', isDark);
           document.documentElement.setAttribute('data-accent', accent);
+          var custom = accent === 'custom' && JSON.parse(localStorage.getItem('ledgerly-theme-custom') || 'null');
+          if (custom) {
+            var st = document.documentElement.style;
+            st.setProperty('--accent', custom[0]);
+            st.setProperty('--accent-light', custom[1]);
+            st.setProperty('--accent-dark', custom[2]);
+          }
           // The coin is gold unless the user chose to match their theme.
           document.documentElement.setAttribute('data-coin', localStorage.getItem('ledgerly-coin') === 'theme' ? 'theme' : 'gold');
           var bar = document.querySelector('meta[name="theme-color"]');
