@@ -850,7 +850,14 @@ button {
 
 /* Coin follows the accent theme when the user chose it (ThemeContext sets data-coin on <html>).
    :root[...] outranks the .dark gold above. */
-:root[data-coin='theme'] { --coin: var(--accent-dark); }
+:root[data-coin='theme'] {
+  --coin: var(--accent-dark);
+  /* Gold is one choice (user, 1.21.3): with "My theme" the brass highlights
+     (week-ahead card, due dots, today, reached goals) follow the theme too,
+     so a Plum user sees no gold anywhere. */
+  --brass: var(--accent-dark);
+  --brass-light: var(--accent-light);
+}
 
 /* Sign-in pages (AuthLayout) keep the coin in the theme colour, whatever the gold setting. */
 .coin-theme { --coin: var(--accent-dark); }

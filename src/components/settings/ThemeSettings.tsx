@@ -116,6 +116,11 @@ export function ThemeSettings() {
             </button>
           ))}
         </div>
+        <p className="mt-1.5 text-helper text-slate-500">
+          {coinFollowsTheme
+            ? 'The coin and the highlights (like due dates and the week ahead) use your theme colour.'
+            : 'A gold coin, with gold highlights for due dates and the week ahead.'}
+        </p>
       </div>
 
       <div>
