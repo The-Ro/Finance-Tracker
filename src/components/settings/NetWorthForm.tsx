@@ -52,21 +52,21 @@ export function NetWorthForm() {
   return (
     <Card className="flex flex-col gap-4 p-5">
       <div>
-        <h3 className="text-sm font-semibold text-slate-800">Net worth</h3>
+        <h3 className="text-sm font-semibold text-slate-800">Things the app doesn’t track</h3>
         <p className="mt-1 text-helper text-slate-500">
-          What you own minus what you owe. Type your own totals (home, gold, investments; loans, dues) -- they
-          aren't worked out from your entries. Saved as you type.
+          Add the value of things like a home, gold or a car, and any debt not in the app. They’re added to your
+          net worth above. Saved as you type.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <MoneyField
-          label="What you own"
+          label="Other things you own"
           error={numberError(assetsNum)}
           value={assets}
           onChange={setAssets}
         />
         <MoneyField
-          label="What you owe"
+          label="Other debts"
           error={numberError(liabilitiesNum)}
           value={liabilities}
           onChange={setLiabilities}
@@ -74,7 +74,7 @@ export function NetWorthForm() {
       </div>
       <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
         <span className="text-helper text-slate-500">
-          {settings.updateNetWorth.isPending ? 'Saving…' : 'Your net worth'}
+          {settings.updateNetWorth.isPending ? 'Saving…' : 'These add up to'}
         </span>
         <span className="text-sm font-semibold text-slate-900">{format(assetsNum - liabilitiesNum)}</span>
       </div>

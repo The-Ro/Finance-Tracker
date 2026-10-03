@@ -20,6 +20,7 @@ import { useBudgets } from '@/hooks/useBudgets'
 import { useAccountKinds, useCardStatuses } from '@/hooks/useCards'
 import { PeriodSelector } from '@/components/ui/PeriodSelector'
 import { SummaryCard } from '@/components/dashboard/SummaryCard'
+import { useNetWorth } from '@/hooks/useNetWorth'
 import { SortableSummaryCard } from '@/components/dashboard/SortableSummaryCard'
 import { SavingsFlowCard } from '@/components/dashboard/SavingsFlowCard'
 import { CreditCardsCard } from '@/components/dashboard/CreditCardsCard'
@@ -202,7 +203,7 @@ export function DashboardPage() {
   const priorSpending = inPriorPeriod.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
   const hasPriorData = inPriorPeriod.length > 0
 
-  const netWorth = settings.data ? settings.data.assetsTotal - settings.data.liabilitiesTotal : null
+  const netWorth = useNetWorth()
 
   const needsReviewCount = inPeriod.filter((t) => t.type !== 'transfer' && t.category === 'Needs review').length
 
@@ -264,26 +265,16 @@ export function DashboardPage() {
         key="netWorth"
         highlight
         label="Net worth"
-        value={settings.data?.netWorthConfigured ? format(netWorth ?? 0) : ''}
-        numericValue={settings.data?.netWorthConfigured ? (netWorth ?? 0) : undefined}
+        value={format(netWorth?.total ?? 0)}
+        numericValue={netWorth?.total ?? 0}
         format={format}
         footer={
-          settings.data?.netWorthConfigured ? (
-            <>
-              Assets minus liabilities ·{' '}
-              <Link to="/settings/net-worth" className="font-medium text-accent-dark hover:underline">
-                Edit
-              </Link>
-            </>
-          ) : (
-            <>
-              Add what you own and what you owe in{' '}
-              <Link to="/settings/net-worth" className="font-medium text-accent-dark hover:underline">
-                Settings
-              </Link>
-              .
-            </>
-          )
+          <>
+            Own minus owe ·{' '}
+            <Link to="/settings/net-worth" className="font-medium text-accent-dark hover:underline">
+              See how
+            </Link>
+          </>
         }
       />
     ),

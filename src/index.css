@@ -855,6 +855,17 @@ button {
 /* Sign-in pages (AuthLayout) keep the coin in the theme colour, whatever the gold setting. */
 .coin-theme { --coin: var(--accent-dark); }
 
+/* The coin's ring, Rs and flourish (BrandMark's per-coin gradient): light gold
+   on the gold coin; on a theme coin they go back to cut-outs in the colour of
+   the surface underneath, and the emboss shadow is dropped. */
+.brand-coin-mark-hi { stop-color: #fff4cf; }
+.brand-coin-mark-lo { stop-color: #f0d28c; }
+.brand-coin-emboss { fill: #4a2f05; opacity: 0.35; }
+:root[data-coin='theme'] .brand-coin-mark-hi, :root[data-coin='theme'] .brand-coin-mark-lo,
+.coin-theme .brand-coin-mark-hi, .coin-theme .brand-coin-mark-lo { stop-color: rgb(var(--app-card)); }
+:root[data-coin='theme'] .brand-coin-mark--bg, .coin-theme .brand-coin-mark--bg { stop-color: rgb(var(--app-bg)); }
+:root[data-coin='theme'] .brand-coin-emboss, .coin-theme .brand-coin-emboss { display: none; }
+
 /* Entries kept to yourself (Activity): the row's content blurs with a soft
    fade, and a "tap to see" pill sits over it; peeking eases the blur away.
    Locking or unlocking animates the same way. Opacity/filter only -- no

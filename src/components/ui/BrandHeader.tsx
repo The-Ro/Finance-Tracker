@@ -19,22 +19,24 @@ const FLOURISH_PATH = 'M38 84C48 80 66 90 84 82'
 
 type Cutout = 'card' | 'bg'
 
-// Full class names (not built from strings) so Tailwind's scanner sees them.
-const CUTOUT_FILL: Record<Cutout, string> = { card: 'fill-app-card', bg: 'fill-app-bg' }
-const CUTOUT_STROKE: Record<Cutout, string> = { card: 'stroke-app-card', bg: 'stroke-app-bg' }
+// The ring, Rs and flourish are painted with a per-coin gradient whose stop
+// colours come from index.css (.brand-coin-mark-*): light gold on the gold
+// coin, and the surface colour (a cut-out) when the coin follows the theme.
+const MARK_STOP_SURFACE: Record<Cutout, string> = { card: '', bg: ' brand-coin-mark--bg' }
 
 interface BrandMarkProps {
   className?: string
   size?: 'sm' | 'md'
-  /** The surface the coin sits on. The ring, Rs and flourish are "cut out"
-   *  of the coin by painting them in that surface's colour. */
+  /** The surface the coin sits on. On a theme-coloured coin the ring, Rs and
+   *  flourish are "cut out" of it by painting them in that surface's colour;
+   *  on the gold coin they're light gold. */
   cutout?: Cutout
 }
 
-/** The solid mono coin: a filled accent-dark coin with the Signature Rs, an
- *  inner ring and a flourish cut out of it. The coin follows the accent theme
- *  and light/dark mode; the cut-outs take the colour of the surface
- *  underneath (`cutout`).
+/** The coin: a gold coin with the Signature Rs, an inner ring and a flourish
+ *  raised on it in light gold. With "My theme" (and on the sign-in pages) the
+ *  coin takes the accent colour and the marks become cut-outs in the colour
+ *  of the surface underneath (`cutout`).
  *
  *  Motion (index.css, .brand-coin rules, reduced-motion safe): on mount the
  *  coin rolls in, the ring fills clockwise from 12 o'clock and the flourish
@@ -59,6 +61,7 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
   const small = size === 'sm'
   // useId gives ":r1:"-style ids; colons don't survive inside url(#...).
   const uid = `bm${useId().replace(/:/g, '')}`
+  const mark = `url(#${uid}-mark)`
   const [flipping, setFlipping] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
   const [intro, setIntro] = useState(false)
@@ -85,8 +88,13 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
           if (e.animationName === 'brand-coin-flip') setFlipping(false)
         }}
       >
-        {!small && (
-          <defs>
+        <defs>
+          <linearGradient id={`${uid}-mark`} x1="0.2" y1="0.1" x2="0.8" y2="0.9">
+            <stop offset="0%" className={`brand-coin-mark-hi${MARK_STOP_SURFACE[cutout]}`} />
+            <stop offset="100%" className={`brand-coin-mark-lo${MARK_STOP_SURFACE[cutout]}`} />
+          </linearGradient>
+          {!small && (
+            <>
             <linearGradient id={`${uid}-shine`} x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0" />
               <stop offset="50%" stopColor="#FFFFFF" stopOpacity="0.38" />
@@ -104,13 +112,15 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
               <stop offset="62%" stopColor="#3B2604" stopOpacity="0.04" />
               <stop offset="100%" stopColor="#3B2604" stopOpacity="0.38" />
             </linearGradient>
-          </defs>
-        )}
+            </>
+          )}
+        </defs>
         <circle className="fill-coin" cx="60" cy="60" r="60" />
         {!small && <circle cx="60" cy="60" r="60" fill={`url(#${uid}-metal)`} />}
         {!small && (
           <circle
-            className={`brand-coin-ring fill-none ${CUTOUT_STROKE[cutout]}`}
+            className="brand-coin-ring fill-none"
+            stroke={mark}
             transform="rotate(-90 60 60)"
             cx="60"
             cy="60"
@@ -118,11 +128,15 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
             strokeWidth="3"
           />
         )}
-        <path className={CUTOUT_FILL[cutout]} d={small ? RS_SMALL_PATH : RS_PATH} />
+        {/* A soft dark copy just below-right makes the gold Rs look struck
+            into the coin; hidden on a theme coin (index.css). */}
+        {!small && <path className="brand-coin-emboss" d={RS_PATH} transform="translate(0.9 1.1)" />}
+        <path fill={mark} d={small ? RS_SMALL_PATH : RS_PATH} />
         {!small && (
           <>
             <path
-              className={`brand-coin-flourish fill-none ${CUTOUT_STROKE[cutout]}`}
+              className="brand-coin-flourish fill-none"
+              stroke={mark}
               d={FLOURISH_PATH}
               strokeWidth="3"
               strokeLinecap="round"

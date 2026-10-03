@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useCategories } from '@/hooks/useLookupLists'
+import { NetWorthBreakdown } from '@/components/settings/NetWorthBreakdown'
 import { NetWorthForm } from '@/components/settings/NetWorthForm'
 import { ManagedListEditor } from '@/components/settings/ManagedListEditor'
 import { MoveCategoryEntries } from './MoveCategoryEntries'
@@ -194,7 +195,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     subtitle: 'What you own minus what you owe',
     icon: Scale,
     group: 'money',
-    render: () => <NetWorthForm />,
+    render: () => (
+      <div className="flex flex-col gap-4">
+        <NetWorthBreakdown />
+        <NetWorthForm />
+      </div>
+    ),
   },
   {
     id: 'appearance',
