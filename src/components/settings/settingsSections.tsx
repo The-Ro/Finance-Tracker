@@ -52,6 +52,8 @@ export interface SettingsSection {
   icon: LucideIcon
   group: SettingsGroupId
   render: () => ReactNode
+  /** A section that lives on its own page: its row opens this instead (one tap). */
+  href?: string
 }
 
 export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
@@ -237,7 +239,9 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     subtitle: 'Who you share with',
     icon: Users,
     group: 'people',
-    // Sharing moved to its own page (Friends); this points there.
+    // Sharing moved to its own page (Friends): the row opens it straight away
+    // (it used to open a page with just a link to it -- two taps).
+    href: '/friends',
     render: () => <FriendsLinkCard />,
   },
   {

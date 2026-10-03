@@ -44,6 +44,7 @@ export function SettingsPage() {
 
   const section = findSettingsSection(sectionId)
   if (sectionId && !section) return <Navigate to="/settings" replace />
+  if (section?.href) return <Navigate to={section.href} replace />
 
   if (!isDesktop) {
     if (!section) return <SettingsIndex />
@@ -95,13 +96,13 @@ function SettingsSubNav({ activeId }: { activeId: string }) {
           {group.id !== 'danger' && (
             <p className="px-3 pb-1 text-helper font-semibold uppercase tracking-wider text-slate-500">{group.label}</p>
           )}
-          {sectionsInGroup(group.id).map(({ id, label, icon: Icon }) => {
+          {sectionsInGroup(group.id).map(({ id, label, icon: Icon, href }) => {
             const isActive = id === activeId
             const danger = group.id === 'danger'
             return (
               <Link
                 key={id}
-                to={`/settings/${id}`}
+                to={href ?? `/settings/${id}`}
                 aria-current={isActive ? 'page' : undefined}
                 className={clsx(
                   'flex min-h-[40px] items-center gap-3 rounded-xl px-3 text-sm transition-colors',
@@ -175,7 +176,7 @@ function SettingsRow({ section, danger }: { section: SettingsSection; danger: bo
   const Icon = section.icon
   return (
     <Link
-      to={`/settings/${section.id}`}
+      to={section.href ?? `/settings/${section.id}`}
       className="flex min-h-[60px] items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 active:bg-slate-100"
     >
       <span

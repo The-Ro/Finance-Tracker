@@ -1,6 +1,6 @@
 // Keep in sync with package.json's "version" -- bumped together whenever a
 // batch of user-facing changes ships.
-export const APP_VERSION = '1.20.1'
+export const APP_VERSION = '1.20.2'
 
 export const CURRENT_WHATS_NEW_VERSION = '2026-10-27'
 
