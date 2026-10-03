@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avatarTone, dayHeadingLabel, dayNetTotals, dragOffset, groupByDay, merchantInitial, snapOffset, withPrivateRows } from './activityList'
+import { avatarTone, dayHeadingLabel, dayNetTotals, dragOffset, groupByDay, merchantInitial, privateDecoy, snapOffset, withPrivateRows } from './activityList'
 
 describe('groupByDay', () => {
   it('groups rows per day in first-seen order with a net per day', () => {
@@ -133,5 +133,17 @@ describe('withPrivateRows', () => {
   })
   it('leaves groups alone with no placeholders', () => {
     expect(withPrivateRows(groupByDay(rows), []).every((g) => g.privateRows.length === 0)).toBe(true)
+  })
+})
+
+describe('privateDecoy', () => {
+  it('is the same for the same entry and varies between entries', () => {
+    expect(privateDecoy('abc-123')).toEqual(privateDecoy('abc-123'))
+    const looks = new Set(['a1', 'b2', 'c3', 'd4', 'e5', 'f6'].map((id) => JSON.stringify(privateDecoy(id))))
+    expect(looks.size).toBeGreaterThan(3)
+  })
+
+  it('gives a 3 to 5 digit amount', () => {
+    for (const id of ['x', 'yy', 'zzz', 'q-9']) expect(privateDecoy(id).amount.replace(/,/g, '')).toMatch(/^\d{3,5}$/)
   })
 })

@@ -28,7 +28,7 @@ import type { TransactionScope } from './ScopeToggle'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 import { DEBIT_CARD_FILTER_PREFIX, EMPTY_TRANSACTION_FILTERS, hasActiveFilters, type TransactionFilters } from '@/lib/transactionSearch'
 import { debitCardLabel, type DebitCard } from '@/lib/debitCards'
-import { avatarTone, dayHeadingLabel, groupByDay, QUICK_TYPE_CHIPS, withPrivateRows, type AvatarTone, type PrivatePlaceholder } from '@/lib/activityList'
+import { avatarTone, dayHeadingLabel, groupByDay, privateDecoy, QUICK_TYPE_CHIPS, withPrivateRows, type AvatarTone, type PrivatePlaceholder } from '@/lib/activityList'
 
 const BULK_CATEGORY_PLACEHOLDER = 'Change category…'
 
@@ -369,6 +369,7 @@ export function TransactionTable({
   const renderPrivateRow = (p: PrivatePlaceholder) => {
     const owner = profiles[p.owner_user_id]
     const name = owner?.displayName || owner?.email || 'Someone'
+    const decoy = privateDecoy(p.id)
     return (
       <li key={'private-' + p.id} className="private-veil flex items-center gap-3 border-b border-app-border px-4 py-3 last:border-b-0">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
@@ -376,8 +377,8 @@ export function TransactionTable({
         </span>
         <div className="min-w-0 flex-1">
           <div aria-hidden="true" className="pointer-events-none select-none blur-[5px]">
-            <p className="text-[15px] font-semibold text-slate-800">Private entry</p>
-            <p className="text-helper text-slate-500">Hidden category</p>
+            <p className="text-[15px] font-semibold text-slate-800">{decoy.payee}</p>
+            <p className="text-helper text-slate-500">{decoy.category}</p>
           </div>
           <p className="mt-0.5 flex items-center gap-1.5 text-helper text-slate-500">
             {owner && <Avatar avatar={owner.avatar} name={owner.displayName} size={16} className="shrink-0" />}
@@ -385,7 +386,7 @@ export function TransactionTable({
           </p>
         </div>
         <span aria-hidden="true" className="pointer-events-none shrink-0 select-none font-serif text-base font-semibold text-slate-400 blur-[6px]">
-          ₹0,000
+          ₹{decoy.amount}
         </span>
       </li>
     )

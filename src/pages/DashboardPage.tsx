@@ -350,7 +350,7 @@ export function DashboardPage() {
     // Category and account breakdowns are separately reorderable/hideable --
     // each rendered full-width (rather than paired in a 2-col grid) since
     // Customize can now put something else between them.
-    categoryChart: <CategoryDonut transactions={inPeriod} income={income} />,
+    categoryChart: <CategoryDonut transactions={inPeriod} income={income} range={range} />,
     accountChart: (
       <AccountBarChart
         transactions={myTransactions.data ?? []}

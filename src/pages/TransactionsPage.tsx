@@ -74,10 +74,11 @@ export function TransactionsPage() {
   const [filters, setFilters] = useState<TransactionFilters>(() => ({
     ...EMPTY_TRANSACTION_FILTERS,
     category: searchParams.get('category') || null,
+    account: searchParams.get('account') || null,
   }))
   useEffect(() => {
     // Read once; drop the params so the period picker takes over again later.
-    if (searchParams.has('category') || searchParams.has('until')) setSearchParams({}, { replace: true })
+    if (searchParams.has('category') || searchParams.has('account') || searchParams.has('until')) setSearchParams({}, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // Saving a new entry comes here with ?new=<id>&on=<date>: show your own

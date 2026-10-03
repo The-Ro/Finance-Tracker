@@ -19,7 +19,7 @@ import { buildMonthlyReview, donutSegments, monthlyInOut, subscriptionSummary } 
 import { monthGrid } from '@/lib/billCalendar'
 import { formatShortDate, todayISO } from '@/lib/format'
 import { useBudgetPeriod } from '@/hooks/useBudgetPeriod'
-import { activityLink } from '@/lib/activityLink'
+import { activityFilterLink, activityLink } from '@/lib/activityLink'
 import { useSalaryShift } from '@/hooks/useSalaryShift'
 import { investedBetween } from '@/lib/investments'
 
@@ -214,6 +214,7 @@ export function ReviewPage() {
                 segments={segments}
                 centerValue={formatCompact(review.spent)}
                 formatAmount={format}
+                linkFor={(category) => activityFilterLink({ category }, range)}
               />
               {segments.some((s) => s.other) && (
                 <details className="mt-4 border-t border-app-border pt-3 text-sm">

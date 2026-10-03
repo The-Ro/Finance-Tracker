@@ -68,11 +68,69 @@ export async function turnOnReminders(): Promise<PushState> {
     p_auth: json.keys?.auth ?? '',
   })
   if (error) throw error
+  setPushWanted(true)
   return 'on'
+}
+
+// The user's choice, remembered on this device: iOS can drop a push
+// subscription by itself (an app update replacing the service worker, an
+// expired endpoint), and reminders then looked "off after every update".
+const WANTED_KEY = 'ledgeeaze:push-wanted'
+
+function setPushWanted(wanted: boolean) {
+  try {
+    localStorage.setItem(WANTED_KEY, wanted ? '1' : '0')
+  } catch {
+    // Storage blocked: reminders still work, they just can't self-repair.
+  }
+}
+
+function pushWanted(): boolean {
+  try {
+    return localStorage.getItem(WANTED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * On app open: if reminders were turned on here but the subscription is gone,
+ * quietly subscribe again (notifications are still allowed, so no prompt) and
+ * re-save it for the signed-in user. 'needs-tap' when the browser wants a tap
+ * first -- the app then offers a one-tap "Turn reminders back on".
+ */
+export async function healReminders(): Promise<'ok' | 'needs-tap' | 'skip'> {
+  if (!pushSupported() || isIosBrowserTab()) return 'skip'
+  // Devices turned on before this was remembered: a live subscription means on.
+  try {
+    if (localStorage.getItem(WANTED_KEY) === null && (await (await registration())?.pushManager.getSubscription())) setPushWanted(true)
+  } catch {
+    // ignore
+  }
+  if (!pushWanted()) return 'skip'
+  if (Notification.permission === 'denied') return 'skip'
+  if (Notification.permission !== 'granted') return 'needs-tap'
+  const reg = (await registration()) ?? (await navigator.serviceWorker.ready)
+  let sub = await reg.pushManager.getSubscription()
+  if (!sub) {
+    try {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC_KEY) as BufferSource })
+    } catch {
+      return 'needs-tap'
+    }
+  }
+  const json = sub.toJSON()
+  const { error } = await supabase.rpc('save_push_subscription', {
+    p_endpoint: sub.endpoint,
+    p_p256dh: json.keys?.p256dh ?? '',
+    p_auth: json.keys?.auth ?? '',
+  })
+  return error ? 'skip' : 'ok'
 }
 
 /** Stops reminders on this device (and forgets it on the server). Safe to call when off. */
 export async function turnOffReminders(): Promise<void> {
+  setPushWanted(false)
   const reg = await registration()
   const sub = await reg?.pushManager.getSubscription()
   if (!sub) return

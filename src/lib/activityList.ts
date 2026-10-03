@@ -158,3 +158,24 @@ export function withPrivateRows<T>(
   }
   return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
 }
+
+const DECOY_PAYEES = ['Swiggy', 'Amazon', 'Uber', 'Big Bazaar', 'Electricity bill', 'Petrol', 'Zomato', 'Flipkart', 'Pharmacy', 'Mobile recharge', 'Groceries store', 'Cafe']
+const DECOY_CATEGORIES = ['Dining', 'Shopping', 'Transportation', 'Groceries', 'Utilities', 'Health', 'Entertainment', 'Personal care']
+
+/**
+ * Made-up text to sit under the blur of someone else's private entry, so the
+ * row looks like a real (blurred) entry instead of the same "Private entry"
+ * every time. Picked from the entry's id, so a row keeps its look; the real
+ * details are never sent to the viewer, so this is never their content.
+ */
+export function privateDecoy(id: string): { payee: string; category: string; amount: string } {
+  let h = 2166136261
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0
+  const digits = 3 + (h % 3) // 3-5 digits, like ₹540 or ₹12,480
+  const value = 10 ** (digits - 1) + ((h >>> 3) % (9 * 10 ** (digits - 1)))
+  return {
+    payee: DECOY_PAYEES[(h >>> 7) % DECOY_PAYEES.length],
+    category: DECOY_CATEGORIES[(h >>> 11) % DECOY_CATEGORIES.length],
+    amount: value.toLocaleString('en-IN'),
+  }
+}

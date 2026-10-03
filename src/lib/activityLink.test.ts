@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityLink, rangeFromParams } from './activityLink'
+import { activityFilterLink, activityLink, rangeFromParams } from './activityLink'
 
 describe('activityLink', () => {
   it('builds a filtered Activity link and reads it back', () => {
@@ -13,5 +13,14 @@ describe('activityLink', () => {
     expect(rangeFromParams(new URLSearchParams('since=2026-10-05&until=2026-10-01'))).toBeNull()
     expect(rangeFromParams(new URLSearchParams('until=yesterday'))).toBeNull()
     expect(rangeFromParams(new URLSearchParams('category=Bike'))).toBeNull()
+  })
+})
+
+describe('activityFilterLink', () => {
+  it('links to one account, with or without a span', () => {
+    expect(activityFilterLink({ account: 'HDFC Bank' })).toBe('/transactions?account=HDFC+Bank')
+    expect(activityFilterLink({ category: 'Family' }, { start: '2026-10-01', end: '2026-10-31' })).toBe(
+      '/transactions?category=Family&since=2026-10-01&until=2026-10-31'
+    )
   })
 })

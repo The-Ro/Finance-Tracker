@@ -9,16 +9,13 @@ import { DateField } from '@/components/ui/DateField'
 import { FormError } from '@/components/ui/FieldError'
 import { useFieldErrors } from '@/hooks/useFieldErrors'
 import { useMoneyReminders, type MoneyReminder } from '@/hooks/useMoneyReminders'
+import { useMarkReminderSent } from '@/hooks/useMarkReminderSent'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
-import { useToast } from '@/context/ToastContext'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { useAddTransaction } from '@/hooks/useTransactions'
 import { useAccountsInUse } from '@/hooks/useAccountsInUse'
 import { useClosedAccounts } from '@/hooks/useCards'
 import { useCategories } from '@/hooks/useLookupLists'
 import { PAYMENT_METHODS } from '@/lib/cardNetworks'
-import type { PaymentMethod } from '@/types/database.types'
-import { useGlobalModals } from '@/context/GlobalModalsContext'
 import { addDaysISO } from '@/lib/billCalendar'
 import { formatShortDate, todayISO } from '@/lib/format'
 
@@ -31,52 +28,16 @@ import { formatShortDate, todayISO } from '@/lib/format'
  * entry; nothing moves money on its own.
  */
 export function MoneyRemindersButton() {
-  const { data = [], setDone } = useMoneyReminders()
+  const { data = [] } = useMoneyReminders()
   const { format } = useFormatCurrency()
-  const { show } = useToast()
-  const { openAddEntry } = useGlobalModals()
   const [listOpen, setListOpen] = useState(false)
   const [editing, setEditing] = useState<MoneyReminder | 'new' | null>(null)
   const today = todayISO()
   const open = data.filter((r) => !r.done_at)
   const urgent = open.some((r) => r.due_date <= today)
 
-  const addTransaction = useAddTransaction()
-  const markSent = async (r: MoneyReminder) => {
-    // "Log it when I tap Sent": add the entry with the saved account, mode and
-    // category first; only a logged (or not-to-be-logged) reminder is ticked off.
-    if (r.log_entry && r.account && r.amount != null) {
-      try {
-        await addTransaction.mutateAsync({
-          type: 'expense',
-          amount: r.amount,
-          merchant: r.title,
-          date: todayISO(),
-          category: r.category || 'Needs review',
-          account: r.account,
-          paymentMethod: (r.payment_method as PaymentMethod | null) ?? null,
-          remarks: r.note,
-          tags: [],
-          receipt: false,
-          allowDuplicate: true,
-        })
-      } catch (e) {
-        show(`Couldn't log it: ${e instanceof Error ? e.message : 'try again'}`, { tone: 'error' })
-        return
-      }
-      setDone.mutate({ id: r.id, done: true }, { onSuccess: () => show(`Sent and logged · ${r.title} ${format(r.amount!)}`) })
-      return
-    }
-    setDone.mutate(
-      { id: r.id, done: true },
-      {
-        onSuccess: () =>
-          show('Marked as sent', {
-            action: { label: 'Log it', onClick: () => openAddEntry('expense', { merchant: r.title, amount: r.amount ?? undefined }) },
-          }),
-      }
-    )
-  }
+  // Same step as the bell's quick tick (useMarkReminderSent).
+  const { markSent, busy: sending } = useMarkReminderSent()
 
   return (
     <>
@@ -137,7 +98,7 @@ export function MoneyRemindersButton() {
                         </span>
                       </span>
                     </button>
-                    <Button variant="secondary" className="shrink-0" onClick={() => void markSent(r)} disabled={setDone.isPending || addTransaction.isPending}>
+                    <Button variant="secondary" className="shrink-0" onClick={() => void markSent(r)} disabled={sending}>
                       <Check size={15} aria-hidden="true" /> Sent
                     </Button>
                   </li>

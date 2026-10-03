@@ -95,9 +95,19 @@ export function BrandMark({ className = 'h-9 w-9', size = 'sm', cutout = 'card' 
             <clipPath id={`${uid}-clip`}>
               <circle cx="60" cy="60" r="60" />
             </clipPath>
+            {/* Metallic shading over the flat coin colour: a highlight top-left
+                fading to a darker rim bottom-right, so the gold reads as gold,
+                not flat yellow. */}
+            <linearGradient id={`${uid}-metal`} x1="0.15" y1="0.05" x2="0.85" y2="0.95">
+              <stop offset="0%" stopColor="#FFF6DC" stopOpacity="0.55" />
+              <stop offset="38%" stopColor="#FFF6DC" stopOpacity="0.08" />
+              <stop offset="62%" stopColor="#3B2604" stopOpacity="0.04" />
+              <stop offset="100%" stopColor="#3B2604" stopOpacity="0.38" />
+            </linearGradient>
           </defs>
         )}
         <circle className="fill-coin" cx="60" cy="60" r="60" />
+        {!small && <circle cx="60" cy="60" r="60" fill={`url(#${uid}-metal)`} />}
         {!small && (
           <circle
             className={`brand-coin-ring fill-none ${CUTOUT_STROKE[cutout]}`}

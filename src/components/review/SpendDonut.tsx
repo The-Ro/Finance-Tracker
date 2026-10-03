@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 import type { DonutSegment } from '@/lib/monthlyReview'
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
@@ -36,6 +38,8 @@ interface SpendDonutProps {
   /** Center figure, e.g. the compact spent total. */
   centerValue: string
   formatAmount: (n: number) => string
+  /** Where tapping a category goes (Activity for it); "Other" stays plain. */
+  linkFor?: (category: string) => string
 }
 
 /**
@@ -43,7 +47,7 @@ interface SpendDonutProps {
  * another, by transitioning its dash length from 0 once mounted; with reduced
  * motion the ring renders fully drawn with no transition. Remount (key) to replay.
  */
-export function SpendDonut({ segments, centerValue, formatAmount }: SpendDonutProps) {
+export function SpendDonut({ segments, centerValue, formatAmount, linkFor }: SpendDonutProps) {
   const [reduced] = useState(prefersReducedMotion)
   const [drawn, setDrawn] = useState(reduced)
 
@@ -99,14 +103,31 @@ export function SpendDonut({ segments, centerValue, formatAmount }: SpendDonutPr
       </div>
       <ul className="stagger-rows flex w-full min-w-0 flex-col gap-2.5 text-sm" aria-label="Spending by category">
         {segments.map((s, i) => (
-          <li key={s.label} className="flex items-center justify-between gap-3">
-            <span className="flex min-w-0 items-center gap-2 text-slate-700">
-              <span aria-hidden="true" className={'h-2.5 w-2.5 shrink-0 rounded-full ' + segmentColor(s, i).bg} />
-              <span className="truncate">{s.label}</span>
-            </span>
-            <span className="shrink-0 tabular-nums text-slate-500">
-              {formatAmount(s.amount)} · {Math.round(s.fraction * 100)}%
-            </span>
+          <li key={s.label}>
+            {(() => {
+              const inner = (
+                <>
+                  <span className="flex min-w-0 items-center gap-2 text-slate-700">
+                    <span aria-hidden="true" className={'h-2.5 w-2.5 shrink-0 rounded-full ' + segmentColor(s, i).bg} />
+                    <span className="truncate">{s.label}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1 tabular-nums text-slate-500">
+                    {formatAmount(s.amount)} · {Math.round(s.fraction * 100)}%
+                    {linkFor && !s.other && <ChevronRight size={14} className="text-slate-400" aria-hidden="true" />}
+                  </span>
+                </>
+              )
+              return linkFor && !s.other ? (
+                <Link
+                  to={linkFor(s.label)}
+                  className="-mx-2 flex min-h-[36px] items-center justify-between gap-3 rounded-lg px-2 active:bg-slate-100 [@media(hover:hover)]:hover:bg-slate-50"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div className="flex min-h-[36px] items-center justify-between gap-3">{inner}</div>
+              )
+            })()}
           </li>
         ))}
       </ul>

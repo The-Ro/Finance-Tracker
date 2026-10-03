@@ -29,7 +29,7 @@
   --brass: 166 120 36;
   --brass-light: 250 242 222;
   /* The coin mark: gold unless Settings -> Appearance says follow the theme (data-coin, below). */
-  --coin: 184 134 43;
+  --coin: 176 128 40; /* #B08028: a deeper gold; BrandMark adds metallic shading over it */
   --info: 46 125 229;
   --info-light: 233 241 253;
 
@@ -143,7 +143,7 @@
   --caution-light: 63 43 21;
   --brass: 212 166 74;
   --brass-light: 58 48 22;
-  --coin: 212 166 74;
+  --coin: 196 150 62; /* #C4963E: less yellow on dark backgrounds */
   --info: 96 165 250;
   --info-light: 22 40 66;
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { Check, ChevronDown, History, Pencil, Plus, X } from 'lucide-react'
+import { Check, ChevronDown, Coins, History, Lock, LockOpen, Pencil, Plus, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
@@ -64,6 +64,8 @@ export interface EntryPrefill {
   /** YYYY-MM-DD, e.g. the statement date a missing card charge belongs to. */
   date?: string
   category?: string
+  /** e.g. ["invest"] for a one-time investment from Goals & investments. */
+  tags?: string[]
 }
 
 const EMPTY_STATE = {
@@ -496,6 +498,7 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
     ...(prefill?.account ? { account: prefill.account } : {}),
     ...(prefill?.date ? { date: prefill.date } : {}),
     ...(prefill?.category ? { category: prefill.category } : {}),
+    ...(prefill?.tags ? { tags: prefill.tags } : {}),
   })
 
   // Prefill from the transaction being edited (or reset to a blank form)
@@ -805,7 +808,15 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           ))}
         </div>
 
-        {showUsual && (
+        {/* Opened from Goals & investments' "One-time" (tagged #invest). */}
+        {!isEditing && form.type === 'expense' && form.tags.includes('invest') && (
+          <p className="animate-fade-in -mb-1 flex items-center gap-2 rounded-xl bg-brass-light px-3 py-2 text-helper font-medium text-slate-700">
+            <Coins size={15} className="shrink-0 text-brass" aria-hidden="true" />
+            One-time investment · counted in Goals &amp; investments
+          </p>
+        )}
+
+        {showUsual && !form.tags.includes('invest') && (
           <div className="animate-fade-in -mb-1 flex min-w-0 flex-col gap-1.5">
             <span className="text-helper font-medium text-slate-600">Your usual</span>
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -881,6 +892,21 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
               />
             </button>
           )}
+          {/* Lock: who sees this entry. Open = people you share with see it;
+              locked = only you (they see a blurred row). transactions.shared. */}
+          <button
+            type="button"
+            aria-pressed={!form.shared}
+            onClick={() => setForm((f) => ({ ...f, shared: !f.shared }))}
+            title={form.shared ? 'Shared with people who see your entries. Tap to keep it to yourself.' : 'Only you can see this. Tap to share it.'}
+            className={clsx(
+              'press inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 text-helper font-semibold transition-colors',
+              form.shared ? 'border-app-border text-slate-600' : 'border-accent bg-accent-light text-accent-on-light'
+            )}
+          >
+            {form.shared ? <LockOpen size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+            {form.shared ? 'Shared' : 'Only me'}
+          </button>
           </div>
           {showMode && !isTransfer && (
             <div
@@ -1273,22 +1299,6 @@ export function AddEntryModal({ open, onClose, transaction, initialType = 'expen
           </div>
         )}
 
-        {/* Share with everyone: on by default; off hides this entry from the
-            people approved to see your transactions (RLS: transactions.shared). */}
-        <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border border-app-border px-3">
-          <input
-            type="checkbox"
-            checked={form.shared}
-            onChange={(e) => setForm((f) => ({ ...f, shared: e.target.checked }))}
-            className="h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
-          />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-sm font-medium text-slate-800">Share with everyone</span>
-            <span className="text-helper text-slate-500">
-              {form.shared ? 'People who can see your transactions will see this.' : 'Only you see what it is. Others see a blurred row.'}
-            </span>
-          </span>
-        </label>
 
         <div className="rounded-xl border border-app-border">
           <button

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Plus, Sparkles, TrendingUp } from 'lucide-react'
+import { ChevronRight, Coins, Plus, Sparkles, TrendingUp } from 'lucide-react'
+import { useGlobalModals } from '@/context/GlobalModalsContext'
+import { useCategories } from '@/hooks/useLookupLists'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { RecurringFormModal } from '@/components/recurring/RecurringFormModal'
@@ -11,7 +13,7 @@ import { useRecurringItemsRaw, useRecurringMutations } from '@/hooks/useRecurrin
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useAnimatedNumber } from '@/hooks/useAnimatedNumber'
 import { investmentSummary, looksLikeInvestment, monthYearLabel, INVEST_TAG } from '@/lib/investments'
-import { todayISO } from '@/lib/format'
+import { formatShortDate, todayISO } from '@/lib/format'
 
 const CADENCE_WORDS: Record<string, string> = {
   weekly: 'every week',
@@ -43,6 +45,13 @@ export function InvestmentsSection() {
   const byId = useMemo(() => new Map(recurring.map((r) => [r.id, r])), [recurring])
   const maybe = recurring.filter((r) => r.kind === 'recurring' && !r.is_investment && looksLikeInvestment(r.name))
   const prefill = useMemo(() => ({ name: '', investment: true }), [])
+  const { openAddEntry } = useGlobalModals()
+  const { expense: expenseCategories } = useCategories()
+  const addOneTime = () =>
+    openAddEntry('expense', {
+      tags: [INVEST_TAG],
+      ...(expenseCategories.includes('Investments') ? { category: 'Investments' } : {}),
+    })
   const hasAny = s.items.length > 0 || s.total > 0
 
   return (
@@ -95,13 +104,23 @@ export function InvestmentsSection() {
 
       <div className="mt-1 flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-slate-900">Investments</h2>
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="press inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-app-border bg-app-card px-3.5 text-sm font-semibold text-accent-dark"
-        >
-          <Plus size={15} strokeWidth={2.4} aria-hidden="true" /> Add SIP
-        </button>
+        <span className="flex gap-2">
+          {/* A lump sum ("25k into a mutual fund"): a normal entry tagged #invest. */}
+          <button
+            type="button"
+            onClick={addOneTime}
+            className="press inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-app-border bg-app-card px-3 text-sm font-semibold text-accent-dark"
+          >
+            <Plus size={15} strokeWidth={2.4} aria-hidden="true" /> One-time
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="press inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-app-border bg-app-card px-3 text-sm font-semibold text-accent-dark"
+          >
+            <Plus size={15} strokeWidth={2.4} aria-hidden="true" /> SIP
+          </button>
+        </span>
       </div>
 
       {hasAny ? (
@@ -135,15 +154,21 @@ export function InvestmentsSection() {
                 </li>
               )
             })}
-            {s.oneOff > 0 && (
-              <li className="flex min-h-[64px] items-center gap-3 px-4 py-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold text-slate-900">One-off investments</span>
-                  <span className="block text-helper text-slate-500">Entries tagged #{INVEST_TAG}</span>
+            {s.oneOffEntries.map((e, i) => (
+              <li key={e.id ?? `${e.merchant}-${e.date}-${i}`} className="flex min-h-[64px] items-center gap-3 px-4 py-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brass-light text-brass">
+                  <Coins size={19} aria-hidden="true" />
                 </span>
-                <span className="font-serif text-base font-semibold tabular-nums text-slate-900">{format(s.oneOff)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-slate-900">{e.merchant}</span>
+                  <span className="block truncate text-helper text-slate-500">One-time · {formatShortDate(e.date)}</span>
+                </span>
+                <span className="flex shrink-0 flex-col items-end">
+                  <span className="font-serif text-base font-semibold tabular-nums text-slate-900">{format(e.amount)}</span>
+                  <span className="text-xs text-slate-500">put in</span>
+                </span>
               </li>
-            )}
+            ))}
           </ul>
         </Card>
       ) : (

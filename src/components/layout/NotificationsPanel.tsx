@@ -30,6 +30,8 @@ import { useSalaryConfirm } from '@/hooks/useSalaryConfirm'
 import { useOverdueRecurringItems, useRecurringMutations } from '@/hooks/useRecurring'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useToast } from '@/context/ToastContext'
+import { useMoneyReminders } from '@/hooks/useMoneyReminders'
+import { useMarkReminderSent } from '@/hooks/useMarkReminderSent'
 import { filterNotifications, timeAgo, type NotificationTab } from '@/lib/notifications'
 import type { NotificationKind } from '@/types/database.types'
 import { AdminFeedbackInbox } from '@/components/settings/AdminFeedbackInbox'
@@ -162,7 +164,13 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
         ) : (
           <ul className="stagger-rows-soft divide-y divide-app-border">
             {list.map((n) => (
-              <NotificationItem key={n.id} n={n} onOpen={() => open(n)} onClear={() => remove.mutate(n.id)} />
+              <NotificationItem
+                key={n.id}
+                n={n}
+                onOpen={() => open(n)}
+                onRead={() => markRead.mutate([n.id])}
+                onClear={() => remove.mutate(n.id)}
+              />
             ))}
           </ul>
         )}
@@ -181,7 +189,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-function NotificationItem({ n, onOpen, onClear }: { n: NotificationRow; onOpen: () => void; onClear: () => void }) {
+function NotificationItem({ n, onOpen, onRead, onClear }: { n: NotificationRow; onOpen: () => void; onRead: () => void; onClear: () => void }) {
   const Icon = KIND_ICON[n.kind] ?? Bell
   const unread = !n.read_at
   const confirm = useQuickConfirm(n)
@@ -190,7 +198,7 @@ function NotificationItem({ n, onOpen, onClear }: { n: NotificationRow; onOpen: 
       <button
         type="button"
         onClick={onOpen}
-        className={clsx('flex w-full min-w-0 items-start gap-3 py-3 pl-4 text-left', confirm ? 'pr-20' : 'pr-11')}
+        className="flex w-full min-w-0 items-start gap-3 py-3 pl-4 pr-11 text-left"
       >
         <span
           aria-hidden="true"
@@ -212,27 +220,37 @@ function NotificationItem({ n, onOpen, onClear }: { n: NotificationRow; onOpen: 
           <span className="text-xs text-slate-400">{timeAgo(n.created_at)}</span>
         </span>
       </button>
-      {/* Small tick: do the thing right here (salary arrived / bill paid). */}
+      {/* Quick actions, spelled out: do the thing right here (salary arrived,
+          bill paid, money sent) or put it off -- "Not now" only marks it read. */}
       {confirm && (
-        <button
-          type="button"
-          onClick={confirm.run}
-          disabled={confirm.busy}
-          aria-label={confirm.label}
-          title={confirm.label}
-          className="absolute right-11 top-2 flex h-9 w-9 items-center justify-center rounded-full text-positive hover:bg-positive-light disabled:opacity-50"
-        >
-          <Check size={17} strokeWidth={2.5} />
-        </button>
+        <div className="flex flex-wrap gap-2 pb-3 pl-16 pr-4">
+          <button
+            type="button"
+            onClick={confirm.run}
+            disabled={confirm.busy}
+            className="press inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-positive px-3.5 text-xs font-bold text-white disabled:opacity-50"
+          >
+            <Check size={15} strokeWidth={2.6} aria-hidden="true" /> {confirm.label}
+          </button>
+          {unread && (
+            <button
+              type="button"
+              onClick={onRead}
+              className="press inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-app-border px-3.5 text-xs font-semibold text-slate-600"
+            >
+              <X size={14} strokeWidth={2.4} aria-hidden="true" /> Not now
+            </button>
+          )}
+        </div>
       )}
       {/* Clears just this one (hides it from the history). */}
       <button
         type="button"
         onClick={onClear}
         aria-label={`Clear "${n.title}"`}
-        className="absolute right-1.5 top-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+        className="absolute right-1.5 top-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800"
       >
-        <X size={15} />
+        <X size={16} strokeWidth={2.2} />
       </button>
       {n.kind === 'access_request' && <AccessRequestActions n={n} />}
     </li>
@@ -318,6 +336,8 @@ function useQuickConfirm(n: NotificationRow): { label: string; busy: boolean; ru
   const { markRead } = useNotifications()
   const { format } = useFormatCurrency()
   const { show } = useToast()
+  const reminders = useMoneyReminders()
+  const sender = useMarkReminderSent()
 
   if (n.kind === 'salary') {
     const salary = settings.data?.salary
@@ -354,6 +374,20 @@ function useQuickConfirm(n: NotificationRow): { label: string; busy: boolean; ru
             show(`${item.name} marked paid. ${format(item.amount)} logged from ${item.account}.`)
           },
           onError: (e) => show(e instanceof Error ? e.message : 'Could not mark it paid.', { tone: 'error' }),
+        }),
+    }
+  }
+  // "Time to send ...": the same Sent as Bills (logs the entry when set up to).
+  if (n.kind === 'money_reminder' && n.ref.startsWith('send:')) {
+    const [, id] = n.ref.split(':')
+    const reminder = (reminders.data ?? []).find((r) => r.id === id && !r.done_at)
+    if (!reminder) return null
+    return {
+      label: 'Sent',
+      busy: sender.busy,
+      run: () =>
+        void sender.markSent(reminder).then((ok) => {
+          if (ok) markRead.mutate([n.id])
         }),
     }
   }

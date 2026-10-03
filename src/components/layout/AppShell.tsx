@@ -8,7 +8,8 @@ import { OfflineBanner } from './OfflineBanner'
 import { GlobalModalsProvider } from '@/context/GlobalModalsContext'
 import { WelcomeModal } from '@/components/onboarding/WelcomeModal'
 import { WhatsNewModal } from '@/components/onboarding/WhatsNewModal'
-import { catchUpOncePerDay } from '@/lib/push'
+import { catchUpOncePerDay, healReminders, turnOnReminders } from '@/lib/push'
+import { useToast } from '@/context/ToastContext'
 import { todayISO } from '@/lib/format'
 
 export function AppShell() {
@@ -21,8 +22,24 @@ export function AppShell() {
   // or land in the middle of nowhere instead of at the top.
   // Phone reminders: a device that missed today's 9 AM note (turned on later,
   // or offline) gets it the first time the app opens after that.
+  // Reminders that iOS dropped (e.g. after an app update) come back on by
+  // themselves; if the phone wants a tap first, a toast offers it.
+  const { show } = useToast()
   useEffect(() => {
-    catchUpOncePerDay(todayISO()).catch(() => undefined)
+    healReminders()
+      .then((r) => {
+        if (r === 'needs-tap')
+          show('Phone reminders went off after an update.', {
+            duration: 12000,
+            action: {
+              label: 'Turn back on',
+              onClick: () => void turnOnReminders().catch(() => show('Couldn’t turn reminders on. Try Settings → Reminders.', { tone: 'error' })),
+            },
+          })
+      })
+      .catch(() => undefined)
+      .finally(() => catchUpOncePerDay(todayISO()).catch(() => undefined))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

@@ -7,11 +7,16 @@ import { SpendDonut } from '@/components/review/SpendDonut'
 import type { Transaction } from '@/hooks/useTransactions'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { donutSegments } from '@/lib/monthlyReview'
+import { activityFilterLink } from '@/lib/activityLink'
+import type { DateRange } from '@/lib/period'
+import { Link } from 'react-router-dom'
 
 interface CategoryDonutProps {
   transactions: Transaction[]
   /** This period's total income, for the "% of income" line. */
   income: number
+  /** The period shown, so a tapped category opens Activity over the same span. */
+  range: DateRange
 }
 
 /**
@@ -20,7 +25,7 @@ interface CategoryDonutProps {
  * the rest as "Other"), for the selected period. "See all" lists every
  * category, so nothing hides inside "Other".
  */
-export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
+export function CategoryDonut({ transactions, income, range }: CategoryDonutProps) {
   const { format, formatCompact } = useFormatCurrency()
   const [showAll, setShowAll] = useState(false)
 
@@ -57,7 +62,13 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
         <EmptyState icon={PieIcon} title="No spending yet" description="Add expense transactions to see the breakdown." />
       ) : (
         <>
-          <SpendDonut key={replayKey} segments={segments} centerValue={formatCompact(spent)} formatAmount={format} />
+          <SpendDonut
+            key={replayKey}
+            segments={segments}
+            centerValue={formatCompact(spent)}
+            formatAmount={format}
+            linkFor={(category) => activityFilterLink({ category }, range)}
+          />
           {segments.some((s) => s.other) && (
             <div className="mt-4 border-t border-app-border pt-1">
               <button
@@ -71,11 +82,16 @@ export function CategoryDonut({ transactions, income }: CategoryDonutProps) {
               {showAll && (
                 <ul className="animate-fade-in flex flex-col gap-2 pb-1 text-sm">
                   {categories.map((c) => (
-                    <li key={c.category} className="flex justify-between gap-3">
-                      <span className="truncate text-slate-700">{c.category}</span>
-                      <span className="shrink-0 tabular-nums text-slate-500">
-                        {format(c.amount)} · {Math.round(c.share)}%
-                      </span>
+                    <li key={c.category}>
+                      <Link
+                        to={activityFilterLink({ category: c.category }, range)}
+                        className="-mx-2 flex min-h-[36px] items-center justify-between gap-3 rounded-lg px-2 active:bg-slate-100 [@media(hover:hover)]:hover:bg-slate-50"
+                      >
+                        <span className="truncate text-slate-700">{c.category}</span>
+                        <span className="shrink-0 tabular-nums text-slate-500">
+                          {format(c.amount)} · {Math.round(c.share)}%
+                        </span>
+                      </Link>
                     </li>
                   ))}
                 </ul>

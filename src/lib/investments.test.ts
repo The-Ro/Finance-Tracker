@@ -172,3 +172,15 @@ describe('investmentMonthGrid', () => {
     expect(toggleMissedMonth(sip.missed_dates, g[0].cells[2])).toEqual(['2024-03-05', '2025-08-05'])
   })
 })
+
+describe('one-time investments', () => {
+  it('lists each one-time investment, newest first', () => {
+    const s = investmentSummary(
+      [spend('2026-08-01', 'Lump sum - Parag Parikh', 25000, { tags: ['invest'] }), spend('2026-09-15', 'Gold', 5000, { category: 'Investments' })],
+      [],
+      '2026-10-01'
+    )
+    expect(s.oneOff).toBe(30000)
+    expect(s.oneOffEntries.map((e) => e.merchant)).toEqual(['Gold', 'Lump sum - Parag Parikh'])
+  })
+})

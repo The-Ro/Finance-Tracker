@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { quickAddFromParams } from '@/lib/quickAddLink'
 import { AddEntryModal, type EntryPrefill } from '@/components/transactions/AddEntryModal'
 import { CsvImportModal } from '@/components/transactions/CsvImportModal'
 import { SplitModal } from '@/components/transactions/SplitModal'
@@ -30,8 +31,11 @@ export function GlobalModalsProvider({ children }: { children: ReactNode }) {
     const add = url.searchParams.get('add')
     if (add !== 'entry' && add !== 'expense' && add !== 'income' && add !== 'transfer') return
     setInitialType(add === 'entry' ? 'expense' : add)
+    // An iPhone Shortcut can pass amount / payee / category / date (quickAddLink).
+    const values = quickAddFromParams(url.searchParams)
+    setPrefill(Object.keys(values).length ? values : undefined)
     setAddEntryOpen(true)
-    url.searchParams.delete('add')
+    for (const key of ['add', 'amount', 'payee', 'note', 'category', 'date']) url.searchParams.delete(key)
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
   }, [])
 

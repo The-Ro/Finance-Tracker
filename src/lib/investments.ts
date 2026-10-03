@@ -146,6 +146,8 @@ export interface InvestmentSummary {
   items: InvestmentItemSummary[]
   /** Tagged / categorised entries not tied to a recurring investment (one-off buys). */
   oneOff: number
+  /** Each one-time investment (newest first), so they can be listed by name. */
+  oneOffEntries: { id?: string; merchant: string; date: string; amount: number }[]
   first: string | null
 }
 
@@ -169,6 +171,7 @@ export function investmentSummary(
   let total = 0
   let thisYearTotal = 0
   let oneOff = 0
+  const oneOffEntries: InvestmentSummary['oneOffEntries'] = []
   let first: string | null = null
   const incomeMonths = new Map<string, number>()
 
@@ -192,7 +195,10 @@ export function investmentSummary(
       s.payments += 1
       if (!s.lastPaid || e.date > s.lastPaid) s.lastPaid = e.date
       perItem.set(item.id, s)
-    } else oneOff += amt
+    } else {
+      oneOff += amt
+      oneOffEntries.push({ id: (e as { id?: string }).id, merchant: e.merchant, date: e.date, amount: amt })
+    }
   }
 
   for (const i of investItems) {
@@ -246,6 +252,7 @@ export function investmentSummary(
       })
       .sort((a, b) => b.putIn - a.putIn || a.name.localeCompare(b.name)),
     oneOff: round(oneOff),
+    oneOffEntries: oneOffEntries.sort((a, b) => b.date.localeCompare(a.date)),
     first,
   }
 }

@@ -16,6 +16,7 @@ import { groupAccounts } from '@/lib/accountGroups'
 import { debitCardsByAccount } from '@/lib/debitCards'
 import { formatShortDate, todayISO } from '@/lib/format'
 import { cardPagePath } from '@/components/cards/cardPath'
+import { activityFilterLink } from '@/lib/activityLink'
 import { utilizationTone, type UtilizationTone } from '@/lib/cardSummary'
 
 const UTILIZATION_TEXT: Record<UtilizationTone, string> = {
@@ -74,7 +75,9 @@ export function AccountBalances() {
     .sort((a, b) => b.status.owed - a.status.owed)
 
   const balanceRow = (name: string, balance: number) => (
-    <li key={name} className="flex flex-col gap-1 py-2.5 text-sm">
+    <li key={name} className="py-0.5 text-sm">
+      {/* Tap: what happened in this account (Activity, filtered to it). */}
+      <Link to={activityFilterLink({ account: name }, { start: null, end: todayISO() })} className="-mx-2 flex flex-col gap-1 rounded-lg px-2 py-2 active:bg-slate-100 [@media(hover:hover)]:hover:bg-slate-50">
       <div className="flex items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2 text-slate-700">
           <AccountKindIcon kind={kinds.get(name)} size={15} className="shrink-0 text-slate-400" />
@@ -83,8 +86,9 @@ export function AccountBalances() {
             <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-xs font-medium text-slate-500">Current</span>
           )}
         </span>
-        <span className={clsx('shrink-0 font-semibold tabular-nums', balance < 0 ? 'text-danger' : 'text-slate-900')}>
-          {format(balance)}
+        <span className="flex shrink-0 items-center gap-1">
+          <span className={clsx('font-semibold tabular-nums', balance < 0 ? 'text-danger' : 'text-slate-900')}>{format(balance)}</span>
+          <ChevronRight size={15} className="text-slate-400" aria-hidden="true" />
         </span>
       </div>
       {(cardsByAccount.get(name) ?? []).map((card) => (
@@ -95,6 +99,7 @@ export function AccountBalances() {
           </span>
         </p>
       ))}
+      </Link>
     </li>
   )
 

@@ -21,3 +21,19 @@ export function rangeFromParams(params: URLSearchParams): DateRange | null {
   if (since && since > until) return null
   return { start: since, end: until }
 }
+
+/**
+ * A link to Activity filtered to one category and/or one account (bank,
+ * wallet, cash), optionally over a span -- tapping a row on Home's Account
+ * balances or Spending by category shows what happened there.
+ */
+export function activityFilterLink(filter: { category?: string; account?: string }, range?: DateRange | null): string {
+  const q = new URLSearchParams()
+  if (filter.category) q.set('category', filter.category)
+  if (filter.account) q.set('account', filter.account)
+  if (range) {
+    if (range.start) q.set('since', range.start)
+    q.set('until', range.end)
+  }
+  return `/transactions?${q.toString()}`
+}
